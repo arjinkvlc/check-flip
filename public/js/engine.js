@@ -5,8 +5,9 @@
  * Log entries and popup texts are stored as {k, p} (key + params) and translated in js/i18n.js.
  */
 /* ================= config ================= */
-const COMS = [0, .25, .35, .5], UPC = {1: 30, 2: 45}, RENT = [0, 5, 8, 12];
-const CFG = {UNIT: 5, COLLECT: 15, VPRICE: 40, LAP_M: 40, LAP_H: 2, HALF_M: 20, HALF_H: 1, HMAX: 10, HAND: 2, MAXP: 6, PUBMAX: 4};
+// by restaurant level (★ / ★★ / ★★★): commission, upgrade cost, visit fee, cash from the register
+const COMS = [0, .25, .35, .5], UPC = {1: 30, 2: 45}, RENT = [0, 5, 8, 12], COLLECT = [0, 15, 20, 25];
+const CFG = {UNIT: 5, VPRICE: 40, LAP_M: 40, LAP_H: 2, HALF_M: 20, HALF_H: 1, HMAX: 10, HAND: 2, MAXP: 6, PUBMAX: 4};
 const N = 40, HALF = 20, IRON = 300;
 const autoMoney = n => n <= 2 ? 100 : n === 3 ? 150 : 200;
 const LIM = {def: 30000, feast: 45000, reply: 20000};
@@ -21,7 +22,8 @@ const BOARD = ['start', 'bos', 'sans', 'gelir', 'atis', 'olay', 'mekan', 'fatura
   'mola', 'bos', 'kemer', 'olay', 'gelir', 'sans', 'geri', 'mekan', 'fatura', 'atis'];
 const CARD_IDS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'B0', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11'];
 const HOLD = {A10: 'feast', B8: 'any', B9: 'any', B10: 'feast', B11: 'feast', K: 'feast'};
-const AVATARS = {chef: '🧑‍🍳', chefw: '👩‍🍳', waiter: '🤵', host: '💁‍♀️', trav: '🧔', trav2: '👩‍🦰', man: '👨', woman: '👩', aunt: '👵', uncle: '🧓'};
+// avatar keys → illustrations in public/assets/avatars/<key>.svg (unlock rules in js/account.js)
+const AVATARS = {waiter: 1, waitress: 1, student: 1, foodie: 1, italian: 1, doner: 1, noodle: 1, baker: 1, grandma: 1, critic: 1};
 const EMOJIS = ['😂', '😭', '😡', '😱', '👏', '😋'];
 const cellIcon = p => BOARD[p] === 'mekan' ? VICON[VENUES[p]] : KICON[BOARD[p]];
 const venueIconAt = p => VICON[VENUES[p]] || '';
@@ -256,7 +258,7 @@ function actInner(S, i, pid, a) {
       if (a.up && lv < 3 && Q.m >= UPC[lv]) {
         Q.m -= UPC[lv]; o.lv = lv + 1; o.pr += UPC[lv]; const r = Math.round(COMS[o.lv] * 100);
         fx.sub = tt('upgradedSub', {lv: o.lv, r}); L(S, 'upgraded', {n: Q.n, v, r}); tycoonCheck(S, i);
-      } else { Q.m += CFG.COLLECT; fx.sub = tt('collectedSub', {m: CFG.COLLECT}); L(S, 'collect', {n: Q.n, v, m: CFG.COLLECT}, 1); }
+      } else { const m = COLLECT[lv]; Q.m += m; fx.sub = tt('collectedSub', {m}); L(S, 'collect', {n: Q.n, v, m}, 1); }
       after(S); return true;
     }
     case 'deal': {
@@ -318,7 +320,7 @@ function sqScore(S, i, from, v) {
     case 'gelir': sc += 20; break; case 'fatura': sc -= 15; break; case 'sans': sc += 4; break; case 'olay': sc += 3; break;
     case 'atis': sc += payToday ? 12 : -8; break; case 'spor': sc += payToday ? -10 : 10; break;
     case 'kemer': sc += Q.c.length < CFG.HAND ? 18 : 0; break; case 'mola': sc -= 10; break; case 'kisa': sc += 3; break; case 'geri': sc -= 3; break;
-    case 'mekan': { const o = S.own[t]; if (!o) sc += Q.m >= CFG.VPRICE + 50 ? 14 : 0; else if (o.o === i) sc += 15; else sc -= RENT[o.lv || 1]; break; }
+    case 'mekan': { const o = S.own[t]; if (!o) sc += Q.m >= CFG.VPRICE + 50 ? 14 : 0; else if (o.o === i) sc += COLLECT[o.lv || 1]; else sc -= RENT[o.lv || 1]; break; }
   }
   return sc + Math.random() * 3;
 }
@@ -363,7 +365,7 @@ function botSide(S, i) {
 }
 
 export {
-  COMS, UPC, RENT, CFG, N, HALF, IRON, autoMoney, LIM, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
+  COMS, UPC, RENT, COLLECT, CFG, N, HALF, IRON, autoMoney, LIM, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, avTaken, setAvatar,
   newState, addPlayer, L, mover, pay, hun, rivals, fwd, back, give, draw, worth, land, card, doRoll, after, next,
   ownedBy, feast, bill, canTake, elim, payFeast, startDay, rank, startGame, useCard, actInner, act, actor, autoPick, checkStart,

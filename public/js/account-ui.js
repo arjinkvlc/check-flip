@@ -39,7 +39,7 @@ const xpLine = p => {
   const a = xpFor(lv), b = xpFor(lv + 1);
   return {frac: (p.xp - a) / (b - a), txt: t('aXp', p.xp, b)};
 };
-const avatarGlyph = () => { const e = equipped(); return e.avatar && H.AVATARS[e.avatar] ? H.AVATARS[e.avatar] : esc((ACC.profile.username || '?')[0].toUpperCase()); };
+const avatarGlyph = () => { const e = equipped(); return e.avatar && H.AVATARS[e.avatar] ? H.avHTML(e.avatar) : esc((ACC.profile.username || '?')[0].toUpperCase()); };
 const itemName = (kind, key) => t('itemName', kind, key);
 const lockText = c => c.ach ? t('pLockedAch', t('achName', c.ach)) : t('pLockedLv', c.lv);
 
@@ -153,8 +153,10 @@ export function renderProfile(el) {
   const p = ACC.profile, e = equipped(), x = xpLine(p), lv = level(), tab = AU.prof;
   let body = '';
   if (tab === 'avatar') {
-    const keys = Object.keys(H.AVATARS);
-    body = `<div class="avgrid"><button class="avbtn none${!e.avatar ? ' on' : ''}" data-a="pav" data-k="">Aa<small>${esc(t('none'))}</small></button>${keys.map(k => `<button class="avbtn${e.avatar === k ? ' on' : ''}" data-a="pav" data-k="${k}">${H.AVATARS[k]}<small>${esc(H.avatarLabel(k))}</small></button>`).join('')}</div>`;
+    body = `<div class="avgrid big"><button class="avbtn none${!e.avatar ? ' on' : ''}" data-a="pav" data-k="">Aa<small>${esc(t('none'))}</small></button>${CATALOG.avatar.map(c => {
+      const ok = unlocked('avatar', c.key), on = e.avatar === c.key;
+      return `<button class="avbtn${on ? ' on' : ''}${ok ? '' : ' locked'}" data-a="pav" data-k="${c.key}" ${ok && !AU.busy ? '' : 'disabled'}>${H.avHTML(c.key)}<small>${esc(ok ? H.avatarLabel(c.key) : lockText(c))}</small></button>`;
+    }).join('')}</div>`;
   } else if (CATALOG[tab]) {
     body = `<div class="items">${CATALOG[tab].map(c => {
       const ok = unlocked(tab, c.key), on = e[tab] === c.key;
@@ -164,7 +166,7 @@ export function renderProfile(el) {
   } else if (tab === 'ach') {
     body = `<p class="botnote">${esc(t('pBotNote'))}</p><ul class="achlist">${ACHS.map(a => {
       const have = ACC.ach.has(a.key), cur = Math.min(a.goal, a.get(p) || 0);
-      const rewards = ['frame', 'board', 'bubble'].flatMap(k => CATALOG[k].filter(c => c.ach === a.key).map(c => itemName(k, c.key)));
+      const rewards = ['avatar', 'frame', 'board', 'bubble'].flatMap(k => CATALOG[k].filter(c => c.ach === a.key).map(c => k === 'avatar' ? H.avatarLabel(c.key) : itemName(k, c.key)));
       rewards.push(itemName('title', a.key));
       return `<li class="${have ? 'got' : ''}"><span class="aicon">${a.icon}</span><div class="ainfo"><b>${esc(t('achName', a.key))}</b><small>${esc(t('achDesc', a.key))}</small>
         <div class="xpbar"><i style="width:${(cur / a.goal * 100).toFixed(1)}%"></i></div>
@@ -216,8 +218,8 @@ export function resultHTML(r) {
     const na = res.newAch || [];
     if (na.length) h += `<div class="newach"><b>${esc(t('rNewAch'))}</b>${na.map(k => { const a = ACHS.find(x => x.key === k); return `<span>${a ? a.icon : '⭐'} ${esc(t('achName', k))}</span>`; }).join('')}</div>`;
     const items = [];
-    for (const kind of ['frame', 'board', 'bubble', 'title']) for (const c of CATALOG[kind]) {
-      if (c.ach ? na.includes(c.ach) : (c.lv > res.levelBefore && c.lv <= res.levelAfter)) items.push(itemName(kind, c.key));
+    for (const kind of ['avatar', 'frame', 'board', 'bubble', 'title']) for (const c of CATALOG[kind]) {
+      if (c.ach ? na.includes(c.ach) : (c.lv > res.levelBefore && c.lv <= res.levelAfter)) items.push(kind === 'avatar' ? H.avatarLabel(c.key) : itemName(kind, c.key));
     }
     if (items.length) h += `<p class="note"><b>${esc(t('rNewItems'))}:</b> ${esc(items.join(', '))}</p>`;
   }

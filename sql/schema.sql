@@ -66,12 +66,16 @@ create index if not exists game_results_user_time on public.game_results (user_i
 -- (Names and visuals live in the client; keys must match js/account.js.)
 create table if not exists public.cosmetics (
   key        text not null,
-  kind       text not null check (kind in ('frame', 'board', 'bubble', 'title')),
+  kind       text not null check (kind in ('avatar', 'frame', 'board', 'bubble', 'title')),
   req_level  integer not null default 1,
   req_ach    text,
   sort       integer not null default 0,
   primary key (kind, key)
 );
+
+-- (older installs: allow the 'avatar' kind)
+alter table public.cosmetics drop constraint if exists cosmetics_kind_check;
+alter table public.cosmetics add constraint cosmetics_kind_check check (kind in ('avatar', 'frame', 'board', 'bubble', 'title'));
 
 -- Failed login attempts (username login throttle)
 create table if not exists public.login_attempts (
@@ -84,6 +88,16 @@ create index if not exists login_attempts_idx on public.login_attempts (username
 -- Catalog seed
 -- ---------------------------------------------------------------------
 insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
+  ('avatar', 'waiter',    1, null,           0),
+  ('avatar', 'waitress',  1, null,           1),
+  ('avatar', 'student',   1, null,           2),
+  ('avatar', 'foodie',    1, null,           3),
+  ('avatar', 'italian',   5, null,           4),
+  ('avatar', 'doner',    10, null,           5),
+  ('avatar', 'noodle',   15, null,           6),
+  ('avatar', 'baker',    25, null,           7),
+  ('avatar', 'grandma',   1, 'first_bite',   8),
+  ('avatar', 'critic',    1, 'regular',      9),
   ('frame',  'none',      1, null,           0),
   ('frame',  'bronze',    5, null,           1),
   ('frame',  'silver',   15, null,           2),
@@ -93,12 +107,16 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('frame',  'flame',     1, 'gourmet',      6),
   ('frame',  'royal',     1, 'tycoon',       7),
   ('board',  'felt',      1, null,           0),
-  ('board',  'wood',      3, null,           1),
-  ('board',  'terracotta',6, null,           2),
-  ('board',  'marble',   10, null,           3),
-  ('board',  'night',    20, null,           4),
-  ('board',  'neon',     35, null,           5),
-  ('board',  'ocean',     1, 'iron_stomach', 6),
+  ('board',  'hearts',    1, null,           1),
+  ('board',  'wood',      3, null,           2),
+  ('board',  'feast',     6, null,           3),
+  ('board',  'terracotta',10, null,          4),
+  ('board',  'marble',   15, null,           5),
+  ('board',  'sunset',   20, null,           6),
+  ('board',  'night',    25, null,           7),
+  ('board',  'chalk',    30, null,           8),
+  ('board',  'neon',     35, null,           9),
+  ('board',  'ocean',     1, 'iron_stomach', 10),
   ('bubble', 'plain',     1, null,           0),
   ('bubble', 'receipt',   4, null,           1),
   ('bubble', 'comic',     8, null,           2),
@@ -373,7 +391,7 @@ declare
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   select public.level_of(xp) into v_lv from public.profiles where id = v_uid;
-  foreach k in array array['frame', 'board', 'bubble', 'title'] loop
+  foreach k in array array['avatar', 'frame', 'board', 'bubble', 'title'] loop
     v := p ->> k;
     if v is not null and v <> '' then
       select * into c from public.cosmetics where kind = k and key = v;
@@ -385,8 +403,6 @@ begin
       v_out := v_out || jsonb_build_object(k, v);
     end if;
   end loop;
-  v := p ->> 'avatar';
-  if v is not null and v ~ '^[a-z0-9]{1,12}$' then v_out := v_out || jsonb_build_object('avatar', v); end if;
   update public.profiles set equipped = v_out where id = v_uid;
   return v_out;
 end $$;

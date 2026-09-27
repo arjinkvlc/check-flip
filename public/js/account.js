@@ -33,12 +33,18 @@ export const ACHS = [
 
 // Cosmetics: lv = required level, ach = required achievement (mirror of public.cosmetics)
 export const CATALOG = {
+  avatar: [
+    {key: 'waiter', lv: 1}, {key: 'waitress', lv: 1}, {key: 'student', lv: 1}, {key: 'foodie', lv: 1},
+    {key: 'italian', lv: 5}, {key: 'doner', lv: 10}, {key: 'noodle', lv: 15}, {key: 'baker', lv: 25},
+    {key: 'grandma', ach: 'first_bite'}, {key: 'critic', ach: 'regular'}
+  ],
   frame: [
     {key: 'none', lv: 1}, {key: 'bronze', lv: 5}, {key: 'silver', lv: 15}, {key: 'gold', lv: 30}, {key: 'diamond', lv: 50},
     {key: 'neon', ach: 'negotiator'}, {key: 'flame', ach: 'gourmet'}, {key: 'royal', ach: 'tycoon'}
   ],
   board: [
-    {key: 'felt', lv: 1}, {key: 'wood', lv: 3}, {key: 'terracotta', lv: 6}, {key: 'marble', lv: 10}, {key: 'night', lv: 20}, {key: 'neon', lv: 35},
+    {key: 'felt', lv: 1}, {key: 'hearts', lv: 1}, {key: 'wood', lv: 3}, {key: 'feast', lv: 6}, {key: 'terracotta', lv: 10},
+    {key: 'marble', lv: 15}, {key: 'sunset', lv: 20}, {key: 'night', lv: 25}, {key: 'chalk', lv: 30}, {key: 'neon', lv: 35},
     {key: 'ocean', ach: 'iron_stomach'}
   ],
   bubble: [
@@ -78,7 +84,7 @@ export function equipped() {
   const e = (ACC.profile && ACC.profile.equipped) || {};
   const out = {};
   for (const k of Object.keys(DEFAULTS)) out[k] = e[k] && unlocked(k, e[k]) ? e[k] : DEFAULTS[k];
-  out.avatar = typeof e.avatar === 'string' ? e.avatar : null;
+  out.avatar = typeof e.avatar === 'string' && unlocked('avatar', e.avatar) ? e.avatar : null;
   return out;
 }
 // What other players see about me (sent in the room's hello message)

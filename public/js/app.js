@@ -5,13 +5,13 @@
  *  - rendering, events, chat, emoji reactions, language switch
  */
 import {
-  COMS, UPC, CFG, N, autoMoney, LIM, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
+  COMS, UPC, COLLECT, CFG, N, autoMoney, LIM, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, setAvatar,
   newState, addPlayer, L, rivals, worth, ownedBy, bill, act, actor, autoPick, checkStart, botDecide, botSide, standings
 } from './engine.js';
 import {SFX} from './sound.js';
 import {HubClient, hubUrl, hubAvailable} from './net.js';
-import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem} from './account.js';
+import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 
@@ -48,6 +48,10 @@ function cleanCard(c) {
   return {u: clean(c.u), lv: clamp(Math.floor(+c.lv) || 1, 1, 99), fr: safeItem('frame', c.fr), ti: safeItem('title', c.ti), bu: safeItem('bubble', c.bu)};
 }
 const myAvatarPref = () => { if (!loggedIn()) return null; const a = equipped().avatar; return a && AVATARS[a] ? a : null; };
+// avatar illustration (public/assets/avatars/<key>.svg)
+const avHTML = k => `<img class="avimg" src="assets/avatars/${k}.svg" alt="" draggable="false">`;
+// can *I* pick this avatar? (locked ones need a level or an achievement)
+const avOpen = k => unlocked('avatar', k);
 const errMsg = e => (e && (e.message || e.type)) || t('eUnknown');
 const newer = (a, b) => !b || (a.ep || 0) > (b.ep || 0) || ((a.ep || 0) === (b.ep || 0) && a.rev > b.rev);
 const EXP = {messageExpiryInterval: 43200};
@@ -112,6 +116,8 @@ function onMsg(sub, m) {
     } else render();
   }
 }
+// bots (run by the host) count as present
+const here = q => !!q && (q.bot || present.has(q.id));
 function refreshPresent() { present = new Set([...pres].filter(([, v]) => v).map(([k]) => k)); if (mode === 'online' && me.pid) present.add(me.pid); }
 function afterState() {
   const mi = S.pl.findIndex(q => q.id === me.pid);
@@ -253,7 +259,8 @@ function maybeSubmit(V) {
   const mi = myIdx(V); if (hot() || mi < 0) return;
   submitted.add(V.gid);
   if (!ACC.enabled) return;
-  const isSolo = mode === 'local', gid = V.gid;
+  // games with bots (single player, or bots added to a room) count as bot games
+  const isSolo = mode === 'local' || V.pl.some(q => q.bot), gid = V.gid;
   if (!loggedIn()) { ui.result = {gid, st: 'guest', solo: isSolo}; return; }
   const q = V.pl[mi], st = q.st || {};
   const payload = {
@@ -287,17 +294,33 @@ async function pump() {
 }
 /* ---- bots (single player) ---- */
 let botTimer = null;
+// Bots are played by whoever runs the rules: the local device, or the host of an online room.
+const runsBots = () => (mode === 'local' && solo) || (mode === 'online' && isHost() && !!mq);
+const botDone = () => { if (mode === 'local') sync(); else commit(); };
 function botTick() {
-  if (mode !== 'local' || !solo || !S || animating || botTimer) return; if (S.ph !== 'play' && S.ph !== 'feast') return;
+  if (!runsBots() || !S || animating || botTimer) return; if (S.ph !== 'play' && S.ph !== 'feast') return;
   for (const j of S.ord) {
     if (!S.pl[j].bot) continue; const sa = botSide(S, j);
-    if (sa && Math.random() < .6) { botTimer = setTimeout(() => { botTimer = null; if (!animating && S && act(S, S.pl[j].id, sa)) sync(); botTick(); }, 700); return; }
+    if (sa && Math.random() < .6) { botTimer = setTimeout(() => { botTimer = null; if (runsBots() && !animating && S && act(S, S.pl[j].id, sa)) botDone(); botTick(); }, 700); return; }
   }
   const A = actor(S); if (A < 0 || !S.pl[A].bot) return;
   botTimer = setTimeout(() => {
-    botTimer = null; if (!S || animating || actor(S) !== A) { botTick(); return; }
-    const a = botDecide(S, A) || autoPick(S); if (!a || !act(S, S.pl[A].id, a)) { const f = autoPick(S); if (f) act(S, S.pl[A].id, f); } sync();
+    botTimer = null; if (!S || !runsBots() || animating || actor(S) !== A) { botTick(); return; }
+    const a = botDecide(S, A) || autoPick(S); if (!a || !act(S, S.pl[A].id, a)) { const f = autoPick(S); if (f) act(S, S.pl[A].id, f); } botDone();
   }, 700 + Math.random() * 700);
+}
+// host: add or remove a bot in a private room's lobby
+function addBot() {
+  if (!S || !isHost() || S.ph !== 'lobby' || S.pub || S.pl.length >= CFG.MAXP) return;
+  const used = new Set(S.pl.map(q => q.n));
+  const pool = shuffle(nickList().filter(n => !used.has(n)));
+  const avs = shuffle(Object.keys(AVATARS).filter(k => !S.pl.some(q => q.av === k)));
+  const id = 'bot' + rid(6), nm = uniqName(S, pool[0] || 'Bot', nickList());
+  addPlayer(S, id, nm, {bot: 1, av: avs[0] || null}); L(S, 'joined', {n: nm}); commit();
+}
+function removeBot(id) {
+  if (!S || !isHost() || S.ph !== 'lobby') return; const q = S.pl.find(x => x.id === id && x.bot); if (!q) return;
+  S.pl = S.pl.filter(x => x !== q); L(S, 'left', {n: q.n}); commit();
 }
 function botReact(prev, nx) {
   if (!solo || !nx.fx) return; const i = nx.fx.i, q = nx.pl[i], o = prev.pl[i]; if (!q || !q.bot || !o) return;
@@ -425,7 +448,7 @@ setInterval(() => {
   const sec = Math.ceil(left / 1000); const ts = $('#tsec'); if (ts) ts.textContent = on ? t('sec', sec) : '';
   if (on && sec <= 5 && sec > 0 && sec !== lastTickSec) { lastTickSec = sec; const A = actor(shown); if (hot() || mine(shown, A)) SFX.play('tick'); }
   if (on && isHost()) {
-    const A = actor(shown), off = mode === 'online' && A >= 0 && !present.has(shown.pl[A].id);
+    const A = actor(shown), off = mode === 'online' && A >= 0 && !here(shown.pl[A]);
     if (off && Date.now() - turnAt > 3500) autoAct('off'); else if (Date.now() - turnAt > lim + (mode === 'online' ? 1500 : 0)) autoAct();
   }
 }, 200);
@@ -529,7 +552,7 @@ function sendReact(e) {
 }
 const colOf = i => COLORS[i % COLORS.length];
 let AVM = [], FRM = [];
-const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${AVATARS[AVM[i]]}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}"></span>`;
+const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${avHTML(AVM[i])}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}"></span>`;
 const setAVM = V => { AVM = V && V.pl ? V.pl.map(q => q.av) : []; FRM = V && V.pl ? V.pl.map(q => q.pf && q.pf.fr) : []; };
 // level + title shown next to a logged-in player's name
 const pfTag = q => q && q.pf ? `<span class="lvtag">${esc(t('lvTag', q.pf.lv))}</span>` : '';
@@ -582,14 +605,18 @@ function renderLocal() {
   ui.lav = ui.lav || [];
   { const n = ui.names.length, el = $('#localMoney'); el.placeholder = M(autoMoney(n)); $('#localMoneyNote').textContent = el.value ? '' : t('autoMoney', autoMoney(n)); }
   keepInputs($('#localNames'), () => {
-    $('#localNames').innerHTML = ui.names.map((n, k) => `<div class="localrow"><button class="avmini" data-a="lav" data-k="${k}" style="--c:${colOf(k)}" aria-label="${esc(t('pickAvatar'))}">${ui.lav[k] ? AVATARS[ui.lav[k]] : '<span class="dot" style="--c:' + colOf(k) + '"></span>'}</button><input id="ln${k}" maxlength="14" value="${esc(n)}" placeholder="${esc(t('randomName'))}" aria-label="${esc(t('playerNameAria', k + 1))}">${ui.names.length > 2 ? `<button class="btn small ghost" data-a="delp" data-k="${k}" aria-label="${esc(t('removePlayer'))}">✕</button>` : ''}</div>`).join('');
+    $('#localNames').innerHTML = ui.names.map((n, k) => `<div class="localrow"><button class="avmini" data-a="lav" data-k="${k}" style="--c:${colOf(k)}" aria-label="${esc(t('pickAvatar'))}">${ui.lav[k] ? avHTML(ui.lav[k]) : '<span class="dot" style="--c:' + colOf(k) + '"></span>'}</button><input id="ln${k}" maxlength="14" value="${esc(n)}" placeholder="${esc(t('randomName'))}" aria-label="${esc(t('playerNameAria', k + 1))}">${ui.names.length > 2 ? `<button class="btn small ghost" data-a="delp" data-k="${k}" aria-label="${esc(t('removePlayer'))}">✕</button>` : ''}</div>`).join('');
   });
   document.querySelector('[data-a="addp"]').disabled = ui.names.length >= CFG.MAXP;
 }
 function avGrid(takenBy, mineKey, action) {
   return `<button class="avbtn none${!mineKey ? ' on' : ''}" data-a="${action}" data-k="" title="${esc(t('letterAvatar'))}">Aa<small>${esc(t('none'))}</small></button>` +
-    Object.keys(AVATARS).map(k => { const tk = takenBy[k]; const on = k === mineKey; const lbl = esc(avatarLabel(k));
-      return `<button class="avbtn${on ? ' on' : ''}" data-a="${action}" data-k="${k}" ${tk != null && !on ? 'disabled' : ''} title="${lbl}"${tk != null && !on ? ` style="--tc:${colOf(tk)}"` : ''}>${AVATARS[k]}<small>${lbl}</small>${tk != null && !on ? '<i class="avtk"></i>' : ''}</button>`; }).join('');
+    Object.keys(AVATARS).map(k => {
+      const tk = takenBy[k], on = k === mineKey, lbl = esc(avatarLabel(k)), open = avOpen(k), taken = tk != null && !on;
+      const c = CATALOG.avatar.find(x => x.key === k) || {};
+      const lock = open ? '' : (c.ach ? t('pLockedAch', t('achName', c.ach)) : t('pLockedLv', c.lv));
+      return `<button class="avbtn${on ? ' on' : ''}${open ? '' : ' locked'}" data-a="${action}" data-k="${k}" ${taken || !open ? 'disabled' : ''} title="${esc(open ? avatarLabel(k) : lock)}"${taken ? ` style="--tc:${colOf(tk)}"` : ''}>${avHTML(k)}<small>${open ? lbl : esc(lock)}</small>${taken ? '<i class="avtk"></i>' : ''}</button>`;
+    }).join('');
 }
 function renderLobby(V) {
   setAVM(V);
@@ -609,10 +636,10 @@ function renderLobby(V) {
     $('#pubNote').textContent = t('pubNote', V.pl.length, CFG.PUBMAX);
   }
   const max = pub ? CFG.PUBMAX : CFG.MAXP;
-  $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn">${esc(q.n)}</span>${pfTitle(q)}</span>${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
+  $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn">${esc(q.n)}</span>${pfTitle(q)}</span>${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${q.bot ? `<span class="tag">${esc(t('botTag'))}</span>${host && !pub ? `<button class="btn small ghost rmbot" data-a="rmbot" data-id="${esc(q.id)}" aria-label="${esc(t('removeBot'))}">✕</button>` : ''}` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
     (V.pl.length < max ? `<li class="note" style="justify-content:center">${esc(t('seatsFree', max - V.pl.length))}</li>` : '');
   $('#lobbyAct').innerHTML = pub ? '' : host
-    ? `<button class="btn primary big" data-a="start" ${V.pl.length < 2 ? 'disabled' : ''}>${esc(t('startGame'))}</button>${V.pl.length < 2 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('need2'))}</p>` : ''}`
+    ? `${V.pl.length < max ? `<div class="botrow"><button class="btn" data-a="addbot">${esc(t('addBot'))}</button><p class="note">${esc(t('addBotNote'))}</p></div>` : ''}<button class="btn primary big" data-a="start" ${V.pl.length < 2 ? 'disabled' : ''}>${esc(t('startGame'))}</button>${V.pl.length < 2 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('need2'))}</p>` : ''}`
     : `<p class="note" style="text-align:center">${esc(t('waitHost'))}</p>`;
 }
 
@@ -622,7 +649,7 @@ function drawTokens(V) {
   V.pl.forEach((q, i) => { if (q.a) at[override[i] != null ? override[i] : q.p].push(i); });
   cells.forEach((el, p) => {
     const ids = at[p].slice().sort((x, y) => (x === A) - (y === A));
-    el.querySelector('.toks').innerHTML = ids.map(i => { const av = V.pl[i].av && AVATARS[V.pl[i].av];
+    el.querySelector('.toks').innerHTML = ids.map(i => { const av = V.pl[i].av && AVATARS[V.pl[i].av] ? avHTML(V.pl[i].av) : '';
       return `<span class="tok${av ? ' avt' : ''}${frCls(FRM[i])}${i === A ? ' act' : ''}${i === mi ? ' me' : ''}" data-i="${i}" style="--c:${colOf(i)};${i === 2 && !av ? 'color:#16202b' : ''}" title="${esc(V.pl[i].n)}">${av || esc((V.pl[i].n || '?')[0].toUpperCase())}</span>`; }).join('');
     const here = A >= 0 && ids.includes(A); el.classList.toggle('here', here); if (here) el.style.setProperty('--hcol', colOf(A));
   });
@@ -656,7 +683,7 @@ function renderGame(V, prev) {
   const whoI = V.ph === 'over' ? V.win : A;
   if (!animating) {
     $('#cWho').innerHTML = whoI != null && whoI >= 0 ? `${dot(whoI)}<span>${esc(V.pl[whoI].n)}</span>` : '';
-    const off = mode === 'online' && whoI >= 0 && V.ph !== 'over' && !present.has(V.pl[whoI].id);
+    const off = mode === 'online' && whoI >= 0 && V.ph !== 'over' && !here(V.pl[whoI]);
     $('#cSub').textContent = off ? t('sOff') : V.ph === 'over' ? t('sWon') : V.ph === 'feast' ? (V.fe.off ? t('sDealThink') : t('sPaying')) :
       !P ? (V.bn ? t('sAgain') : t('sRoll')) : P.k === 'move' ? t('sMove') : P.k === 'tgt' ? t('sTarget') : P.k === 'buy' ? t('sBuy') : P.k === 'home' ? t('sHome') : P.k === 'offer' ? t('sOffer') : t('sReply');
   }
@@ -690,7 +717,7 @@ function renderGame(V, prev) {
     } else if (P.k === 'home') {
       const o = V.own[P.p], lv = o.lv || 1, cost = UPC[lv];
       h += you ? `<div class="venuebox"><div class="vt">${esc(vfull(P.p))} <span class="stars">${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}</span></div><p class="note">${esc(t('ownHere', pct(COMS[lv])))}</p>
-        <div class="choices"><button class="btn choice" data-a="home" data-up="0" ${dis}><b>${esc(t('collectBtn'))}</b><span>+${M(CFG.COLLECT)}</span></button>
+        <div class="choices"><button class="btn choice" data-a="home" data-up="0" ${dis}><b>${esc(t('collectBtn'))}</b><span>+${M(COLLECT[lv])}</span></button>
         ${lv < 3 ? `<button class="btn choice" data-a="home" data-up="1" ${Q.m >= cost && !lock ? '' : 'disabled'}><b>${esc(t('upgradeBtn', '★'.repeat(lv + 1)))}</b><span>${esc(t('upgradeSub', cost, pct(COMS[lv + 1])))}</span></button>` : `<p class="note">${esc(t('maxLevel'))}</p>`}</div></div>`
         : `<p class="status">${esc(t('isHome', Q.n))}</p>`;
     } else if (P.k === 'offer') {
@@ -742,7 +769,7 @@ function renderGame(V, prev) {
     h = `<div class="tline"><span>${esc(lbl)}</span><span id="tsec">${animating ? '' : esc(t('sec', Math.ceil(tf * limitOf(V) / 1000)))}</span></div><div class="timer${tf < .2 ? ' crit' : tf < .5 ? ' warn' : ''}"${animating ? ' hidden' : ''}><i style="width:${(tf * 100).toFixed(1)}%"></i></div>` + h;
   }
   if (V.ph === 'play' || V.ph === 'feast') h += billQueue(V);
-  if (mode === 'online' && !ui.sel && A >= 0 && (V.ph === 'play' || V.ph === 'feast') && V.pl[A].id !== me.pid && !present.has(V.pl[A].id)) h += `<p class="note">${t('offlineNote', nm(A))}</p>`;
+  if (mode === 'online' && !ui.sel && A >= 0 && (V.ph === 'play' || V.ph === 'feast') && V.pl[A].id !== me.pid && !here(V.pl[A])) h += `<p class="note">${t('offlineNote', nm(A))}</p>`;
   if (busy()) h += `<p class="note">${esc(t('sending'))}</p>`;
   if (lost) h = `<p class="status">${esc(t('reconnecting'))}</p>` + h;
   keepInputs($('#actions'), () => { $('#actions').innerHTML = `<button class="sheethandle" data-a="sheetmin" aria-label="${esc(t('sheetAria'))}"><span></span><em data-open="${esc(t('sheetOpen'))}">${esc(t('sheetHandle'))}</em></button>` + h; });
@@ -759,7 +786,7 @@ function renderGame(V, prev) {
     const vs = ownedBy(V, i).map(p => `<span class="card venue" title="${esc(t('value', V.own[p].pr, pct(COMS[V.own[p].lv || 1])))}">${esc(vfull(p))} ${'★'.repeat(V.own[p].lv || 1)}</span>`).join('');
     const fl = k => o && o[k] !== q[k] ? ' flash' : '';
     const tags = [i === mi && !hot() ? `<span class="tag">${esc(t('you'))}</span>` : '', q.bot ? `<span class="tag">${esc(t('botTag'))}</span>` : '', V.tq[V.ti] === i && V.ph !== 'over' ? `<span class="tag bill">${esc(t('payTodayTag'))}</span>` : '', q.s ? `<span class="tag">${esc(t('waitsTag'))}</span>` : '',
-      mode === 'online' && !present.has(q.id) ? `<span class="tag off">${esc(t('offTag'))}</span>` : ''].join('');
+      mode === 'online' && !here(q) ? `<span class="tag off">${esc(t('offTag'))}</span>` : ''].join('');
     const rx = reacts[i] && reacts[i].until > Date.now() ? `<span class="rxb">${reacts[i].e}</span>` : '';
     return `<li class="${i === A && V.ph !== 'over' ? 'turn' : ''}${q.a ? '' : ' out'}" style="--c:${colOf(i)}">${rx}
       <div class="phead">${dot(i)}<span class="pn">${esc(q.n)}</span>${pfTag(q)}</div>${pfTitle(q)}${tags ? `<div class="tags">${tags}</div>` : ''}
@@ -807,7 +834,7 @@ document.addEventListener('click', e => {
     case 'soloN': ui.soloN = +b.dataset.n; render(); break;
     case 'sav': ui.soloAv = b.dataset.k || null; render(); break;
     case 'lav': { readLocal(); ui.lav = ui.lav || []; const k = +b.dataset.k, keys = [null, ...Object.keys(AVATARS)]; const used = new Set(ui.lav.filter((x, j) => x && j !== k));
-      let idx = keys.indexOf(ui.lav[k] || null); for (let n = 0; n < keys.length; n++) { idx = (idx + 1) % keys.length; if (!keys[idx] || !used.has(keys[idx])) break; } ui.lav[k] = keys[idx]; render(); break; }
+      let idx = keys.indexOf(ui.lav[k] || null); for (let n = 0; n < keys.length; n++) { idx = (idx + 1) % keys.length; if (!keys[idx] || (!used.has(keys[idx]) && avOpen(keys[idx]))) break; } ui.lav[k] = keys[idx]; render(); break; }
     case 'av': { const key = b.dataset.k || null; if (!S || S.ph !== 'lobby') break; if (isHost()) { if (setAvatar(S, me.pid, key)) commit(); } else if (mq) mq.publish(T('in'), JSON.stringify({k: 'av', pid: me.pid, a: key}), {qos: 1}); break; }
     case 'sstart': startLocalGame(true); break;
     case 'lstart': startLocalGame(false); break;
@@ -817,6 +844,8 @@ document.addEventListener('click', e => {
     case 'copycode': copyText(code || '', b, t('copied'), t('copy'), $('#lobbyCode')); break;
     case 'copy': copyText(inviteLink(), b, t('inviteCopied'), null, $('#inviteTxt')); break;
     case 'ready': setReady(!(S && S.rdy[me.pid])); break;
+    case 'addbot': addBot(); break;
+    case 'rmbot': removeBot(b.dataset.id); break;
     case 'start': send({t: 'start'}, myIdx(S)); break;
     case 'roll': send({t: 'roll'}, actor(S)); break;
     case 'mv': send({t: 'mv', v: +b.dataset.v}, actor(S)); break;
@@ -860,7 +889,7 @@ pickNick();
 $('#nm').value = lsGet('hs-nm') || '';
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
 { const qs = new URLSearchParams(location.search); const qp = qs.get('room') || qs.get('oda'); if (qp) $('#code').value = qp.toUpperCase().slice(0, 5); }
-initAccountUI({go: sc => { ui.screen = sc; render(); }, render: () => { if (['home', 'auth', 'profile'].includes(ui.screen) || (shown && shown.ph === 'over')) render(); }, AVATARS, avatarLabel});
+initAccountUI({go: sc => { ui.screen = sc; render(); }, render: () => { if (['home', 'auth', 'profile'].includes(ui.screen) || (shown && shown.ph === 'over')) render(); }, AVATARS, avatarLabel, avHTML});
 applyStatic();
 setDice(1, 1);
 render();

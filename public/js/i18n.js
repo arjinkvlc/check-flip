@@ -47,7 +47,7 @@ const C = {
       B10: ['Pass the check', "Hand today's check to the next player in line"], B11: ['Going Dutch', "When it's your turn to pay, everyone pays their own share"],
       K: ['Tighten the Belt', "When you pay, you don't eat: you skip your own share and keep your hunger"]
     },
-    avatars: {chef: 'Cook', chefw: 'Chef', waiter: 'Waiter', host: 'Hostess', trav: 'Traveler', trav2: 'Tourist', man: 'Gentleman', woman: 'Lady', aunt: 'Grandma', uncle: 'Grandpa'},
+    avatars: {waiter: 'Waiter', waitress: 'Waitress', student: 'Student', foodie: 'Food blogger', italian: 'Italian chef', doner: 'Döner master', noodle: 'Noodle chef', baker: 'Pastry chef', grandma: 'Grandma', critic: 'Food critic'},
     nicks: ['Hungry Wolf', 'Pizza Lover', 'Taco Boss', 'Noodle King', 'Burger Fan', 'Sushi Chef', 'Donut Hunter', 'Pasta Queen', 'Snack Attack', 'Big Appetite', 'Waffle Wizard', 'Curry Master', 'Pretzel Pro', 'Bagel Baron', 'Dumpling Duke', 'Ramen Rider', 'Nacho Ninja', 'Pancake Pal', 'Cheese Chaser', 'Fry Guy']
   },
   tr: {
@@ -80,7 +80,7 @@ const C = {
       B10: ['Hesabı Kaydır', 'Bugünkü ısmarlamayı sıradakine devret'], B11: ['Alman Usulü', 'Ismarlama sendeyken herkes kendi hesabını öder'],
       K: ['Kemer Sıkma', 'Ismarlarken sen yemezsin: kendi payını ödemezsin, açlığın korunur']
     },
-    avatars: {chef: 'Aşçı', chefw: 'Şef', waiter: 'Garson', host: 'Karşılayıcı', trav: 'Gezgin', trav2: 'Turist', man: 'Beyefendi', woman: 'Hanımefendi', aunt: 'Büyükanne', uncle: 'Büyükbaba'},
+    avatars: {waiter: 'Garson', waitress: 'Garson kız', student: 'Öğrenci', foodie: 'Yemek blogcusu', italian: 'İtalyan şef', doner: 'Dönerci usta', noodle: 'Erişte ustası', baker: 'Pastacı', grandma: 'Nine', critic: 'Yemek eleştirmeni'},
     nicks: ['Aç Kurt', 'Pizza Sever', 'Taco Patronu', 'Erişte Kralı', 'Burgerci', 'Suşi Ustası', 'Donut Avcısı', 'Makarnacı', 'Atıştırmacı', 'Obur', 'Waffle Ustası', 'Köri Ustası', 'Simitçi', 'Mantıcı', 'Köfteci', 'Tostçu', 'Nacho Ninja', 'Pankekçi', 'Peynirci', 'Patatesçi']
   }
 };
@@ -110,7 +110,7 @@ const U = {
       'Starting money depends on the number of players: 2 players <b>$100</b>, 3 players <b>$150</b>, 4+ players <b>$200</b> (the host can change it). Hunger starts at <b>0</b>. Turn order is decided by a dice roll.',
       '<b>One day:</b> everyone makes 2 moves. After rolling, you choose to move the <b>sum</b> of both dice or just <b>one</b> of them. Doubles roll again.',
       '<b>Restaurants</b> (Pizzeria, Sushi Bar, Burger Joint, Taqueria) cost $40. Landing on someone else\'s restaurant costs a small <b>visit fee</b> (★ $5, ★★ $8, ★★★ $12), and you may offer at least $10 above its last price; if the owner accepts, it changes hands.',
-      'Dinner is served at one of the 4 restaurants <b>at random</b>. If it has an owner, they get 25% of the check. Land on your own restaurant to cash the register (+$15) or upgrade it: ★★ 35% ($30), ★★★ 50% ($45).',
+      'Dinner is served at one of the 4 restaurants <b>at random</b>. If it has an owner, they get 25% of the check. Land on your own restaurant to cash the register (★ +$15, ★★ +$20, ★★★ +$25) or upgrade it: ★★ 35% ($30), ★★★ 50% ($45).',
       '<b>Negotiation:</b> the payer may make one offer: “I\'ll give you $X, you pay the check.”',
       'At the start of every day, everyone gets <b>+1 hunger</b> (max 10).',
       "At the end of the day, the next player in line buys dinner for everyone and eats too. The check: the sum of <b>hunger × multiplier × $5</b> for everyone at the table (payer included). Everyone who eats goes back to 0 hunger.",
@@ -128,7 +128,7 @@ const U = {
     soloTitle: '🤖 Single player', soloNote: 'Play against computer-controlled rivals.', tableSize: 'Table size', nPlayers: n => `${n} players`, youBots: k => `you + ${k} bot${k > 1 ? 's' : ''}`, yourAvatar: 'Your avatar',
     connecting: 'Connecting…', connectingNote: 'This may take a few seconds.', cancel: 'Cancel',
     roomCode: 'Room code', copy: '📋 Copy', copied: '✓ Copied', selectedCopy: 'Selected, copy it', copyInvite: 'Copy invite link', inviteCopied: 'Copied', noLateJoin: 'No new players can join once the game starts.',
-    pickAvatarTitle: 'Pick your avatar', avatarNote: "Avatars taken by others can't be picked. Without one, you play with a colored letter.",
+    pickAvatarTitle: 'Pick your avatar', avatarNote: "Avatars taken by others can't be picked. Locked ones open with levels and achievements (log in to use them). Without an avatar, you play with a colored letter.",
     settings: 'Settings', auto: 'Auto', pubTable: 'Public table', ready: "I'm ready", readyUndo: "✓ Ready (undo)",
     pubNote: (n, max) => `${n}/${max} players. The table starts at ${max} players, or when at least 2 are seated and everyone is ready.`,
     moneyCustom: m => `Starting money ${M(m)}.`, moneyAuto: (n, m) => `Auto: ${M(m)} for ${n} players (2 players $100, 3 players $150, 4+ players $200)`,
@@ -169,6 +169,7 @@ const U = {
     billQueue: '🧾 Check order', today: 'today', tomorrow: 'tomorrow',
     offlineNote: n => `<b>${n}</b> got disconnected. Their moves are played automatically until they return.`, sending: 'Sending…', reconnecting: 'Connection lost, reconnecting…',
     sheetHandle: 'see the board', sheetOpen: 'open panel', sheetAria: 'Collapse or expand the panel',
+    addBot: '🤖 Add a bot', removeBot: 'Remove bot', addBotNote: 'Bots play on the host’s device. Games with bots count as bot games: half XP, no achievements.',
     botTag: '🤖 bot', payTodayTag: '🧾 pays today', waitsTag: 'waiting', offTag: 'disconnected',
     value: (m, r) => `Value ${M(m)}, commission ${r}%`, hungerLbl: 'hunger', squareN: (p, n) => `📍 square ${p} · ${n}`,
     popChance: 'Chance card', popEvent: 'Event card', popSpecial: 'Special card', popPlayed: 'Card played', popSquare: p => `Square ${p}`, popInfo: 'Info',
@@ -195,7 +196,7 @@ const U = {
       'Başlangıç parası oyuncu sayısına göre: 2 kişi <b>₺100</b>, 3 kişi <b>₺150</b>, 4+ kişi <b>₺200</b> (oda sahibi değiştirebilir). Açlık <b>0</b>. Sıra başta zarla belirlenir.',
       '<b>Bir gün:</b> herkes 2 hamle yapar. Zarı attıktan sonra iki zarın <b>toplamı</b> kadar ya da zarlardan <b>yalnızca biri</b> kadar ilerlemeyi seçersin. Çift atan bir kez daha atar.',
       "<b>Mekânlar</b> (Pizzacı, Suşi Bar, Burgerci, Tako Evi) ₺40'a alınır. Başkasının mekânına gelen sahibine küçük bir <b>geçiş ücreti</b> öder (★ ₺5, ★★ ₺8, ★★★ ₺12) ve isterse en az son fiyatın ₺10 fazlasını teklif edebilir; sahibi kabul ederse mekân el değiştirir.",
-      "Akşam yemeği 4 mekândan <b>rastgele</b> birinde yenir. Mekânın sahibi varsa hesabın %25'ini alır. Kendi mekânına gelen ya kasayı toplar (+₺15) ya da mekânı yükseltir: ★★ %35 (₺30), ★★★ %50 (₺45).",
+      "Akşam yemeği 4 mekândan <b>rastgele</b> birinde yenir. Mekânın sahibi varsa hesabın %25'ini alır. Kendi mekânına gelen ya kasayı toplar (★ +₺15, ★★ +₺20, ★★★ +₺25) ya da mekânı yükseltir: ★★ %35 (₺30), ★★★ %50 (₺45).",
       '<b>Pazarlık:</b> ısmarlayan bir kez “₺X veriyorum, hesabı sen öde” teklifi yapabilir.',
       'Her gün başında herkese <b>+1 açlık</b> eklenir (en fazla 10).',
       'Gün sonunda sıradaki oyuncu herkese ısmarlar ve kendisi de yer. Hesap: masadaki herkesin (ısmarlayan dahil) <b>açlık × çarpan × ₺5</b> toplamı. Yiyenlerin açlığı sıfırlanır.',
@@ -213,7 +214,7 @@ const U = {
     soloTitle: '🤖 Tek kişilik oyun', soloNote: 'Bilgisayarın yönettiği rakiplere karşı oyna.', tableSize: 'Masa kaç kişilik?', nPlayers: n => `${n} kişi`, youBots: k => `sen + ${k} bot`, yourAvatar: 'Avatarın',
     connecting: 'Bağlanılıyor…', connectingNote: 'Birkaç saniye sürebilir.', cancel: 'Vazgeç',
     roomCode: 'Oda kodu', copy: '📋 Kopyala', copied: '✓ Kopyalandı', selectedCopy: 'Seçildi, kopyala', copyInvite: 'Davet linkini kopyala', inviteCopied: 'Kopyalandı', noLateJoin: 'Oyun başlayınca yeni oyuncu alınmaz.',
-    pickAvatarTitle: 'Avatarını seç', avatarNote: 'Başkasının seçtiği avatar alınamaz. Seçmezsen renkli harf avatarın kullanılır.',
+    pickAvatarTitle: 'Avatarını seç', avatarNote: 'Başkasının seçtiği avatar alınamaz. Kilitli olanlar seviye ve başarımlarla açılır (kullanmak için giriş yap). Seçmezsen renkli harf avatarın kullanılır.',
     settings: 'Ayarlar', auto: 'Otomatik', pubTable: 'Açık masa', ready: 'Hazırım', readyUndo: '✓ Hazırım (geri al)',
     pubNote: (n, max) => `${n}/${max} oyuncu. Masa ${max} kişi olunca ya da en az 2 kişiyken herkes hazır deyince başlar.`,
     moneyCustom: m => `Başlangıç parası ${M(m)}.`, moneyAuto: (n, m) => `Otomatik: ${n} oyuncu için ${M(m)} (2 kişi ₺100, 3 kişi ₺150, 4+ kişi ₺200)`,
@@ -254,6 +255,7 @@ const U = {
     billQueue: '🧾 Hesap sırası', today: 'bugün', tomorrow: 'yarın',
     offlineNote: n => `<b>${n}</b> bağlantısı koptu. Geri dönene kadar hamleleri otomatik yapılıyor.`, sending: 'Gönderiliyor…', reconnecting: 'Bağlantı koptu, yeniden bağlanılıyor…',
     sheetHandle: 'tahtayı gör', sheetOpen: 'paneli aç', sheetAria: 'Paneli küçült ya da büyüt',
+    addBot: '🤖 Bot ekle', removeBot: 'Botu çıkar', addBotNote: 'Botları oda sahibinin cihazı oynatır. Bot olan oyunlar bot oyunu sayılır: yarım XP, başarım yok.',
     botTag: '🤖 bot', payTodayTag: '🧾 bugün hesap', waitsTag: 'bekliyor', offTag: 'bağlantı koptu',
     value: (m, r) => `Değer ${M(m)}, komisyon %${r}`, hungerLbl: 'açlık', squareN: (p, n) => `📍 ${p}. kare · ${n}`,
     popChance: 'Şans kartı', popEvent: 'Olay kartı', popSpecial: 'Özel kart', popPlayed: 'Kart oynandı', popSquare: p => `${p}. kare`, popInfo: 'Bilgi',

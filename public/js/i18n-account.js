@@ -40,13 +40,13 @@ const en = {
   pTitle: 'Profile & looks', pBack: '← Back',
   pTabAvatar: 'Avatar', pTabFrames: 'Frames', pTabBoards: 'Boards', pTabBubbles: 'Chat bubbles', pTabTitles: 'Titles', pTabAch: 'Achievements', pTabStats: 'Stats',
   pEquip: 'Equip', pEquipped: '✓ Equipped', pLockedLv: n => `🔒 Level ${n}`, pLockedAch: a => `🔒 ${a}`,
-  pAvatarNote: 'Your default avatar. It is picked for you when you join a table (if nobody else has it).',
+  pAvatarNote: 'Your default avatar, picked for you when you join a table (if nobody else has it). Four avatars are open from the start; the others unlock with levels and achievements.',
   pFramesNote: 'Frames go around your avatar in the lobby, the player list and on the board. Everyone at the table sees them.',
   pBoardsNote: 'Board styles change the table in the middle of the board. Only you see your board style.',
   pBubblesNote: 'The style of your chat messages. Everyone in the room sees it.',
   pTitlesNote: 'Titles appear under your name. Earn more with achievements.',
   pAchNote: 'Achievements unlock titles, frames, board styles and chat bubbles.',
-  pBotNote: '🤖 Games against bots give half XP but never count toward achievements (except level achievements). Wins and other achievements only come from online games, and they are confirmed when another player at the same table saves the same result.',
+  pBotNote: '🤖 Games with bots (single player, or bots added to a room) give half XP but never count toward achievements (except level achievements). Wins and other achievements only come from online games, and they are confirmed when another player at the same table saves the same result.',
   pRewards: 'Unlocks:', pDone: '✓ Unlocked', pProgress: (a, b) => `${a} / ${b}`,
   pWins: 'Online wins', pGames: 'Online games', pBotGames: 'Bot games', pXpTotal: 'Total XP', pLevel: 'Level',
   pDeals: 'Checks passed on', pBelt: 'Belts tightened', pMember: 'Member since',
@@ -62,11 +62,11 @@ const en = {
   rShort: "Games shorter than 3 days or 4 minutes don't earn XP.",
   rLimit: 'XP limit reached for now: at most one counted game every 4 minutes and 12 per hour.',
   rDup: "This game's result was already saved.",
-  rBot: '🤖 Bot game: half XP, and it doesn’t count toward achievements.',
+  rBot: '🤖 Game with bots: half XP, and it doesn’t count toward achievements.',
   rGuest: 'Log in to earn XP and unlock achievements and cosmetics.', rErr: "Couldn't save your result.",
   rNotHot: "Same-device games don't earn XP.",
   lvTag: n => `Lv ${n}`,
-  rulesAcc: '<b>Accounts (optional):</b> logged-in players earn XP and levels, unlock achievements, avatar frames, board styles and chat bubbles. <b>Bot games give half XP and don’t count toward achievements</b>; wins and achievements come from online games once another player at the table confirms the result. Games shorter than 3 days or 4 minutes don’t count.'
+  rulesAcc: '<b>Accounts (optional):</b> logged-in players earn XP and levels, unlock achievements, avatar frames, board styles and chat bubbles. <b>Games with bots (single player or bots added to a room) give half XP and don’t count toward achievements</b>; wins and achievements come from online games once another player at the table confirms the result. Games shorter than 3 days or 4 minutes don’t count.'
 };
 
 const tr = {
@@ -100,13 +100,13 @@ const tr = {
   pTitle: 'Profil ve görünüm', pBack: '← Geri',
   pTabAvatar: 'Avatar', pTabFrames: 'Çerçeveler', pTabBoards: 'Tahtalar', pTabBubbles: 'Sohbet balonları', pTabTitles: 'Unvanlar', pTabAch: 'Başarımlar', pTabStats: 'İstatistikler',
   pEquip: 'Kuşan', pEquipped: '✓ Kuşanıldı', pLockedLv: n => `🔒 Seviye ${n}`, pLockedAch: a => `🔒 ${a}`,
-  pAvatarNote: 'Varsayılan avatarın. Bir masaya katıldığında (başkası almadıysa) otomatik seçilir.',
+  pAvatarNote: 'Varsayılan avatarın; bir masaya katıldığında (başkası almadıysa) otomatik seçilir. Dört avatar baştan açık, diğerleri seviye ve başarımlarla açılır.',
   pFramesNote: 'Çerçeve; lobide, oyuncu listesinde ve tahtada avatarının etrafında görünür. Masadaki herkes görür.',
   pBoardsNote: 'Tahta deseni, tahtanın ortasındaki masayı değiştirir. Tahta desenini sadece sen görürsün.',
   pBubblesNote: 'Sohbet mesajlarının stili. Odadaki herkes görür.',
   pTitlesNote: 'Unvanın adının altında görünür. Başarımlarla yenilerini açarsın.',
   pAchNote: 'Başarımlar unvan, çerçeve, tahta deseni ve sohbet balonu açar.',
-  pBotNote: '🤖 Botlara karşı oyunlar yarım XP verir ama başarımlara sayılmaz (seviye başarımları hariç). Galibiyetler ve diğer başarımlar yalnızca çevrim içi oyunlardan gelir ve aynı masadaki başka bir oyuncu aynı sonucu kaydettiğinde onaylanır.',
+  pBotNote: '🤖 Bot olan oyunlar (tek kişilik ya da odaya bot eklenmiş) yarım XP verir ama başarımlara sayılmaz (seviye başarımları hariç). Galibiyetler ve diğer başarımlar yalnızca çevrim içi oyunlardan gelir ve aynı masadaki başka bir oyuncu aynı sonucu kaydettiğinde onaylanır.',
   pRewards: 'Açtıkları:', pDone: '✓ Açıldı', pProgress: (a, b) => `${a} / ${b}`,
   pWins: 'Çevrim içi galibiyet', pGames: 'Çevrim içi oyun', pBotGames: 'Bot oyunu', pXpTotal: 'Toplam XP', pLevel: 'Seviye',
   pDeals: 'Devredilen hesap', pBelt: 'Kemer sıkma', pMember: 'Üyelik',
@@ -121,18 +121,18 @@ const tr = {
   rShort: '3 günden veya 4 dakikadan kısa oyunlar XP kazandırmaz.',
   rLimit: 'Şimdilik XP sınırına ulaştın: 4 dakikada en fazla bir, saatte en fazla 12 oyun sayılır.',
   rDup: 'Bu oyunun sonucu zaten kaydedilmiş.',
-  rBot: '🤖 Bot oyunu: yarım XP, başarımlara sayılmaz.',
+  rBot: '🤖 Botlu oyun: yarım XP, başarımlara sayılmaz.',
   rGuest: 'XP kazanmak, başarım ve görünüm açmak için giriş yap.', rErr: 'Sonucun kaydedilemedi.',
   rNotHot: 'Aynı cihazda oynanan oyunlar XP kazandırmaz.',
   lvTag: n => `Sv ${n}`,
-  rulesAcc: '<b>Hesaplar (isteğe bağlı):</b> giriş yapan oyuncular XP ve seviye kazanır; başarım, avatar çerçevesi, tahta deseni ve sohbet balonu açar. <b>Bot oyunları yarım XP verir ve başarımlara sayılmaz</b>; galibiyet ve başarımlar, masadaki başka bir oyuncu sonucu onayladığında çevrim içi oyunlardan gelir. 3 günden veya 4 dakikadan kısa oyunlar sayılmaz.'
+  rulesAcc: '<b>Hesaplar (isteğe bağlı):</b> giriş yapan oyuncular XP ve seviye kazanır; başarım, avatar çerçevesi, tahta deseni ve sohbet balonu açar. <b>Bot olan oyunlar (tek kişilik ya da odaya bot eklenmiş) yarım XP verir ve başarımlara sayılmaz</b>; galibiyet ve başarımlar, masadaki başka bir oyuncu sonucu onayladığında çevrim içi oyunlardan gelir. 3 günden veya 4 dakikadan kısa oyunlar sayılmaz.'
 };
 
 // item and achievement names: [name, description]
 const NAMES = {
   en: {
     frame: {none: 'No frame', bronze: 'Bronze', silver: 'Silver', gold: 'Gold', diamond: 'Diamond', neon: 'Neon', flame: 'Flame', royal: 'Royal'},
-    board: {felt: 'Navy felt', wood: 'Oak table', terracotta: 'Terracotta', marble: 'Marble', night: 'Midnight', neon: 'Neon diner', ocean: 'Ocean'},
+    board: {felt: 'Navy felt', hearts: 'Sweet hearts', wood: 'Oak table', feast: 'Feast', terracotta: 'Terracotta', marble: 'Marble', sunset: 'Sunset', night: 'Midnight', chalk: 'Chalkboard menu', neon: 'Neon diner', ocean: 'Ocean'},
     bubble: {plain: 'Plain', receipt: 'Receipt', comic: 'Comic', neon: 'Neon', heart: 'Sweetheart', gold: 'Golden'},
     title: {rookie: 'Rookie'},
     ach: {
@@ -150,7 +150,7 @@ const NAMES = {
   },
   tr: {
     frame: {none: 'Çerçevesiz', bronze: 'Bronz', silver: 'Gümüş', gold: 'Altın', diamond: 'Elmas', neon: 'Neon', flame: 'Alev', royal: 'Kraliyet'},
-    board: {felt: 'Lacivert çuha', wood: 'Meşe masa', terracotta: 'Terakota', marble: 'Mermer', night: 'Gece yarısı', neon: 'Neon lokanta', ocean: 'Okyanus'},
+    board: {felt: 'Lacivert çuha', hearts: 'Kalpli', wood: 'Meşe masa', feast: 'Ziyafet', terracotta: 'Terakota', marble: 'Mermer', sunset: 'Gün batımı', night: 'Gece yarısı', chalk: 'Kara tahta menü', neon: 'Neon lokanta', ocean: 'Okyanus'},
     bubble: {plain: 'Sade', receipt: 'Fiş', comic: 'Çizgi roman', neon: 'Neon', heart: 'Tatlı dil', gold: 'Altın'},
     title: {rookie: 'Çaylak'},
     ach: {
