@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Check Flip Roll the dice, draw cards, stay hungry and make your rivals pick up the check. A free 2–6 player browser game.">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<title>Check Flip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo"><img class="logo-svg" src="assets/logo.svg" alt="" aria-hidden="true"><span data-i="title">Check Flip</span></div>
+    <div class="spacer"></div>
+    <span id="roomChip" class="chip" hidden></span>
+    <button id="logBtn" class="btn small ghost logbtn" data-a="log" data-ia="showLog" hidden>📜</button>
+    <button id="chatHdr" class="btn small ghost chathdr" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge2" hidden>0</span></button>
+    <button id="langBtn" class="btn small ghost langbtn" data-a="lang">🌐 TR</button>
+    <button id="sndBtn" class="btn small ghost snd" data-a="snd" data-ia="sound">🔊</button>
+    <button id="leaveBtn" class="btn small ghost" data-a="leave" hidden><span class="lt" data-i="leaveLong"></span><span class="st" data-i="leave"></span></button>
+  </header>
+
+  <section id="home" class="home">
+    <div>
+      <div class="hero-logo"><img class="logo-svg" src="assets/logo.svg" alt="" aria-hidden="true"></div>
+      <h1>Check<br><span>Flip</span></h1>
+      <p class="tag-line" data-i="tagline"></p>
+      <p class="lede" data-i="lede"></p>
+      <div class="tokrow" aria-hidden="true"><i style="--c:#e2483d"></i><i style="--c:#3a7fc2"></i><i style="--c:#f0ad2c"></i><i style="--c:#1b9a86"></i><i style="--c:#8b5cf6"></i><i style="--c:#f07c2a"></i></div>
+    </div>
+    <div class="box panel">
+      <div id="acct" class="acct" hidden></div>
+      <div id="nickWrap" class="nickwrap">
+        <label for="nm" data-i="nickLabel"></label>
+        <input id="nm" maxlength="14" autocomplete="nickname">
+      </div>
+      <button id="btnQuick" class="btn primary big" data-a="quick" data-i="quick" disabled></button>
+      <button id="btnCreate" class="btn" data-a="create" data-i="createPrivate" disabled></button>
+      <div class="row">
+        <input id="code" maxlength="5" data-ip="codePh" autocapitalize="characters" autocomplete="off" data-ia="codeAria">
+        <button id="btnJoin" class="btn" data-a="join" data-i="join" disabled></button>
+      </div>
+      <button id="btnRejoin" class="btn" data-a="rejoin" hidden></button>
+      <p id="netNote" class="note"></p>
+      <p id="homeErr" class="err" hidden></p>
+      <div class="or" data-i="or"></div>
+      <div class="row"><button class="btn" data-a="solo" style="flex:1" data-i="solo"></button><button class="btn ghost" data-a="local" style="flex:1" data-i="local"></button></div>
+    </div>
+    <details class="rules">
+      <summary data-i="rulesTitle"></summary>
+      <ul id="rulesList"></ul>
+      <div class="cols" id="cardLists"></div>
+    </details>
+    <footer class="credit" style="grid-column:1/-1"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a></footer>
+  </section>
+
+  <section id="auth" class="lobby" hidden>
+    <div class="box authbox" id="authBox"></div>
+  </section>
+
+  <section id="profile" class="profile" hidden>
+    <div id="profileBox"></div>
+  </section>
+
+  <section id="local" class="lobby" hidden>
+    <div class="box">
+      <h3 data-i="localTitle"></h3>
+      <p class="note" data-i="localNote"></p>
+      <div id="localNames" style="display:grid;gap:8px"></div>
+      <div class="row">
+        <button class="btn ghost" data-a="addp" data-i="addPlayer"></button>
+        <div class="spacer"></div>
+        <button class="btn ghost" data-a="leave" data-i="back"></button>
+      </div>
+      <label for="localMoney" data-i="startMoney"></label>
+      <div class="cfgrow"><input id="localMoney" type="number" min="20" max="2000" step="10" inputmode="numeric"><span class="note" id="localMoneyNote"></span></div>
+      <label for="localDays" data-i="dayLimit"></label>
+      <div class="cfgrow"><select id="localDays"><option value="0" class="optOff">Off</option><option value="10" class="optDays">10 days</option><option value="15" class="optDays">15 days</option><option value="20" class="optDays">20 days</option><option value="25" class="optDays">25 days</option><option value="30" class="optDays">30 days</option></select></div>
+      <button class="btn primary big" data-a="lstart" data-i="startGame"></button>
+    </div>
+  </section>
+
+  <section id="solo" class="lobby" hidden>
+    <div class="box">
+      <h3 data-i="soloTitle"></h3>
+      <p class="note" data-i="soloNote"></p>
+      <label data-i="tableSize"></label>
+      <div class="seg3" id="soloCount"><button data-a="soloN" data-n="2"></button><button data-a="soloN" data-n="3"></button><button data-a="soloN" data-n="4"></button></div>
+      <label data-i="yourAvatar"></label>
+      <div class="avgrid" id="soloAv"></div>
+      <label for="soloMoney" data-i="startMoney"></label>
+      <div class="cfgrow"><input id="soloMoney" type="number" min="20" max="2000" step="10" inputmode="numeric"><span class="note" id="soloMoneyNote"></span></div>
+      <label for="soloDays" data-i="dayLimit"></label>
+      <div class="cfgrow"><select id="soloDays"><option value="0" class="optOff">Off</option><option value="10" class="optDays">10 days</option><option value="15" class="optDays">15 days</option><option value="20" class="optDays">20 days</option><option value="25" class="optDays">25 days</option><option value="30" class="optDays">30 days</option></select></div>
+      <div class="row"><button class="btn ghost" data-a="leave" data-i="back"></button><button class="btn primary big" data-a="sstart" style="flex:1" data-i="startGame"></button></div>
+    </div>
+  </section>
+
+  <section id="joining" class="lobby" hidden>
+    <div class="box codebox"><p class="status" id="joinMsg"></p><p class="note" data-i="connectingNote"></p><div><button class="btn small ghost" data-a="leave" data-i="cancel"></button></div></div>
+  </section>
+
+  <section id="lobby" class="lobby" hidden>
+    <div class="box codebox">
+      <label data-i="roomCode"></label>
+      <div class="coderow"><div class="big" id="lobbyCode"></div><button class="btn small" data-a="copycode" id="copyCodeBtn" data-i="copy"></button></div>
+      <div><button class="btn small ghost" data-a="copy" data-i="copyInvite"></button></div>
+      <p class="note" id="inviteTxt" style="word-break:break-all;user-select:all"></p>
+      <p class="note" data-i="noLateJoin"></p>
+    </div>
+    <div class="box">
+      <h3 data-i="pickAvatarTitle"></h3>
+      <div class="avgrid" id="lobbyAv"></div>
+      <p class="note" data-i="avatarNote"></p>
+    </div>
+    <ul id="lobbyList" class="plist"></ul>
+    <div class="box" id="cfgBox">
+      <h3 data-i="settings"></h3>
+      <label for="startMoney" data-i="startMoney"></label>
+      <div class="cfgrow"><input id="startMoney" type="number" min="20" max="2000" step="10" inputmode="numeric"><button class="btn small ghost" data-a="autoMoney" id="autoMoneyBtn" data-i="auto"></button></div>
+      <p class="note" id="moneyNote"></p>
+      <label for="daysSel" data-i="dayLimit"></label>
+      <div class="cfgrow"><select id="daysSel"><option value="0" class="optOff">Off</option><option value="10" class="optDays">10 days</option><option value="15" class="optDays">15 days</option><option value="20" class="optDays">20 days</option><option value="25" class="optDays">25 days</option><option value="30" class="optDays">30 days</option></select></div>
+      <p class="note" id="daysNote"></p>
+    </div>
+    <div class="box" id="pubBox" hidden>
+      <h3 data-i="pubTable"></h3>
+      <p class="note" id="pubNote"></p>
+      <button class="btn primary big" data-a="ready" id="readyBtn"></button>
+    </div>
+    <div id="lobbyAct"></div>
+  </section>
+
+  <section id="game" class="gamewrap" hidden>
+    <aside id="pbox" class="box"><div class="pboxhead"><h3 data-i="players"></h3><div class="rxbar"><button class="rxbtn" data-a="rxopen" data-ia="reactAria" aria-expanded="false"><span>😊</span></button><div class="rxlist" id="rxlist" hidden></div></div></div><ul id="players" class="players"></ul></aside>
+    <div class="boardwrap">
+      <div id="board" class="board">
+        <div id="center" class="center">
+          <div class="c-day" id="cDay"></div>
+          <div class="dice" id="dice"><div class="die"></div><div class="die"></div></div>
+          <div class="c-who" id="cWho"></div>
+          <div class="c-sub" id="cSub"></div>
+          <div class="ctimer" hidden><i></i></div>
+          <div class="pop" id="pop" hidden></div>
+        </div>
+      </div>
+    </div>
+    <aside id="actions" class="box"></aside>
+    <section class="box logbox">
+      <h3 data-i="events"></h3>
+      <ul id="log" class="log"></ul>
+      <details class="rules" style="padding:10px 12px">
+        <summary data-i="squaresCards"></summary>
+        <div id="legend" class="cols"></div>
+      </details>
+    </section>
+  </section>
+  <section class="box chatbox" id="chatbox" hidden>
+    <div class="chathead"><h3 data-i="chat"></h3><button class="btn small ghost chatclose" data-a="chatclose" data-ia="closeChat">✕</button></div>
+    <ul class="chatlist" id="chatList"><li class="chatempty"></li></ul>
+    <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn primary" type="submit" data-i="send"></button></form>
+  </section>
+  <button class="chatfab" id="chatFab" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge" hidden>0</span></button>
+  <footer class="credit" id="gameCredit" hidden><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

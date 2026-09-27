@@ -1,0 +1,2 @@
+# Send every request on the old Netlify address to the new domain (keeps invite links working)
+/*  https://checkflipgame.com/:splat  301!

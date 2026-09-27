@@ -1,0 +1,26 @@
+// Cloudflare Worker configuration (https://developers.cloudflare.com/workers/wrangler/configuration/)
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "check-flip",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+
+  // the game itself: plain static files, served free without running the Worker
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+
+  // one Durable Object per room relays multiplayer messages (SQLite-backed = free plan)
+  "durable_objects": { "bindings": [{ "name": "HUB", "class_name": "Hub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub"] }],
+
+  // daily ping so the free Supabase project isn't paused for inactivity (03:17 UTC)
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  "vars": {
+    // public values (same as public/js/config.js); never put secret keys here
+    "SUPABASE_URL": "https://dwygwflbzxrqworyikzw.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_Iqd3ZrtICWhewJjJStMm8Q_Q6E5JiUT",
+    // extra site hostnames allowed to open game connections, comma separated (optional)
+    "ALLOWED_ORIGINS": ""
+  },
+  "observability": { "enabled": true }
+}
