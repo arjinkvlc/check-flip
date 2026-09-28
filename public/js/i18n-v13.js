@@ -14,7 +14,12 @@ const en = {
   themeAria: 'Light / dark theme',
   recHd: 'CHECK', rec1: 'Lentil soup', rec2: 'Pizza ×3', rec3: 'Tiramisu', recTot: 'TOTAL',
   profileBtn: 'Profile', friendsShort: 'Friends', questShort: 'Daily quest',
-  guestShort: 'Guest', signupPitch: 'Sign up to earn XP and unlock looks'
+  guestShort: 'Guest', signupPitch: 'Sign up to earn XP and unlock looks',
+  pEmailTitle: 'E-mail for password reset', pEmailPh: 'you@example.com', pEmailAdd: 'Add e-mail', pEmailChange: 'Change e-mail',
+  pEmailSaved: 'Saved. You can now reset your password with this e-mail.',
+  pEmailConfirm: e => `We sent a confirmation link to ${e}. The new address is used after you click it.`,
+  outShort: 'out', resultNote: d => `Ranked by money + restaurant value at the end of day ${d}.`,
+  netFallback: 'Game server unreachable, switched to the backup connection.'
 };
 const tr = {
   heroQ: 'Bu akşam hesap kimde kalacak?',
@@ -27,6 +32,11 @@ const tr = {
   themeAria: 'Açık / koyu tema',
   recHd: 'HESAP', rec1: 'Mercimek', rec2: 'Lahmacun ×3', rec3: 'Künefe', recTot: 'TOPLAM',
   profileBtn: 'Profil', friendsShort: 'Arkadaşlar', questShort: 'Günlük görev',
-  guestShort: 'Misafir', signupPitch: 'Kayıt ol, XP kazan, görünüm aç'
+  guestShort: 'Misafir', signupPitch: 'Kayıt ol, XP kazan, görünüm aç',
+  pEmailTitle: 'Şifre sıfırlama e-postası', pEmailPh: 'sen@ornek.com', pEmailAdd: 'E-posta ekle', pEmailChange: 'E-postayı değiştir',
+  pEmailSaved: 'Kaydedildi. Artık şifreni bu e-postayla sıfırlayabilirsin.',
+  pEmailConfirm: e => `${e} adresine bir onay bağlantısı gönderdik. Tıkladıktan sonra yeni adres geçerli olur.`,
+  outShort: 'elendi', resultNote: d => `${d}. gün sonunda para + mekân değerine göre sıralama.`,
+  netFallback: 'Oyun sunucusuna ulaşılamadı, yedek bağlantıya geçildi.'
 };
 extendStrings({en, tr});

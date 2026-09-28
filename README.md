@@ -127,7 +127,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 
 - **The game runs in the browser.** The host's browser applies the rules (`public/js/engine.js`) and shares the game state. If the host drops, another player takes over.
 - **Multiplayer relay:** each room is a Cloudflare **Durable Object** (`worker/index.js`). It relays messages between the players of a room, keeps the latest game state for 12 hours so players can reconnect, and notices when a player disconnects. It uses the WebSocket Hibernation API, so idle rooms cost nothing.
-- **Fallback:** if the relay can't be reached (or the free daily quota is used up), the game automatically connects through public MQTT brokers (EMQX, HiveMQ, Mosquitto) with the same logic.
+- **Fallback:** if the relay can't be reached (or the free daily quota is used up), the game automatically connects through public MQTT brokers (EMQX, HiveMQ, Mosquitto) with the same logic. This also works in the middle of a game: when the relay drops, players add a backup connection to a public broker and messages go over both until the game ends.
 - **Quick game:** open public tables are listed in a separate `_pub` hub; a table disappears from the list when it fills up, starts or everyone leaves.
 - **Accounts:** Supabase Auth + Postgres. Clients can only read; every write goes through validated database functions (see [Security](#security)).
 - **Keep-alive:** a daily cron trigger in the same Worker makes a small read from Supabase, so the free project isn't paused after a week without activity.
@@ -179,7 +179,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 | Durable Object requests | 100,000 | WebSocket messages count 20:1, i.e. ~2 million game messages. |
 | Durable Object duration | 13,000 GB-s | About **29 room-hours of active play per day** (≈ 55 half-hour games). Idle rooms hibernate. |
 
-When a limit is reached, new connections fall back to the public MQTT brokers until the quota resets (00:00 UTC). If the game outgrows this, the Workers Paid plan costs $5/month.
+When a limit is reached, new rooms and running games fall back to the public MQTT brokers until the quota resets (00:00 UTC). If the game outgrows this, the Workers Paid plan costs $5/month.
 
 ## Deploying
 
@@ -264,6 +264,17 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.4.1
+- Fix: after a Hop in a taxi / Got lost / shortcut / go back move, the token now visibly moves after the card is shown (before, the whole move played at once and looked like the card did nothing)
+- Bots take about 2 seconds longer per move, and their result pop-ups stay as long as a person's, so the table is easier to follow
+
+### 1.4.0
+- Profile: opens on Stats (now the first tab), a new header card, and you can add or change your e-mail for password resets
+- Titles are no longer all purple: each has its own badge (green, blue, red, stamped yellow, shining gold, neon, royal, fire)
+- New look for the lobby (room card and players on the left, settings on the right), leaderboard, friends and the end-of-game card with final standings
+- Log out moved to the top right, next to your account button
+- Backup connection in the middle of a game: if the game server can't be reached (or a player drops off it), everyone also joins the room on a public MQTT broker and the game goes on
 
 ### 1.3.2
 - Wide screens: players and chat on the left, board in the middle, your turn on the right; compact player cards so 5–6 player tables fit

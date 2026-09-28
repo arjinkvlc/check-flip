@@ -72,6 +72,17 @@ export const CATALOG = {
   title: [{key: 'rookie', lv: 1}, ...ACHS.map(a => ({key: a.key, ach: a.key}))]
 };
 export const DEFAULTS = {frame: 'none', board: 'felt', bubble: 'plain', title: 'rookie'};
+// how each title badge looks (colour / font / effect); the rarer the achievement, the fancier
+const TITLE_STYLE = {
+  rookie: 'plain',
+  first_bite: 'green', regular: 'green', line_cook: 'green', social: 'green',
+  veteran: 'blue', sous_chef: 'blue', negotiator: 'blue', team_player: 'blue', quester: 'blue',
+  belt_master: 'red', big_spender: 'red', marathon: 'red',
+  realtor: 'yellow', renovator: 'yellow', card_shark: 'yellow', deal_maker: 'yellow', survivor: 'yellow', devoted: 'yellow',
+  gourmet: 'gold', head_chef: 'gold', executive_chef: 'gold',
+  iron_stomach: 'neon', tycoon: 'royal', speed_eater: 'fire'
+};
+export const titleCls = key => ' tt-' + (TITLE_STYLE[key] || 'plain');
 const known = (kind, key) => CATALOG[kind] && CATALOG[kind].some(c => c.key === key);
 export const safeItem = (kind, key) => known(kind, key) ? key : DEFAULTS[kind];
 
@@ -262,6 +273,20 @@ export async function setNewPassword(pw) {
   const {error} = await sb.auth.updateUser({password: pw});
   if (error) throw fail(error);
   ACC.recovery = false; emit();
+}
+
+// Adds or changes the e-mail on the account (used for password resets).
+// Returns 'done' when the address is saved right away, 'confirm' when Supabase sent a confirmation link first.
+export async function updateEmail(email) {
+  if (!sb || !loggedIn()) throw fail('not_authenticated');
+  email = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.endsWith('@' + PLACEHOLDER_EMAIL_DOMAIN)) throw Object.assign(new Error('aErrEmailInvalid'), {key: 'aErrEmailInvalid'});
+  if (ACC.user && ACC.user.email === email) return 'done';
+  const {data, error} = await sb.auth.updateUser({email}, {emailRedirectTo: location.origin + location.pathname});
+  if (error) throw fail(error);
+  if (data && data.user) ACC.user = data.user;
+  emit();
+  return ACC.user && ACC.user.email === email ? 'done' : 'confirm';
 }
 
 export async function signOut() {

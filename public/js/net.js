@@ -62,3 +62,77 @@ export class HubClient {
   }
   end() { this.ended = true; clearInterval(this.pinger); try { this.ws.close(1000); } catch (e) {} return this; }
 }
+
+/**
+ * MultiClient: one room over several connections at once (the own relay plus,
+ * when needed, a public MQTT broker as backup). Used so a game keeps going when
+ * the relay is unreachable in the middle of a match (for example when the free
+ * daily quota runs out).
+ *  - publish / subscribe go to every connection
+ *  - the same message arriving over two connections is delivered once
+ *  - presence (".../pres/<id>") is merged: a player is present if any
+ *    connection says so; a connection's presence data is forgotten when it drops
+ * It has the same small API as HubClient / mqtt.js, so app.js uses it unchanged.
+ */
+export class MultiClient {
+  constructor(first) {
+    this.kind = 'multi'; this.conns = []; this.h = {}; this.subs = [];
+    this.seen = new Map(); this.presBy = new Map(); this.presOut = new Map(); this.wasUp = false;
+    this.options = {}; this.add(first);
+  }
+  get connected() { return this.conns.some(c => c.connected); }
+  // only the own relay: presence comes from the server, heartbeats can be rare
+  get onlyHub() { return this.conns.every(c => c.kind === 'hub'); }
+  get hubUp() { return this.conns.some(c => c.kind === 'hub' && c.connected); }
+  get hasBackup() { return this.conns.some(c => c.kind !== 'hub'); }
+  on(ev, fn) { (this.h[ev] = this.h[ev] || []).push(fn); return this; }
+  once(ev, fn) { const w = (...a) => { this.removeListener(ev, w); fn(...a); }; return this.on(ev, w); }
+  removeListener(ev, fn) { this.h[ev] = (this.h[ev] || []).filter(f => f !== fn); return this; }
+  emit(ev, ...a) { (this.h[ev] || []).slice().forEach(f => { try { f(...a); } catch (e) { console.error(e); } }); }
+
+  add(c) {
+    const src = this.conns.length; this.conns.push(c);
+    c.on('message', (tp, buf) => this._in(src, tp, buf.toString()));
+    c.on('connect', () => this._state());
+    const down = () => { this._forget(src); this._state(); };
+    c.on('offline', down); c.on('close', down);
+    if (this.subs.length) c.subscribe(this.subs, {qos: 1});
+    if (c.connected) this._state();
+    return c;
+  }
+  _state() {
+    const up = this.connected;
+    if (up && !this.wasUp) this.emit('connect');
+    if (!up && this.wasUp) { this.emit('offline'); this.emit('close'); }
+    else if (up) this.emit('connect');
+    this.wasUp = up;
+  }
+  _in(src, tp, s) {
+    const pi = tp.lastIndexOf('/pres/');
+    if (pi >= 0 && tp.indexOf('/', pi + 6) < 0) {
+      const m = this.presBy.get(tp) || new Map(); this.presBy.set(tp, m);
+      if (s) m.set(src, s); else m.delete(src);
+      return this._presEmit(tp);
+    }
+    const key = tp + '\n' + s, now = Date.now();
+    if (this.seen.has(key) && now - this.seen.get(key) < 4000) return;
+    this.seen.set(key, now);
+    if (this.seen.size > 400) for (const [k, t] of this.seen) if (now - t > 4000) this.seen.delete(k);
+    this.emit('message', tp, {toString: () => s});
+  }
+  _presEmit(tp) {
+    const m = this.presBy.get(tp); const v = m && [...m.values()].some(x => x === '1') ? '1' : (m && m.size ? '0' : '');
+    if (this.presOut.get(tp) === v) return; this.presOut.set(tp, v);
+    if (v) this.emit('message', tp, {toString: () => v});
+  }
+  _forget(src) { for (const [tp, m] of this.presBy) if (m.delete(src)) this._presEmit(tp); }
+
+  subscribe(topics, o) {
+    const list = (Array.isArray(topics) ? topics : [topics]).filter(x => !this.subs.includes(x));
+    this.subs.push(...list);
+    if (list.length) this.conns.forEach(c => c.subscribe(list, o || {qos: 1}));
+    return this;
+  }
+  publish(topic, payload, o) { this.conns.forEach(c => { try { c.publish(topic, payload, o); } catch (e) {} }); return this; }
+  end(f) { this.conns.forEach(c => { try { c.end(f); } catch (e) {} }); return this; }
+}

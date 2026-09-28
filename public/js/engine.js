@@ -79,6 +79,8 @@ function cover(S, j, amt) {
   const need = amt - Q.m; Q.m = 0; M.m -= need; L(S, 'teamHelp', {n: M.n, t: Q.n, m: need}); return true;
 }
 const step = (S, p) => { if (S.fx && S.fx.open) S.fx.path.push(p); };
+// the client shows the card / square first, then animates this extra move
+const split = S => { if (S.fx && S.fx.open && S.fx.split == null) S.fx.split = S.fx.path.length; };
 function fwd(S, i, n) {
   const Q = S.pl[i];
   for (let k = 0; k < n; k++) {
@@ -105,8 +107,8 @@ function land(S, i, dep) {
     case 'fatura': L(S, 'bills', {n: Q.n, m: pay(Q, 15)}, 1); break;
     case 'atis': hun(Q, -2); L(S, 'snack', {n: Q.n}, 1); break;
     case 'spor': hun(Q, 2); L(S, 'gym', {n: Q.n}, 1); break;
-    case 'kisa': L(S, 'shortcut', {n: Q.n}); fwd(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
-    case 'geri': L(S, 'goBack', {n: Q.n}); back(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
+    case 'kisa': L(S, 'shortcut', {n: Q.n}); split(S); fwd(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
+    case 'geri': L(S, 'goBack', {n: Q.n}); split(S); back(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
     case 'mola': Q.s++; L(S, 'coffee', {n: Q.n}, 1); break;
     case 'mekan': {
       const o = S.own[Q.p], v = VENUES[Q.p];
@@ -125,9 +127,9 @@ function card(S, i, c, dep) {
   switch (c) {
     case 'A0': Q.m += 30; break; case 'A1': Q.m += 10; break; case 'A2': Q.m += 50; break;
     case 'A3': pay(Q, 25); break; case 'A4': pay(Q, 20); break; case 'A5': pay(Q, 30); break; case 'A11': pay(Q, 10); break;
-    case 'A6': fwd(S, i, 4); if (dep < 2) return land(S, i, dep + 1); break;
-    case 'A7': back(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
-    case 'A8': { const d0 = (N - Q.p) % N || N, dh = (HALF - Q.p + N) % N || N; fwd(S, i, Math.min(d0, dh)); break; }
+    case 'A6': split(S); fwd(S, i, 4); if (dep < 2) return land(S, i, dep + 1); break;
+    case 'A7': split(S); back(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
+    case 'A8': { const d0 = (N - Q.p) % N || N, dh = (HALF - Q.p + N) % N || N; split(S); fwd(S, i, Math.min(d0, dh)); break; }
     case 'A9': case 'B6': if (rivals(S, i).length) { S.pend = {k: 'tgt', i, c}; return true; } break;
     case 'B0': hun(Q, 2); break; case 'B1': hun(Q, -3); break; case 'B2': hun(Q, 3); pay(Q, 10); break; case 'B3': Q.h = 0; break;
     case 'B4': S.ord.forEach(j => hun(S.pl[j], 1)); break;

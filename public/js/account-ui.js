@@ -4,7 +4,7 @@
  * titles, achievements, stats) and the end-of-game progress box.
  */
 import {
-  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail,
+  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, titleCls, updateEmail, EMAIL_RE,
   signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount
 } from './account.js';
 import {t, getLang} from './i18n.js';
@@ -15,7 +15,7 @@ export const frCls = fr => fr && fr !== 'none' && CATALOG.frame.some(c => c.key 
 export const bbCls = bu => bu && bu !== 'plain' && CATALOG.bubble.some(c => c.key === bu) ? ' bb-' + bu : '';
 
 let H = null; // hooks from app.js: {go(screen), render(), AVATARS, avatarLabel}
-export const AU = {tab: 'login', err: '', msg: '', busy: false, prof: 'avatar', nameOk: null};
+export const AU = {tab: 'login', err: '', msg: '', busy: false, prof: 'stats', nameOk: null};
 
 export function initAccountUI(hooks) {
   H = hooks;
@@ -65,7 +65,7 @@ export function renderAcctPanel(el, nickWrap) {
   nickWrap.hidden = true;
   const p = ACC.profile;
   el.innerHTML = `${questHTML()}
-    <button class="pill" data-a="friends"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>${esc(t('friendsShort'))}</span>${friendBadge()}</button><button class="pill ghost" data-a="logout"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span>${esc(t('aLogout'))}</span></button>
+    <button class="pill" data-a="friends"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>${esc(t('friendsShort'))}</span>${friendBadge()}</button>
     ${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`;
 }
 
@@ -173,7 +173,7 @@ export function errText(e) {
 }
 
 /* ---------------- profile & looks ---------------- */
-const TABS = ['avatar', 'frame', 'board', 'bubble', 'title', 'ach', 'stats'];
+const TABS = ['stats', 'avatar', 'frame', 'board', 'bubble', 'title', 'ach'];
 const TAB_LABEL = {avatar: 'pTabAvatar', frame: 'pTabFrames', board: 'pTabBoards', bubble: 'pTabBubbles', title: 'pTabTitles', ach: 'pTabAch', stats: 'pTabStats'};
 const TAB_NOTE = {avatar: 'pAvatarNote', frame: 'pFramesNote', board: 'pBoardsNote', bubble: 'pBubblesNote', title: 'pTitlesNote', ach: 'pAchNote'};
 
@@ -181,7 +181,7 @@ function preview(kind, key) {
   if (kind === 'frame') return `<span class="pfav big${frCls(key)}">${avatarGlyph()}</span>`;
   if (kind === 'board') return `<span class="bprev" data-board="${key}"><i></i></span>`;
   if (kind === 'bubble') return `<span class="ctb${bbCls(key)}">${esc(getLang() === 'tr' ? 'Hesap sende! 😋' : 'Your treat! 😋')}</span>`;
-  return `<span class="ptitle big">${esc(itemName('title', key))}</span>`;
+  return `<span class="ptitle big${titleCls(key)}">${esc(itemName('title', key))}</span>`;
 }
 
 export function renderProfile(el) {
@@ -212,19 +212,36 @@ export function renderProfile(el) {
     const st = p.stats || {}, since = new Date(p.created_at);
     const cell = (k, v) => `<div class="stat"><b>${esc(String(v))}</b><small>${esc(t(k))}</small></div>`;
     body = `<div class="stats">${cell('pLevel', lv)}${cell('pXpTotal', p.xp)}${cell('pWins', p.wins)}${cell('pGames', p.games)}${cell('pBotGames', p.bot_games)}${cell('pDeals', st.deals || 0)}${cell('pBelt', st.belt || 0)}${cell('pMember', isNaN(since) ? '–' : since.toLocaleDateString(getLang()))}</div>
-      <p class="note">${hasRealEmail() ? esc(t('pEmailOn', ACC.user.email)) : esc(t('pEmailOff'))}</p>
+      ${emailHTML()}
       <h3>${esc(t('pRecent'))}</h3>${ACC.recent.length ? `<ul class="recent">${ACC.recent.map(r => `<li><span>${esc(r.mode === 'solo' ? t('pSolo') : t('pOnline'))}</span><span>${r.won ? '🏆 ' : ''}${esc(t('pPlace', r.place, r.players))}</span><span>${!r.counted ? esc(t('pNotCounted')) : `+${r.xp} XP${r.mode === 'online' && !r.verified ? ' · ' + esc(t('pPending')) : ''}`}</span><small>${esc(new Date(r.created_at).toLocaleString(getLang(), {dateStyle: 'short', timeStyle: 'short'}))}</small></li>`).join('')}</ul>` : `<p class="note">${esc(t('pNoRecent'))}</p>`}
       <p class="botnote">${esc(t('pBotNote'))}</p>
       <div class="danger"><b>${esc(t('pDeleteTitle'))}</b><p class="note">${esc(t('pDeleteNote'))}</p>
       <button class="btn small ghost dangerbtn" data-a="delAccount" ${AU.busy ? 'disabled' : ''}>${esc(t('pDeleteBtn'))}</button>
       <p class="note"><a href="privacy.html" target="_blank" rel="noopener">${esc(t('privacyLink'))}</a></p></div>`;
   }
-  el.innerHTML = `<div class="box profhead"><span class="pfav big${frCls(e.frame)}">${avatarGlyph()}</span>
-      <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span></div><small class="ptitle">${esc(itemName('title', e.title))}</small>
-      <div class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small></div>
-      <button class="btn small ghost" data-a="profBack">${esc(t('pBack'))}</button></div>
-    <div class="tabs scroll">${TABS.map(k => `<button class="tab${tab === k ? ' on' : ''}" data-a="profTab" data-t="${k}">${esc(t(TAB_LABEL[k]))}</button>`).join('')}</div>
+  el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
+    <div class="profhero"><span class="pfav big${frCls(e.frame)}">${avatarGlyph()}</span>
+      <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span></div><span class="ptitle${titleCls(e.title)}">${esc(itemName('title', e.title))}</span>
+      <div class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small></div></div>
+    <div class="segtabs" role="tablist">${TABS.map(k => `<button class="stab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-a="profTab" data-t="${k}">${esc(t(TAB_LABEL[k]))}</button>`).join('')}</div>
     <div class="box">${TAB_NOTE[tab] ? `<p class="note">${esc(t(TAB_NOTE[tab]))}</p>` : ''}${AU.err ? `<p class="err">${esc(AU.err)}</p>` : ''}${body}</div>`;
+}
+
+function emailHTML() {
+  const has = hasRealEmail(), dis = AU.busy ? 'disabled' : '';
+  return `<div class="emailbox"><b>${esc(t('pEmailTitle'))}</b><p class="note">${has ? esc(t('pEmailOn', ACC.user.email)) : esc(t('pEmailOff'))}</p>
+    <form data-form="email" class="row"><label for="pEmail" class="vh">E-mail</label><input id="pEmail" type="email" autocomplete="email" maxlength="120" placeholder="${esc(t('pEmailPh'))}" required>
+    <button class="btn primary" type="submit" ${dis}>${esc(AU.busy ? t('aWorking') : has ? t('pEmailChange') : t('pEmailAdd'))}</button></form>
+    ${AU.emailErr ? `<p class="err" role="alert">${esc(AU.emailErr)}</p>` : ''}${AU.emailMsg ? `<p class="okmsg" role="status">${esc(AU.emailMsg)}</p>` : ''}</div>`;
+}
+async function saveEmail() {
+  if (AU.busy) return;
+  const v = val('pEmail').trim();
+  if (!EMAIL_RE.test(v)) { AU.emailErr = t('aErrEmailInvalid'); AU.emailMsg = ''; H.render(); return; }
+  AU.busy = true; AU.emailErr = ''; AU.emailMsg = ''; H.render();
+  try { const r = await updateEmail(v); AU.emailMsg = r === 'confirm' ? t('pEmailConfirm', v) : t('pEmailSaved'); }
+  catch (e) { AU.emailErr = errText(e); const i = document.getElementById('pEmail'); if (i) i.value = v; }
+  AU.busy = false; H.render();
 }
 
 async function doEquip(patch) {
@@ -271,7 +288,7 @@ export function accountClick(a, b) {
     case 'authTab': AU.tab = b.dataset.t; AU.err = ''; AU.msg = ''; H.render(); return true;
     case 'authGuest': ACC.recovery = false; AU.err = ''; AU.msg = ''; H.go('home'); return true;
     case 'logout': signOut(); return true;
-    case 'profile': if (loggedIn()) { AU.err = ''; H.go('profile'); } return true;
+    case 'profile': if (loggedIn()) { AU.err = ''; AU.emailErr = ''; AU.emailMsg = ''; if (b && b.closest && b.closest('#acctChip')) AU.prof = 'stats'; H.go('profile'); } return true;
     case 'profBack': AU.err = ''; H.go('home'); return true;
     case 'profTab': AU.prof = b.dataset.t; AU.err = ''; H.render(); return true;
     case 'equip': doEquip({[b.dataset.kind]: b.dataset.key}); return true;
@@ -291,6 +308,6 @@ export function accountClick(a, b) {
 }
 document.addEventListener('submit', e => {
   const f = e.target.closest && e.target.closest('form[data-form]'); if (!f) return;
-  e.preventDefault(); runForm(f.dataset.form);
+  e.preventDefault(); if (f.dataset.form === 'email') saveEmail(); else runForm(f.dataset.form);
 });
 document.addEventListener('input', e => { if (e.target && e.target.id === 'auName') checkName(); });

@@ -10,7 +10,7 @@ import {
   newState, addPlayer, L, rivals, worth, ownedBy, bill, act, actor, autoPick, checkStart, botDecide, botSide, standings, winners, isTeams, limits, modeOf
 } from './engine.js';
 import {SFX} from './sound.js';
-import {HubClient, hubUrl, hubAvailable} from './net.js';
+import {HubClient, MultiClient, hubUrl, hubAvailable} from './net.js';
 import './i18n-v11.js';
 import './i18n-v13.js';
 import {Music} from './music.js';
@@ -19,7 +19,7 @@ import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
 import {shareResult} from './share.js';
 import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast, socialClick} from './social-ui.js';
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
-import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG} from './account.js';
+import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 
@@ -38,11 +38,15 @@ const pct = r => Math.round(r * 100);
 
 /* ================= networking (MQTT) ================= */
 let S = null, mode = null, code = null, me = {pid: null, nm: ''}, mq = null, lost = false;
+let lostAt = 0, fbBusy = false, fbDone = false;
 let myN = 0, sentAt = 0, present = new Set(), lastHb = 0, joinedAt = 0;
 const pres = new Map();
 const ui = {screen: 'home', names: ['', ''], sel: null, err: '', quick: 0, joinMsg: ''};
 // 'hub' = the game's own relay (Cloudflare Worker); public MQTT brokers are the fallback
 const BROKERS = ['hub', 'wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
+// local testing only: ?brokers=ws://127.0.0.1:8883&mqttv=4 swaps the public backup brokers for a local one
+const DEVQ = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? new URLSearchParams(location.search) : null;
+if (DEVQ && DEVQ.get('brokers')) BROKERS.splice(1, BROKERS.length - 1, ...DEVQ.get('brokers').split(','));
 // topic prefix kept from the game's former name so running rooms stay compatible
 const ROOT = 'checkplease/v1/', PUB = ROOT + '_pub/';
 const T = x => ROOT + code + '/' + x;
@@ -68,7 +72,7 @@ const pickNick = () => { const l = nickList(); myNick = l[Math.floor(Math.random
 
 function openBroker(ix, will) {
   return new Promise((res, rej) => {
-    let c; const o = {clientId: 'cp_' + (me.pid || rid(8)) + '_' + rid(4), keepalive: 15, reconnectPeriod: 0, connectTimeout: 7000, protocolVersion: 5, clean: true};
+    let c; const o = {clientId: 'cp_' + (me.pid || rid(8)) + '_' + rid(4), keepalive: 15, reconnectPeriod: 0, connectTimeout: 7000, protocolVersion: DEVQ && DEVQ.get('mqttv') === '4' ? 4 : 5, clean: true};
     if (will !== false && code) o.will = {topic: T('pres/' + me.pid), payload: '0', qos: 1, retain: true, properties: EXP};
     try {
       if (BROKERS[ix] === 'hub') {
@@ -100,12 +104,13 @@ function listPub(c, ms) {
     c.on('message', h); c.subscribe(PUB + '+', {qos: 1}); setTimeout(() => { c.removeListener('message', h); res(Object.values(out)); }, ms);
   });
 }
-function wire(c) {
-  mq = c; lost = false; joinedAt = Date.now(); lastHb = Date.now();
+function wire(c0) {
+  const c = c0.kind === 'multi' ? c0 : new MultiClient(c0);
+  mq = c; lost = false; lostAt = 0; fbDone = false; ui.fbAt = 0; joinedAt = Date.now(); lastHb = Date.now();
   c.on('message', (tp, buf) => { if (!tp.startsWith(T(''))) return; const s = buf.toString(); if (!s) return; let m; try { m = JSON.parse(s); } catch (e) { return; } onMsg(tp.slice(T('').length), m); });
-  c.on('connect', () => { lost = false; c.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP}); lastHb = Date.now(); render(); });
-  c.on('offline', () => { if (mode === 'online') { lost = true; render(); } });
-  c.on('close', () => { if (mode === 'online' && !lost) { lost = true; render(); } });
+  c.on('connect', () => { lost = false; lostAt = 0; c.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP}); lastHb = Date.now(); render(); });
+  c.on('offline', () => { if (mode === 'online') { if (!lost) lostAt = Date.now(); lost = true; render(); } });
+  c.on('close', () => { if (mode === 'online' && !lost) { lostAt = Date.now(); lost = true; render(); } });
   c.subscribe([T('state'), T('in'), T('hb'), T('react'), T('chat'), T('pres/+'), T('dm/' + me.pid)], {qos: 1});
   c.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP});
   lsSet('hs-last', JSON.stringify({code, t: Date.now()}));
@@ -171,8 +176,8 @@ function hostHandle(m) {
 let hbAt = 0;
 setInterval(() => {
   if (mode !== 'online' || !mq || !S) return;
-  const hub = mq.kind === 'hub';
-  if (isHost()) { if (Date.now() - hbAt >= (hub ? 15000 : 1900)) { hbAt = Date.now(); mq.publish(T('hb'), JSON.stringify({pid: me.pid}), {qos: 0}); } return; }
+  const hub = mq.onlyHub;
+  if (isHost()) { if (Date.now() - hbAt >= (hub ? 15000 : 1900)) { hbAt = Date.now(); mq.publish(T('hb'), JSON.stringify({pid: me.pid, t: Date.now()}), {qos: 0}); } return; }
   if (Date.now() - joinedAt < 9000 || ui.screen === 'joining') return;
   const hostGone = Date.now() - lastHb > (hub ? 40000 : 9000) || pres.get(S.host) === false;
   if (!hostGone) return;
@@ -184,6 +189,30 @@ setInterval(() => {
   }
 }, 2000);
 setInterval(() => { if (mode === 'online' && S && S.pub && isHost() && S.ph === 'lobby') advert(); }, 20000);
+
+// Backup connection during a game. If the own relay can't be reached (e.g. its free daily
+// quota ran out) or a player at the table drops off it, everyone also joins the room on a
+// public MQTT broker; messages then go over both, so nobody is cut off.
+setInterval(() => {
+  if (mode !== 'online' || !mq || !S || S.ph === 'lobby' || fbBusy || mq.hasBackup || !mqttOk()) return;
+  const ownLost = !mq.hubUp && lostAt && Date.now() - lostAt > 8000;
+  const otherLost = S.pl.some(q => !q.bot && q.a && q.id !== me.pid && pres.get(q.id) === false);
+  if (ownLost || otherLost) addBackup(ownLost);
+}, 2000);
+async function addBackup(ownLost) {
+  fbBusy = true; const room = code, cl = mq;
+  for (let ix = 1; ix < BROKERS.length; ix++) {
+    let c; try { c = await openBroker(ix); } catch (e) { continue; }
+    if (mode !== 'online' || code !== room || mq !== cl) { try { c.end(true); } catch (e) {} fbBusy = false; return; }
+    mq.add(c);
+    mq.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP});
+    if (isHost()) publish();
+    if (ownLost && !fbDone) { fbDone = true; ui.fbAt = Date.now(); setTimeout(render, 8100); }
+    render();
+    break;
+  }
+  fbBusy = false;
+}
 
 const homeMode = () => ui.hmode === 'quick' ? 'quick' : 'classic';
 function myName() { if (loggedIn()) return clean(ACC.profile.username); const typed = clean($('#nm').value); if (typed) lsSet('hs-nm', typed); return typed || myNick; }
@@ -320,6 +349,7 @@ async function pump() {
 }
 /* ---- bots (single player) ---- */
 let botTimer = null;
+const BOT_WAIT = 2700;   // ms a bot "thinks" before each move (slow enough to follow)
 // Bots are played by whoever runs the rules: the local device, or the host of an online room.
 const runsBots = () => (mode === 'local' && solo) || (mode === 'online' && isHost() && !!mq);
 const botDone = () => { if (mode === 'local') sync(); else commit(); };
@@ -327,13 +357,13 @@ function botTick() {
   if (!runsBots() || !S || animating || botTimer) return; if (S.ph !== 'play' && S.ph !== 'feast') return;
   for (const j of S.ord) {
     if (!S.pl[j].bot) continue; const sa = botSide(S, j);
-    if (sa && Math.random() < .6) { botTimer = setTimeout(() => { botTimer = null; if (runsBots() && !animating && S && act(S, S.pl[j].id, sa)) botDone(); botTick(); }, 700); return; }
+    if (sa && Math.random() < .6) { botTimer = setTimeout(() => { botTimer = null; if (runsBots() && !animating && S && act(S, S.pl[j].id, sa)) botDone(); botTick(); }, BOT_WAIT); return; }
   }
   const A = actor(S); if (A < 0 || !S.pl[A].bot) return;
   botTimer = setTimeout(() => {
     botTimer = null; if (!S || !runsBots() || animating || actor(S) !== A) { botTick(); return; }
     const a = botDecide(S, A) || autoPick(S); if (!a || !act(S, S.pl[A].id, a)) { const f = autoPick(S); if (f) act(S, S.pl[A].id, f); } botDone();
-  }, 700 + Math.random() * 700);
+  }, BOT_WAIT + Math.random() * 700);
 }
 // host: add or remove a bot in a private room's lobby
 function addBot() {
@@ -369,17 +399,26 @@ async function play(prev, nx) {
     SFX.play('land'); if (fx.d[0] === fx.d[1]) dice.classList.add('dbl');
     await wait(300);
   }
-  if (fx.path && fx.path.length) {
-    for (const p of fx.path) { override[fx.i] = p; drawTokens(base); const tk = document.querySelector(`.tok[data-i="${fx.i}"]`); if (tk) tk.classList.add('hop'); SFX.play('step'); await wait(210); }
-    const c = cells[fx.path[fx.path.length - 1]]; c.classList.remove('land'); void c.offsetWidth; c.classList.add('land');
+  // a card or square can move the token again (taxi, got lost, shortcut, go back): show that part after the card
+  const path = fx.path || [], cut = fx.split != null && fx.split < path.length ? fx.split : path.length;
+  const hop = async steps => {
+    for (const p of steps) { override[fx.i] = p; drawTokens(base); const tk = document.querySelector(`.tok[data-i="${fx.i}"]`); if (tk) tk.classList.add('hop'); SFX.play('step'); await wait(210); }
+    if (!steps.length) return;
+    const c = cells[steps[steps.length - 1]]; c.classList.remove('land'); void c.offsetWidth; c.classList.add('land');
     await wait(250);
-  }
+  };
+  await hop(path.slice(0, cut));
+  const rest = path.slice(cut);
   const html = popHTML(prev, nx, fx);
   if (html) {
     const pop = $('#pop'); pop.innerHTML = html; pop.hidden = false; outcomeSound(prev, nx, fx);
-    const k = solo && nx.pl[fx.i] && nx.pl[fx.i].bot && !fx.bill ? .6 : 1;
-    await wait((fx.card ? 5000 : fx.bill ? 5000 : fx.path.length ? 3800 : 3200) * k); pop.hidden = true; pop.innerHTML = '';
-  } else if (!fx.quiet && fx.t !== 'roll') outcomeSound(prev, nx, fx);
+    let ms = fx.card ? 5000 : fx.bill ? 5000 : path.length ? 3800 : 3200;
+    if (rest.length) { await wait(1600); await hop(rest); ms = Math.max(1200, ms - 1600 - rest.length * 210); }
+    await wait(ms); pop.hidden = true; pop.innerHTML = '';
+  } else {
+    await hop(rest);
+    if (!fx.quiet && fx.t !== 'roll') outcomeSound(prev, nx, fx);
+  }
   if (fx.venue != null && nx.ph === 'feast') await venueReveal(nx, fx.venue);
 }
 async function venueReveal(V, v) {
@@ -593,7 +632,7 @@ const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])
 const setAVM = V => { AVM = V && V.pl ? V.pl.map(q => q.av) : []; FRM = V && V.pl ? V.pl.map(q => q.pf && q.pf.fr) : []; };
 // level + title shown next to a logged-in player's name
 const pfTag = q => q && q.pf ? `<span class="lvtag">${esc(t('lvTag', q.pf.lv))}</span>` : '';
-const pfTitle = q => q && q.pf && q.pf.ti ? `<small class="ptitle">${esc(t('itemName', 'title', q.pf.ti))}</small>` : '';
+const pfTitle = q => q && q.pf && q.pf.ti ? `<small class="ptitle${titleCls(q.pf.ti)}">${esc(t('itemName', 'title', q.pf.ti))}</small>` : '';
 const myIdx = V => V ? V.pl.findIndex(q => q.id === me.pid) : -1;
 const mine = (V, i) => hot() || i === myIdx(V);
 
@@ -614,7 +653,7 @@ function render(prev, forceV) {
   $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('off', !SFX.on); $('#sndBtn').setAttribute('aria-pressed', String(SFX.on)); $('#gameCredit').hidden = true;
   $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').setAttribute('aria-pressed', String(Music.on)); $('#musicBtn').title = t('music');
   $('#langBtn').textContent = getLang() === 'en' ? 'TR' : 'EN'; $('#langBtn').setAttribute('aria-label', t('langAria'));
-  $('#themeBtn').title = t('themeAria'); renderAcctChip($('#acctChip'));
+  $('#themeBtn').title = t('themeAria'); renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
   Music.scene(ui.screen === 'game' && shown && shown.ph !== 'lobby' ? 'game' : 'menu');
   if (ui.screen === 'home') { show('home'); renderHome(); return; }
   updateToast();
@@ -761,9 +800,11 @@ function renderGame(V, prev) {
     const {i, c} = ui.sel;
     h = `<h3>${esc(cardName(c))}</h3><p class="status">${esc(cardDesc(c))}. ${esc(t('whom'))}</p><div class="targets">${rivals(V, i).map(j => `<button class="btn" data-a="usetgt" data-to="${j}">${dot(j)}${nm(j)} · ${esc(t('hungerN', V.pl[j].h))}</button>`).join('')}<button class="btn ghost" data-a="cancel">${esc(t('cancelBtn'))}</button></div>`;
   } else if (V.ph === 'over') {
-    const sc = V.end === 'days' ? V.ord.map(j => ({j, w: worth(V, j)})).sort((a, b) => b.w - a.w) : null;
-    h = `<h3>${esc(t('over'))}</h3><div class="win">${esc(winText(V))}</div>
-      ${sc ? `<div class="receipt"><div class="hd">${esc(t('resultDay', V.cfg.days))}</div>${sc.map(o => `<div class="ln"><span>${nm(o.j)}</span><span>${M(o.w)}</span></div>`).join('')}<div class="note">${esc(t('worthNote'))}</div></div>` : `<p class="note">${esc(t('lastStanding', V.day))}</p>`}
+    const ws = new Set(winners(V)), days = V.end === 'days';
+    const rows = standings(V).map((j, k) => `<li class="${ws.has(j) ? 'w' : ''}${V.pl[j].a ? '' : ' out'}"><span class="place p${k + 1}">${k + 1}</span>${dot(j)}<span class="sn">${nm(j)}</span><span class="sv">${V.pl[j].a || days ? M(days ? worth(V, j) : V.pl[j].m) : esc(t('outShort'))}</span></li>`).join('');
+    h = `<div class="overhead"><svg class="ic trophy" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><div><small>${esc(t('over'))}</small><div class="win">${esc(winText(V))}</div></div></div>
+      <ol class="standings">${rows}</ol>
+      <p class="note">${esc(days ? t('resultNote', V.cfg.days) : t('lastStanding', V.day))}</p>
       ${ui.result && ui.result.gid === V.gid ? resultHTML(ui.result) : ''}
       ${rematchHTML(V)}
       <button class="btn" data-a="share">${esc(t('shareBtn'))}</button>`;
@@ -842,6 +883,7 @@ function renderGame(V, prev) {
   if (mode === 'online' && !ui.sel && A >= 0 && (V.ph === 'play' || V.ph === 'feast') && V.pl[A].id !== me.pid && !here(V.pl[A])) h += `<p class="note">${t('offlineNote', nm(A))}</p>`;
   if (busy()) h += `<p class="note">${esc(t('sending'))}</p>`;
   if (lost) h = `<p class="status">${esc(t('reconnecting'))}</p>` + h;
+  else if (ui.fbAt && Date.now() - ui.fbAt < 8000) h = `<p class="okmsg" role="status">${esc(t('netFallback'))}</p>` + h;
   keepInputs($('#actions'), () => { $('#actions').innerHTML = `<button class="sheethandle" data-a="sheetmin" aria-label="${esc(t('sheetAria'))}"><span></span><em data-open="${esc(t('sheetOpen'))}">${esc(t('sheetHandle'))}</em></button>` + h; });
   requestAnimationFrame(fitSheet);
 
