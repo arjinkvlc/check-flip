@@ -665,7 +665,7 @@ body{transition:background-color .25s ease,color .25s ease}
 .logo .logo-svg{width:36px;height:36px}
 .iconbtn{position:relative;flex:none;min-width:44px;height:44px;padding:0 10px;border:0;border-radius:12px;background:transparent;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:14px}
 .iconbtn:hover{background:var(--chipbg)}
-.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 #musicBtn.off,#sndBtn.off{opacity:.45;text-decoration:none}
 #sndBtn .x{display:none}#sndBtn.off .x{display:inline}#sndBtn.off .w{display:none}
 #themeBtn .sun{display:none}
@@ -676,9 +676,14 @@ body{transition:background-color .25s ease,color .25s ease}
 .chipbtn{position:relative;height:48px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink);display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
 .chipbtn.me{padding:0 16px 0 6px}
 .chipbtn:hover{border-color:var(--ink)}
-.chipbtn .pfav.sm{width:36px;height:36px}
+.chipbtn .pfav.sm{width:38px;height:38px}
+.chipbtn.me{height:54px;padding:0 16px 0 7px;border-radius:18px}
+.cname .cn1{display:flex;align-items:center;gap:6px}
+.cname .lvtag{font-size:10.5px;padding:0 5px}
+.cname .xpbar{display:block;width:150px;height:6px;margin:3px 0 1px}
+.cname small{font-size:11px}
 .cname{display:grid;text-align:left;line-height:1.15}
-.cname b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cname b{max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cname small{font-size:12px;font-weight:600;color:var(--muted)}
 .chipbtn .nbadge{position:absolute;top:-4px;right:-4px}
 
@@ -743,13 +748,28 @@ body{transition:background-color .25s ease,color .25s ease}
   .gamewrap{grid-template-columns:minmax(0,1fr) 320px;grid-template-areas:"board players" "board actions" "board tabs" "board log";grid-template-rows:auto auto auto 1fr;align-items:start;gap:14px 24px}
   .gamewrap>.sidetabs{grid-area:tabs}
   .gamewrap>.chatbox{grid-area:log;margin-top:0}
-  body:not(.tabchat) .gamewrap>.chatbox{display:none}
-  body.tabchat .gamewrap>.logbox{display:none}
+  body.tablog .gamewrap>.chatbox{display:none}
+  body.chaton:not(.tablog) .gamewrap>.logbox{display:none}
   .sidetabs:not([hidden])~.logbox .logh,.gamewrap>.chatbox .chathead{display:none}
 }
-@media(min-width:1180px){
-  .gamewrap{grid-template-columns:minmax(0,1fr) 420px;grid-template-areas:"board players" "board actions" "board tabs" "board log"}
-  .players{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* wide screens: players + chat/events on the left, board in the middle, your turn on the right */
+@media(min-width:1100px){
+  .gamewrap{grid-template-columns:290px minmax(0,1fr) 330px;grid-template-areas:"players board actions" "tabs board actions" "log board actions";grid-template-rows:auto auto 1fr;gap:12px 22px}
+  .boardwrap{justify-content:center}
+  .players{gap:6px}
+  .players li{padding:7px 10px;gap:2px 8px;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .players li>*{grid-column:1/-1}
+  .players li>.phead,.players li>.ptitle,.players li>.tags{grid-column:1}
+  .players li>.pstats{grid-column:2;grid-row:1;justify-self:end}
+  .players li>.hrow{grid-column:2;grid-row:2;justify-self:end}
+  .players li>.hrow>span:last-child{display:none}
+  .players li>.hrow .meter i{width:7px;height:11px}
+  .players .ploc{display:none}
+  .money{font-size:19px}
+  .gamewrap>.chatbox,.gamewrap>.logbox{align-self:stretch;min-height:200px}
+  .chatbox{grid-template-rows:minmax(0,1fr) auto}
+  .chatlist{max-height:none;height:100%;min-height:140px}
+  .logbox .log{max-height:none}
 }
 .boardwrap{justify-content:flex-start}
 .board{max-width:min(100%,calc(100vh - 100px),880px)}
@@ -781,3 +801,7 @@ body{transition:background-color .25s ease,color .25s ease}
 }
 @media (max-width:420px){.top .langbtn{display:none}.logo span{display:none}}
 @media (max-width:759px){.acctguest.scard{flex-wrap:wrap;width:100%;padding:10px 12px}.acctguest.scard>span{flex:1 1 100%}.acctguest.scard .btn{flex:1}.hstrip .acct{width:100%}}
+
+@media (max-width:759px){.chipbtn.me{height:48px;padding:0 5px;border-radius:999px}}
+@media (min-width:760px){.chatfab{display:none!important}}
+@media(min-width:1100px){body.ingame .app{max-width:1720px}}

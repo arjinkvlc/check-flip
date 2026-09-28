@@ -265,6 +265,13 @@ The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Ch
 
 ## Changelog
 
+### 1.3.2
+- Wide screens: players and chat on the left, board in the middle, your turn on the right; compact player cards so 5–6 player tables fit
+- Chat is the default tab, Events is one click away; the round chat button is gone on desktop
+- Fix: icons and names on board squares overlapped
+- Home: the account button (top right) now shows your level and XP bar and opens your profile; removed the duplicate account card and the extra Profile / How to play buttons; Friends button got an icon
+- "Developed by" credit only on the home screen
+
 ### 1.3.1
 - Fix: after an update, some browsers showed the new page with old cached scripts and styles (broken layout). Scripts and styles are now loaded network first, and the page reloads once when a new version takes over
 

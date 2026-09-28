@@ -63,12 +63,9 @@ export function renderAcctPanel(el, nickWrap) {
     return;
   }
   nickWrap.hidden = true;
-  const p = ACC.profile, e = equipped(), x = xpLine(p);
-  el.innerHTML = `<div class="acctcard scard"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span>
-    <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span></div>
-    <div class="xpbar" title="${esc(x.txt)}"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small></div></div>
-    ${questHTML()}
-    <button class="pill" data-a="profile">${esc(t('profileBtn'))}</button><button class="pill" data-a="friends">${esc(t('friendsShort'))}${friendBadge()}</button><button class="pill ghost" data-a="logout">${esc(t('aLogout'))}</button>
+  const p = ACC.profile;
+  el.innerHTML = `${questHTML()}
+    <button class="pill" data-a="friends"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>${esc(t('friendsShort'))}</span>${friendBadge()}</button><button class="pill ghost" data-a="logout"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span>${esc(t('aLogout'))}</span></button>
     ${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`;
 }
 
@@ -77,8 +74,9 @@ export function renderAcctChip(el) {
   if (!ACC.enabled || !ACC.ready) { el.hidden = true; return; }
   el.hidden = false;
   if (!loggedIn()) { el.hidden = true; el.innerHTML = ''; return; }
-  const p = ACC.profile, e = equipped();
-  el.innerHTML = `<button class="chipbtn me" data-a="profile" aria-label="${esc(t('profileBtn'))}"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span><span class="cname"><b>${esc(p.username)}</b><small>${esc(t('aLv', level()))}</small></span>${friendBadge()}</button>`;
+  const p = ACC.profile, e = equipped(), x = xpLine(p);
+  el.innerHTML = `<button class="chipbtn me" data-a="profile" aria-label="${esc(t('profileBtn'))}" title="${esc(x.txt)}"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span>
+    <span class="cname"><span class="cn1"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span></span><span class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></span><small>${esc(x.txt)}</small></span>${friendBadge()}</button>`;
 }
 
 // today's quest (same for everyone, resets at 00:00 UTC)

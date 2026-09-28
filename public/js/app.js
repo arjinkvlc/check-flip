@@ -541,7 +541,7 @@ const reacts = {}; let lastReact = 0;
 /* ---- chat ---- */
 let unread = 0, chatInView = false, lastChat = 0;
 const chatOpen = () => mobileQ.matches ? document.body.classList.contains('showchat') : chatInView;
-function setTab(tb) { document.body.classList.toggle('tabchat', tb === 'chat'); if (tb === 'chat') { unread = 0; const l = $('#chatList'); requestAnimationFrame(() => { l.scrollTop = l.scrollHeight; }); } updChat(); }
+function setTab(tb) { document.body.classList.toggle('tablog', tb === 'log'); if (tb === 'chat') { unread = 0; const l = $('#chatList'); requestAnimationFrame(() => { l.scrollTop = l.scrollHeight; }); } updChat(); }
 function setTheme(th, save = true) {
   document.documentElement.dataset.theme = th; if (save) lsSet('cf-theme', th);
   const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = th === 'dark' ? '#0f141d' : '#eef0f4';
@@ -562,9 +562,9 @@ function updChat() {
   const on = mode === 'online' && ui.screen === 'game'; const box = $('#chatbox'), fab = $('#chatFab');
   box.hidden = !on; if (!on) document.body.classList.remove('showchat');
   if (chatOpen()) unread = 0;
-  fab.hidden = !on || chatOpen(); $('#chatHdr').hidden = !on;
-  $('#sideTabs').hidden = !on; if (!on) document.body.classList.remove('tabchat');
-  document.querySelectorAll('.stab').forEach(x => x.classList.toggle('on', (x.dataset.t === 'chat') === document.body.classList.contains('tabchat')));
+  fab.hidden = true; $('#chatHdr').hidden = !on;
+  $('#sideTabs').hidden = !on; document.body.classList.toggle('chaton', on); if (!on) document.body.classList.remove('tablog');
+  document.querySelectorAll('.stab').forEach(x => x.classList.toggle('on', (x.dataset.t === 'log') === document.body.classList.contains('tablog')));
   for (const id of ['#chatBadge', '#chatBadge2', '#chatBadge3']) { const bd = $(id); bd.hidden = !unread; bd.textContent = unread > 9 ? '9+' : String(unread); }
 }
 new IntersectionObserver(es => { chatInView = es[0].isIntersecting; updChat(); }, {threshold: .25}).observe($('#chatbox'));
@@ -611,7 +611,7 @@ document.addEventListener('input', e => { if (e.target.id) e.target.dataset.touc
 function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
   if (code) $('#roomChip').innerHTML = `${esc(S && S.pub ? t('chipPub') : t('chipRoom'))} <b>${esc(code)}</b>`;
-  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('off', !SFX.on); $('#sndBtn').setAttribute('aria-pressed', String(SFX.on)); $('#gameCredit').hidden = ui.screen === 'home';
+  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('off', !SFX.on); $('#sndBtn').setAttribute('aria-pressed', String(SFX.on)); $('#gameCredit').hidden = true;
   $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').setAttribute('aria-pressed', String(Music.on)); $('#musicBtn').title = t('music');
   $('#langBtn').textContent = getLang() === 'en' ? 'TR' : 'EN'; $('#langBtn').setAttribute('aria-label', t('langAria'));
   $('#themeBtn').title = t('themeAria'); renderAcctChip($('#acctChip'));
