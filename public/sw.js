@@ -3,8 +3,9 @@
  * offline for single player). Registered as /sw.js?v=<version>, so every release
  * gets a fresh cache.
  *
- *  - pages: network first, cached copy when offline
- *  - game files and the two CDN libraries: served from cache, refreshed in the background
+ *  - pages, scripts and styles: network first, cached copy when offline
+ *    (so a new release never mixes a new page with old scripts)
+ *  - images and the CDN libraries: served from cache, refreshed in the background
  *  - multiplayer (/ws) and accounts (Supabase) are never cached
  */
 const VERSION = new URL(self.location).searchParams.get('v') || 'dev';
@@ -19,7 +20,7 @@ const SHELL = [
 const CDN = ['https://cdn.jsdelivr.net/', 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(new Request(u, {cache: 'reload'})).catch(() => {})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('checkflip-') && k !== CACHE).map(k => caches.delete(k))))
@@ -31,10 +32,10 @@ async function staleWhileRevalidate(req) {
   const net = fetch(req).then(r => { if (r && (r.ok || r.type === 'opaque')) c.put(req, r.clone()); return r; }).catch(() => null);
   return hit || (await net) || new Response('', {status: 504});
 }
-async function networkFirst(req) {
+async function networkFirst(req, key) {
   const c = await caches.open(CACHE);
-  try { const r = await fetch(req); if (r && r.ok) c.put('/', r.clone()); return r; }
-  catch (e) { return (await c.match('/')) || new Response('Offline', {status: 503}); }
+  try { const r = await fetch(req, {cache: 'no-cache'}); if (r && r.ok) c.put(key || req, r.clone()); return r; }
+  catch (e) { return (await c.match(key || req, {ignoreSearch: true})) || new Response('Offline', {status: 503}); }
 }
 
 self.addEventListener('fetch', e => {
@@ -42,8 +43,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
     if (url.pathname === '/ws' || url.pathname.startsWith('/cdn-cgi/')) return;
-    if (req.mode === 'navigate') { if (url.pathname === '/' ) e.respondWith(networkFirst(req)); return; }
-    e.respondWith(staleWhileRevalidate(req));
+    if (req.mode === 'navigate') { if (url.pathname === '/') e.respondWith(networkFirst(req, '/')); return; }
+    e.respondWith(url.pathname.startsWith('/assets/') ? staleWhileRevalidate(req) : networkFirst(req));
     return;
   }
   if (CDN.some(p => req.url.startsWith(p))) e.respondWith(staleWhileRevalidate(req));

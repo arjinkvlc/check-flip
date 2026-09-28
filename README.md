@@ -265,6 +265,9 @@ The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Ch
 
 ## Changelog
 
+### 1.3.1
+- Fix: after an update, some browsers showed the new page with old cached scripts and styles (broken layout). Scripts and styles are now loaded network first, and the page reloads once when a new version takes over
+
 ### 1.3.0
 - New home screen: one big Quick game button with a Classic / Quick switch, three tiles (with friends, against bots, same device) and a small strip for your account, daily quest, leaderboard and rules
 - Quick game only seats you at open tables of the mode you picked

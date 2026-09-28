@@ -29,6 +29,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="css/style.css">
+<script>
+/* a new service worker took over (new release): reload once so page, scripts and styles are all from the same version */
+try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.serviceWorker.addEventListener("controllerchange",function(){if(!sessionStorage.getItem("cf-swr")){sessionStorage.setItem("cf-swr","1");location.reload();}});}else{sessionStorage.removeItem("cf-swr");}setTimeout(function(){try{sessionStorage.removeItem("cf-swr");}catch(e){}},15000);}catch(e){}
+</script>
 <script>try{var th=localStorage.getItem("cf-theme");if(!th)th=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=th;}catch(e){}</script>
 </head>
 <body>
