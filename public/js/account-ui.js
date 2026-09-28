@@ -60,9 +60,19 @@ export function renderAcctPanel(el, nickWrap) {
     <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span></div>
     <small class="ptitle">${esc(itemName('title', e.title))}</small>
     <div class="xpbar" title="${esc(x.txt)}"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small></div></div>
-    <div class="row"><button class="btn small" data-a="profile" style="flex:1">${esc(t('aProfile'))}</button><button class="btn small ghost" data-a="logout">${esc(t('aLogout'))}</button></div>
+    ${questHTML()}
+    <div class="row"><button class="btn small" data-a="profile" style="flex:1">${esc(t('aProfile'))}</button><button class="btn small" data-a="friends" style="flex:1">${esc(t('frBtn'))}${friendBadge()}</button><button class="btn small ghost" data-a="logout">${esc(t('aLogout'))}</button></div>
     <p class="note">${esc(t('aNameLocked'))}</p>${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`;
 }
+
+// today's quest (same for everyone, resets at 00:00 UTC)
+function questHTML() {
+  const d = ACC.daily; if (!d || !d.quest) return '';
+  const h = Math.floor((d.resets_in || 0) / 3600), m = Math.floor(((d.resets_in || 0) % 3600) / 60);
+  return `<div class="quest${d.done ? ' done' : ''}"><span class="qi">${d.done ? '✅' : '🎯'}</span><div><b>${esc(t('qTitle'))}</b> · ${esc(t('q_' + d.quest))}
+    <small class="note">${esc(d.done ? t('qDone') : t('qReward'))} · ${esc(t('qResets', h, m))}</small></div></div>`;
+}
+const friendBadge = () => { const n = ACC.social && ACC.social.incoming ? ACC.social.incoming.length : 0; return n ? ` <span class="nbadge">${n}</span>` : ''; };
 
 /* ---------------- log in / sign up ---------------- */
 export function renderAuth(el) {
@@ -214,6 +224,7 @@ export function resultHTML(r) {
     if (r.solo) h += `<p class="note">${esc(t('rBot'))}</p>`;
     else if (res.xp_pending > 0) h += `<p class="note">${esc(t('rPending', res.xp_pending))}</p>`;
     else if (res.verified) h += `<p class="note">${esc(t('rVerified'))}</p>`;
+    if (res.quest) h += `<p class="okmsg">${esc(t('rQuest', t('q_' + res.quest)))}</p>`;
     if (res.levelAfter > res.levelBefore) h += `<p class="okmsg">${esc(t('rLevelUp', res.levelAfter))}</p>`;
     const na = res.newAch || [];
     if (na.length) h += `<div class="newach"><b>${esc(t('rNewAch'))}</b>${na.map(k => { const a = ACHS.find(x => x.key === k); return `<span>${a ? a.icon : '⭐'} ${esc(t('achName', k))}</span>`; }).join('')}</div>`;

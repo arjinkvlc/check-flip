@@ -11,6 +11,12 @@ const CFG = {UNIT: 5, VPRICE: 40, LAP_M: 40, LAP_H: 2, HALF_M: 20, HALF_H: 1, HM
 const N = 40, HALF = 20, IRON = 300;
 const autoMoney = n => n <= 2 ? 100 : n === 3 ? 150 : 200;
 const LIM = {def: 30000, feast: 45000, reply: 20000};
+// game modes: quick = 10-day limit and shorter timers; teams = 2 vs 2 (seats 1+3 against 2+4), shared wallet at the check
+const MODES = {classic: {t: 1}, quick: {t: .67, days: 10}, teams: {t: 1, n: 4}};
+const modeOf = S => (S && S.cfg && MODES[S.cfg.mode]) ? S.cfg.mode : 'classic';
+const isTeams = S => modeOf(S) === 'teams';
+// turn time limits for a state (ms)
+const limits = S => { const k = MODES[modeOf(S)].t; return {def: Math.round(LIM.def * k), feast: Math.round(LIM.feast * k), reply: Math.round(LIM.reply * k)}; };
 const COLORS = ['#e2483d', '#3a7fc2', '#f0ad2c', '#1b9a86', '#8b5cf6', '#f07c2a'];
 // board position -> restaurant key
 const VENUES = {6: 'pizza', 18: 'sushi', 27: 'burger', 37: 'taco'};
@@ -48,10 +54,13 @@ function setAvatar(S, id, key) {
 }
 
 /* ================= engine ================= */
-function newState() { return {v: 5, cfg: {start: null, days: 0}, pub: 0, rdy: {}, ep: 0, rev: 0, tk: 0, ph: 'lobby', host: null, pl: [], ord: [], tq: [], ti: 0, cur: -1, rd: 0, dbl: 0, bn: 0, day: 0, dA: [], dB: [], pend: null, fe: null, dice: null, own: {}, ev: 0, fx: null, log: [], seq: {}, win: null, end: null}; }
-// st: per-game counters used for achievements (d: check deals passed on, b: Tighten the Belt used, i: paid a check of 150+ and stayed, t: owned all restaurants at ★★★)
-function addPlayer(S, id, n, extra) { S.pl.push(Object.assign({id, n, p: 0, m: 200, h: 0, x: 1, c: [], a: 1, s: 0, av: null, bot: 0, st: {d: 0, b: 0, i: 0, t: 0}}, extra || {})); }
-const stat = (Q, k, v) => { if (!Q.st) Q.st = {d: 0, b: 0, i: 0, t: 0}; Q.st[k] = v == null ? (Q.st[k] || 0) + 1 : v; };
+function newState() { return {v: 6, cfg: {start: null, days: 0, mode: 'classic'}, rm: {}, pub: 0, rdy: {}, ep: 0, rev: 0, tk: 0, ph: 'lobby', host: null, pl: [], ord: [], tq: [], ti: 0, cur: -1, rd: 0, dbl: 0, bn: 0, day: 0, dA: [], dB: [], pend: null, fe: null, dice: null, own: {}, ev: 0, fx: null, log: [], seq: {}, win: null, end: null}; }
+// st: per-game counters for achievements and daily quests
+//   d: checks passed on with a deal, b: Tighten the Belt used, i: paid a big check and stayed, t: owned all restaurants at ★★★,
+//   by: restaurants bought, up: upgrades, cu: cards played, pd: checks paid
+const newStats = () => ({d: 0, b: 0, i: 0, t: 0, by: 0, up: 0, cu: 0, pd: 0});
+function addPlayer(S, id, n, extra) { S.pl.push(Object.assign({id, n, p: 0, m: 200, h: 0, x: 1, c: [], a: 1, s: 0, av: null, bot: 0, tm: null, st: newStats()}, extra || {})); }
+const stat = (Q, k, v) => { if (!Q.st) Q.st = newStats(); Q.st[k] = v == null ? (Q.st[k] || 0) + 1 : v; };
 const tycoonCheck = (S, i) => { if (Object.keys(VENUES).every(p => S.own[p] && S.own[p].o === i && (S.own[p].lv || 1) === 3)) stat(S.pl[i], 't', 1); };
 // log entry: {k: key, p: params}; quiet entries are not repeated in the popup
 function L(S, k, p, quiet) { const e = {k, p: p || {}}; S.log.push(e); if (S.log.length > 30) S.log.shift(); if (!quiet && S.fx && S.fx.open && S.fx.msgs.length < 8) S.fx.msgs.push(e); }
@@ -59,7 +68,16 @@ const tt = (k, p) => ({k, p: p || {}});
 const mover = S => S.ord[S.cur];
 const pay = (Q, a) => { const v = Math.min(Q.m, a); Q.m -= v; return v; };
 const hun = (Q, d) => { Q.h = clamp(Q.h + d, 0, CFG.HMAX); };
-const rivals = (S, i) => S.ord.filter(j => j !== i);
+// opponents still at the table (teammates are not rivals)
+const rivals = (S, i) => S.ord.filter(j => j !== i && !(isTeams(S) && S.pl[j].tm === S.pl[i].tm));
+const mateOf = (S, i) => { if (!isTeams(S)) return null; const k = S.ord.find(j => j !== i && S.pl[j].tm === S.pl[i].tm); return k == null ? null : k; };
+// pay an amount; in team games the teammate covers what's missing. false = can't pay
+function cover(S, j, amt) {
+  const Q = S.pl[j]; if (Q.m >= amt) { Q.m -= amt; return true; }
+  const k = mateOf(S, j); if (k == null) return false; const M = S.pl[k];
+  if (Q.m + M.m < amt) return false;
+  const need = amt - Q.m; Q.m = 0; M.m -= need; L(S, 'teamHelp', {n: M.n, t: Q.n, m: need}); return true;
+}
 const step = (S, p) => { if (S.fx && S.fx.open) S.fx.path.push(p); };
 function fwd(S, i, n) {
   const Q = S.pl[i];
@@ -160,9 +178,9 @@ function elim(S, j) {
 }
 function payFeast(S) {
   const f = S.fe, w = f.w, W = S.pl[w], b = bill(S), out = []; let paid = 0;
-  if (b.al) { b.lines.forEach(l => { const q = S.pl[l.j]; if (q.m < l.v) { q.m = 0; out.push(l.j); } else { q.m -= l.v; paid += l.v; } }); L(S, 'dutch'); }
-  else if (W.m < b.tot) { W.m = 0; out.push(w); }
-  else { W.m -= b.tot; paid = b.tot; if (b.tot >= IRON) stat(W, 'i', 1); L(S, 'paid', {n: W.n, m: b.tot, v: b.ven != null ? VENUES[b.ven] : null}); }
+  if (b.al) { b.lines.forEach(l => { if (cover(S, l.j, l.v)) paid += l.v; else { S.pl[l.j].m = 0; out.push(l.j); } }); L(S, 'dutch'); }
+  else if (!cover(S, w, b.tot)) { W.m = 0; out.push(w); }
+  else { paid = b.tot; stat(W, 'pd'); if (b.tot >= IRON) stat(W, 'i', 1); L(S, 'paid', {n: W.n, m: b.tot, v: b.ven != null ? VENUES[b.ven] : null}); }
   if (b.ven != null && paid > 0) {
     const o = S.own[b.ven], O = S.pl[o.o];
     if (O.a && !out.includes(o.o)) { const c = Math.round(paid * b.rate); O.m += c; L(S, 'commission', {n: O.n, v: VENUES[b.ven], r: Math.round(b.rate * 100), m: c}); }
@@ -171,14 +189,26 @@ function payFeast(S) {
   if (f.ke) L(S, 'belt', {n: W.n});
   const tOut = out.includes(w);
   out.forEach(j => { L(S, 'out', {n: S.pl[j].n}); elim(S, j); });
-  if (S.ord.length <= 1) { S.ph = 'over'; S.win = S.ord.length ? S.ord[0] : null; S.fe = null; S.end = 'last'; if (S.win != null) L(S, 'won', {n: S.pl[S.win].n}); else L(S, 'nobody'); return; }
+  if (isTeams(S) ? new Set(S.ord.map(j => S.pl[j].tm)).size <= 1 : S.ord.length <= 1) {
+    S.ph = 'over'; S.win = S.ord.length ? S.ord[0] : null; S.fe = null; S.end = 'last';
+    if (S.win == null) L(S, 'nobody'); else announce(S);
+    return;
+  }
   if (!tOut) S.ti++; S.ti %= S.tq.length;
   if (S.cfg && S.cfg.days && S.day >= S.cfg.days) {
     S.ph = 'over'; S.fe = null; S.end = 'days';
     const sc = S.ord.map(j => ({j, w: worth(S, j)})).sort((a, b) => b.w - a.w); S.win = sc[0].j;
-    L(S, 'daysOver', {d: S.cfg.days, list: sc.map(o => [S.pl[o.j].n, o.w])}); L(S, 'won', {n: S.pl[S.win].n}); return;
+    if (isTeams(S)) {   // team with more money + restaurant value wins
+      const tw = [0, 1].map(t => S.ord.filter(j => S.pl[j].tm === t).reduce((s, j) => s + worth(S, j), 0));
+      const wt = tw[1] > tw[0] ? 1 : 0; S.win = sc.find(o => S.pl[o.j].tm === wt).j;
+    }
+    L(S, 'daysOver', {d: S.cfg.days, list: sc.map(o => [S.pl[o.j].n, o.w])}); announce(S); return;
   }
   startDay(S);
+}
+function announce(S) {
+  if (isTeams(S)) { S.wt = S.pl[S.win].tm; const t = S.pl.filter(q => q.tm === S.wt).map(q => q.n); L(S, 'teamWon', {a: t[0], b: t[1] || ''}); }
+  else L(S, 'won', {n: S.pl[S.win].n});
 }
 function startDay(S) {
   S.day++; S.ph = 'play'; S.fe = null; S.pend = null; S.rd = 0; S.cur = -1; S.dbl = 0;
@@ -191,7 +221,9 @@ function rank(ids, rolls) {
   return out;
 }
 function startGame(S) {
-  S.gid = gameId(); S.t0 = Date.now(); S.outs = [];
+  S.gid = gameId(); S.t0 = Date.now(); S.outs = []; S.rm = {}; S.wt = null;
+  const md = MODES[modeOf(S)]; if (md.days) S.cfg.days = md.days;
+  S.pl.forEach((q, i) => { q.tm = isTeams(S) ? i % 2 : null; });
   const m = (S.cfg && S.cfg.start) || autoMoney(S.pl.length); S.pl.forEach(q => { q.m = m; });
   L(S, 'startMoney', {m, days: S.cfg && S.cfg.days || 0});
   const rolls = {}; const o = rank(S.pl.map((_, i) => i), rolls); S.ord = o; S.tq = o.slice(); S.ti = 0; S.day = 0;
@@ -201,7 +233,7 @@ function useCard(S, i, c, to) {
   const Q = S.pl[i], k = Q.c.indexOf(c); if (k < 0) return false;
   if (HOLD[c] === 'any') {
     if (S.ph !== 'play' && S.ph !== 'feast') return false; if (!S.ord.includes(to) || to === i) return false;
-    const d = c === 'B8' ? -2 : 2; Q.c.splice(k, 1); hun(S.pl[to], d); L(S, 'cardOn', {n: Q.n, t: S.pl[to].n, c, d}); return true;
+    const d = c === 'B8' ? -2 : 2; Q.c.splice(k, 1); stat(Q, 'cu'); hun(S.pl[to], d); L(S, 'cardOn', {n: Q.n, t: S.pl[to].n, c, d}); return true;
   }
   if (S.ph !== 'feast' || S.fe.w !== i || S.fe.off) return false; const f = S.fe;
   if (c === 'A10') { if (f.ku) return false; f.ku = 1; }
@@ -209,12 +241,13 @@ function useCard(S, i, c, to) {
   else if (c === 'B11') { if (f.al) return false; f.al = 1; }
   else if (c === 'B10') { const n = S.tq.length; if (n < 2) return false; const a = S.ti, b = (S.ti + 1) % n; [S.tq[a], S.tq[b]] = [S.tq[b], S.tq[a]]; f.w = S.tq[a]; f.ku = 0; f.ke = 0; f.al = 0; }
   if (c === 'K') stat(Q, 'b');
+  stat(Q, 'cu');
   Q.c.splice(k, 1); L(S, 'cardUse', {n: Q.n, c, t: c === 'B10' ? S.pl[f.w].n : null}); return true;
 }
 function actInner(S, i, pid, a) {
   const P = S.pend, fx = S.fx;
   switch (a.t) {
-    case 'start': if (S.ph !== 'lobby' || pid !== S.host || S.pl.length < 2) return false; fx.title = tt('gameStarts'); fx.head = tt('tableSet'); startGame(S); return true;
+    case 'start': if (S.ph !== 'lobby' || pid !== S.host || S.pl.length < 2 || (isTeams(S) && S.pl.length !== 4)) return false; fx.title = tt('gameStarts'); fx.head = tt('tableSet'); startGame(S); return true;
     case 'roll': if (S.ph !== 'play' || P || mover(S) !== i) return false; doRoll(S); return true;
     case 'mv': {
       if (S.ph !== 'play' || !P || P.k !== 'move' || P.i !== i) return false; const v = +a.v; if (!P.o.includes(v)) return false;
@@ -231,7 +264,7 @@ function actInner(S, i, pid, a) {
       if (S.ph !== 'play' || !P || P.k !== 'buy' || P.i !== i) return false; const Q = S.pl[i], v = VENUES[P.p]; S.pend = null;
       if (a.yes && Q.m >= CFG.VPRICE && !S.own[P.p]) {
         Q.m -= CFG.VPRICE; S.own[P.p] = {o: i, pr: CFG.VPRICE, lv: 1};
-        fx.head = tt('venueBought'); fx.title = tt('venue', {v}); fx.sub = tt('ownerNow', {n: Q.n, m: CFG.VPRICE}); L(S, 'bought', {n: Q.n, v, m: CFG.VPRICE}); tycoonCheck(S, i);
+        fx.head = tt('venueBought'); fx.title = tt('venue', {v}); fx.sub = tt('ownerNow', {n: Q.n, m: CFG.VPRICE}); L(S, 'bought', {n: Q.n, v, m: CFG.VPRICE}); stat(Q, 'by'); tycoonCheck(S, i);
       } else { fx.quiet = 1; L(S, 'notBought', {n: Q.n, v}, 1); }
       after(S); return true;
     }
@@ -257,7 +290,7 @@ function actInner(S, i, pid, a) {
       fx.head = tt('ownVenue'); fx.title = tt('venue', {v});
       if (a.up && lv < 3 && Q.m >= UPC[lv]) {
         Q.m -= UPC[lv]; o.lv = lv + 1; o.pr += UPC[lv]; const r = Math.round(COMS[o.lv] * 100);
-        fx.sub = tt('upgradedSub', {lv: o.lv, r}); L(S, 'upgraded', {n: Q.n, v, r}); tycoonCheck(S, i);
+        fx.sub = tt('upgradedSub', {lv: o.lv, r}); L(S, 'upgraded', {n: Q.n, v, r}); stat(Q, 'up'); tycoonCheck(S, i);
       } else { const m = COLLECT[lv]; Q.m += m; fx.sub = tt('collectedSub', {m}); L(S, 'collect', {n: Q.n, v, m}, 1); }
       after(S); return true;
     }
@@ -291,10 +324,18 @@ function act(S, pid, a) {
 // Final standings (player indices, winner first): survivors by net worth, then eliminated players, last out first.
 function standings(S) {
   if (!S || S.ph !== 'over') return null;
+  const win = new Set(winners(S));
   const alive = S.ord.slice().sort((a, b) => (b === S.win) - (a === S.win) || worth(S, b) - worth(S, a));
   const outs = (S.outs || []).slice().reverse().filter(j => !alive.includes(j));
   const rest = S.pl.map((_, i) => i).filter(i => !alive.includes(i) && !outs.includes(i));
-  return [...alive, ...outs, ...rest];
+  const all = [...alive, ...outs, ...rest];
+  return [...all.filter(j => win.has(j)), ...all.filter(j => !win.has(j))];
+}
+// winning players (both teammates in a team game)
+function winners(S) {
+  if (!S || S.ph !== 'over' || S.win == null) return [];
+  if (isTeams(S)) { const wt = S.wt != null ? S.wt : S.pl[S.win].tm; return S.pl.map((q, i) => i).filter(i => S.pl[i].tm === wt); }
+  return [S.win];
 }
 function actor(V) { if (!V) return -1; if (V.ph === 'play') return V.pend ? V.pend.i : mover(V); if (V.ph === 'feast') return V.fe.off ? V.fe.off.to : V.fe.w; return -1; }
 function autoPick(S) {
@@ -325,7 +366,7 @@ function sqScore(S, i, from, v) {
   return sc + Math.random() * 3;
 }
 function botDecide(S, i) {
-  const Q = S.pl[i], P = S.pend; const rich = S.ord.filter(j => j !== i).sort((a, b) => S.pl[b].m - S.pl[a].m);
+  const Q = S.pl[i], P = S.pend; const rich = rivals(S, i).sort((a, b) => S.pl[b].m - S.pl[a].m);
   if (S.ph === 'feast') {
     const f = S.fe;
     if (f.off) { if (f.off.to !== i) return null; const need = bill(S, i).tot, amt = f.off.amt; return {t: 'dealr', ok: canTake(S, i, amt) && (amt >= need || (amt >= need * .8 && Q.m > need * 3)) ? 1 : 0}; }
@@ -360,14 +401,15 @@ function botDecide(S, i) {
 // A card a bot may play when it's not its turn: Hunger pangs to grow someone else's check.
 function botSide(S, i) {
   const Q = S.pl[i]; if (S.ph !== 'feast' || S.fe.off || S.fe.w === i || !Q.a || !Q.c.includes('B9')) return null;
-  const cand = S.ord.filter(j => j !== i && j !== S.fe.w).sort((a, b) => S.pl[b].x - S.pl[a].x);
+  if (isTeams(S) && S.pl[S.fe.w].tm === Q.tm) return null;   // don't make a teammate's check bigger
+  const cand = rivals(S, i).filter(j => j !== S.fe.w).sort((a, b) => S.pl[b].x - S.pl[a].x);
   return {t: 'use', c: 'B9', to: cand.length ? cand[0] : S.fe.w};
 }
 
 export {
-  COMS, UPC, RENT, COLLECT, CFG, N, HALF, IRON, autoMoney, LIM, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
+  COMS, UPC, RENT, COLLECT, CFG, N, HALF, IRON, autoMoney, LIM, MODES, modeOf, isTeams, limits, mateOf, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, avTaken, setAvatar,
   newState, addPlayer, L, mover, pay, hun, rivals, fwd, back, give, draw, worth, land, card, doRoll, after, next,
   ownedBy, feast, bill, canTake, elim, payFeast, startDay, rank, startGame, useCard, actInner, act, actor, autoPick, checkStart,
-  sqScore, botDecide, botSide, standings, gameId
+  sqScore, botDecide, botSide, standings, winners, gameId
 };

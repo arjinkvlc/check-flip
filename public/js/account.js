@@ -65,7 +65,9 @@ export const ACC = {
   profile: null,      // row from public.profiles
   ach: new Set(),     // unlocked achievement keys
   recent: [],         // last game results
-  recovery: false     // opened from a password-reset link
+  recovery: false,    // opened from a password-reset link
+  daily: null,        // {quest, done, resets_in}
+  social: null        // {friends, incoming, outgoing, invites}
 };
 let sb = null;
 const listeners = new Set();
@@ -108,6 +110,10 @@ function errKey(e) {
   if (m.includes('signup') && m.includes('disabled')) return 'aErrSignupOff';
   if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed')) return 'aErrNet';
   if (m.includes('locked')) return 'aErrLocked';
+  if (m.includes('no_such_user')) return 'aErrNoUser';
+  if (m.includes('self')) return 'aErrSelf';
+  if (m.includes('not_friends')) return 'aErrNotFriends';
+  if (m.includes('too_many_friends')) return 'aErrTooManyFriends';
   return 'aErrGeneric';
 }
 const fail = e => { const k = errKey(e); const err = new Error(k); err.key = k; err.raw = e; return err; };
@@ -125,7 +131,7 @@ export async function initAccount() {
     const u = session ? session.user : null;
     const changed = (u && u.id) !== (ACC.user && ACC.user.id);
     ACC.user = u;
-    if (!u) { ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; emit(); return; }
+    if (!u) { ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; ACC.daily = null; ACC.social = null; emit(); return; }
     // don't await Supabase calls inside this callback (supabase-js deadlock note)
     if (changed || !ACC.profile) setTimeout(() => refreshProfile().catch(() => {}), 0); else emit();
   });
@@ -146,6 +152,7 @@ export async function refreshProfile() {
   ACC.profile = p.data || null;
   ACC.ach = new Set((a.data || []).map(x => x.key));
   ACC.recent = r.data || [];
+  try { const d = await sb.rpc('my_daily'); if (!d.error) ACC.daily = d.data; } catch (e) {}
   emit();
 }
 
@@ -213,7 +220,7 @@ export async function setNewPassword(pw) {
 export async function signOut() {
   if (!sb) return;
   try { await sb.auth.signOut(); } catch (e) {}
-  ACC.user = null; ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; emit();
+  ACC.user = null; ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; ACC.daily = null; ACC.social = null; emit();
 }
 
 // Permanently deletes the signed-in account and all of its data
@@ -246,3 +253,44 @@ export async function submitResult(payload) {
   res.newAch = [...ACC.ach].filter(k => !before.has(k));
   return res;
 }
+
+/* ---------------- daily quest, leaderboards, friends, invites ---------------- */
+export const QUESTS = ['play_online', 'win_any', 'deal', 'buy2', 'upgrade', 'cards3', 'survive10', 'payer'];
+
+// kind: 'weekly' | 'level'
+export async function leaderboard(kind) {
+  if (!sb) throw fail('disabled');
+  const {data, error} = await sb.rpc('leaderboard', {p_kind: kind, p_limit: 50});
+  if (error) throw fail(error);
+  return data || [];
+}
+export async function publicProfile(username) {
+  if (!sb) throw fail('disabled');
+  const {data, error} = await sb.rpc('public_profile', {p_username: username});
+  if (error) throw fail(error);
+  return data;
+}
+async function call(fn, args) {
+  if (!sb || !loggedIn()) throw fail('not_authenticated');
+  const {data, error} = await sb.rpc(fn, args || {});
+  if (error) throw fail(error);
+  return data;
+}
+export const friendAdd = name => call('friend_add', {p_username: name}).then(r => { pollSocial(); return r; });
+export const friendRespond = (name, ok) => call('friend_respond', {p_username: name, p_accept: !!ok}).then(pollSocial);
+export const friendRemove = name => call('friend_remove', {p_username: name}).then(pollSocial);
+export const inviteFriend = (name, room) => call('invite_friend', {p_username: name, p_room: room});
+export const inviteDismiss = id => call('invite_dismiss', {p_id: id}).then(pollSocial);
+
+// friends, requests and invites; also keeps me "online" for friends. Polled every 20 s while logged in.
+let lastSocial = '';
+export async function pollSocial() {
+  if (!sb || !loggedIn()) return;
+  try {
+    const data = await call('social');
+    const key = JSON.stringify(data);
+    if (key !== lastSocial) { lastSocial = key; ACC.social = data; emit(); }
+  } catch (e) {}
+}
+setInterval(() => { if (typeof document !== 'undefined' && document.visibilityState === 'visible') pollSocial(); }, 20000);
+onAccount(() => { if (loggedIn() && !ACC.social) pollSocial(); });

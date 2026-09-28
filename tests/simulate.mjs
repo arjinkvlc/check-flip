@@ -1,7 +1,7 @@
 // Check Flip — engine simulation
 // Plays hundreds of games with random-choice players, looks for stuck games and invalid states,
 // reports game length and measures the single-player bot AI. Run: npm test  (or: node tests/simulate.mjs [games])
-import {newState, addPlayer, act, actor, autoPick, rivals, HOLD, CFG, botDecide, botSide, standings} from '../public/js/engine.js';
+import {newState, addPlayer, act, actor, autoPick, rivals, HOLD, CFG, botDecide, botSide, standings, winners} from '../public/js/engine.js';
 
 const GAMES = +(process.argv[2] || 300);
 const R = Math.random;
@@ -31,10 +31,10 @@ function botStep(S) {
 }
 
 const stats = {g: 0, d: 0, b: 0, i: 0, t: 0};
-function run(np, days = 0) {
+function run(np, days = 0, mode = 'classic') {
   const lens = []; let errors = 0;
   for (let g = 0; g < GAMES; g++) {
-    const S = newState(); S.host = 'p0'; S.cfg.days = days;
+    const S = newState(); S.host = 'p0'; S.cfg.days = days; S.cfg.mode = mode;
     for (let k = 0; k < np; k++) addPlayer(S, 'p' + k, 'P' + k);
     act(S, 'p0', {t: 'start'});
     let guard = 0;
@@ -51,6 +51,9 @@ function run(np, days = 0) {
     if (S.ph !== 'over') errors++; else lens.push(S.day);
     if (S.ph === 'over') {
       const st = standings(S);
+      const w = winners(S);
+      if (mode === 'teams' && S.win != null && (w.length !== 2 || S.pl[w[0]].tm !== S.pl[w[1]].tm || !w.includes(st[0]) || !w.includes(st[1]))) { errors++; console.error('bad team winners', w, st); }
+      if (mode === 'quick' && S.day > 10) { errors++; console.error('quick game longer than 10 days'); }
       if (!st || st.length !== np || new Set(st).size !== np || (S.win != null && st[0] !== S.win) || !/^g[a-z0-9]{15}$/.test(S.gid)) { errors++; console.error('bad standings', st, S.win, S.gid); }
       stats.d += S.pl.reduce((a, q) => a + q.st.d, 0); stats.b += S.pl.reduce((a, q) => a + q.st.b, 0); stats.i += S.pl.filter(q => q.st.i).length; stats.t += S.pl.filter(q => q.st.t).length; stats.g++;
     }
@@ -58,7 +61,7 @@ function run(np, days = 0) {
   }
   lens.sort((a, b) => a - b);
   const pct = p => lens[Math.min(lens.length - 1, Math.floor(lens.length * p))];
-  console.log(`${np} players${days ? `, ${days}-day limit` : ''}: ${lens.length}/${GAMES} games finished, errors ${errors}, median days ${pct(.5)} (p10 ${pct(.1)}, p90 ${pct(.9)})`);
+  console.log(`${np} players${mode !== 'classic' ? ` (${mode})` : ''}${days ? `, ${days}-day limit` : ''}: ${lens.length}/${GAMES} games finished, errors ${errors}, median days ${pct(.5)} (p10 ${pct(.1)}, p90 ${pct(.9)})`);
   return errors;
 }
 
@@ -85,6 +88,8 @@ function botArena(np) {
 let total = 0;
 for (const n of [2, 3, 4, 6]) total += run(n);
 total += run(4, 20);
+total += run(4, 0, 'quick');
+total += run(4, 0, 'teams');
 for (const n of [2, 4]) total += botArena(n);
 console.log(`Achievement counters per game: deals ${(stats.d / stats.g).toFixed(2)}, belt uses ${(stats.b / stats.g).toFixed(2)}, iron-stomach players ${(stats.i / stats.g).toFixed(2)}, tycoon ${(stats.t / stats.g).toFixed(3)}`);
 if (total) { console.error(`${total} errors found`); process.exit(1); }

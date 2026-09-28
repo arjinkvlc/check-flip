@@ -5,6 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Check Flip Roll the dice, draw cards, stay hungry and make your rivals pick up the check. A free 2–6 player browser game.">
 <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#1e3a4c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Check Flip">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Check Flip">
+<meta property="og:title" content="Check Flip · Flip the check. Make them pay.">
+<meta property="og:description" content="A free multiplayer board game about dice, cards and who picks up the check. Play with friends in your browser, no download.">
+<meta property="og:url" content="https://checkflipgame.com/">
+<meta property="og:image" content="https://checkflipgame.com/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Check Flip board game">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Check Flip · Flip the check. Make them pay.">
+<meta name="twitter:description" content="A free multiplayer board game about dice, cards and who picks up the check.">
+<meta name="twitter:image" content="https://checkflipgame.com/assets/og.png">
 <title>Check Flip</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,6 +38,7 @@
     <button id="logBtn" class="btn small ghost logbtn" data-a="log" data-ia="showLog" hidden>📜</button>
     <button id="chatHdr" class="btn small ghost chathdr" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge2" hidden>0</span></button>
     <button id="langBtn" class="btn small ghost langbtn" data-a="lang">🌐 TR</button>
+    <button id="musicBtn" class="btn small ghost snd" data-a="music" data-ia="music">🎵</button>
     <button id="sndBtn" class="btn small ghost snd" data-a="snd" data-ia="sound">🔊</button>
     <button id="leaveBtn" class="btn small ghost" data-a="leave" hidden><span class="lt" data-i="leaveLong"></span><span class="st" data-i="leave"></span></button>
   </header>
@@ -49,13 +68,15 @@
       <p id="homeErr" class="err" hidden></p>
       <div class="or" data-i="or"></div>
       <div class="row"><button class="btn" data-a="solo" style="flex:1" data-i="solo"></button><button class="btn ghost" data-a="local" style="flex:1" data-i="local"></button></div>
+      <div class="row"><button class="btn ghost" data-a="leaders" style="flex:1" data-i="leadersBtn"></button><button class="btn ghost" data-a="install" id="installBtn" style="flex:1" data-i="installBtn" hidden></button></div>
     </div>
     <details class="rules">
       <summary data-i="rulesTitle"></summary>
       <ul id="rulesList"></ul>
+      <p><button class="linkbtn" data-a="tipsreset" data-i="tipsReset"></button></p>
       <div class="cols" id="cardLists"></div>
     </details>
-    <footer class="credit" style="grid-column:1/-1"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a></footer>
+    <footer class="credit" style="grid-column:1/-1"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a><span class="ver" id="verTag"></span></footer>
   </section>
 
   <section id="auth" class="lobby" hidden>
@@ -65,6 +86,9 @@
   <section id="profile" class="profile" hidden>
     <div id="profileBox"></div>
   </section>
+
+  <section id="friends" class="profile" hidden><div id="friendsBox"></div></section>
+  <section id="leaders" class="profile" hidden><div id="leadersBox"></div></section>
 
   <section id="local" class="lobby" hidden>
     <div class="box">
@@ -76,6 +100,9 @@
         <div class="spacer"></div>
         <button class="btn ghost" data-a="leave" data-i="back"></button>
       </div>
+      <label for="localMode" data-i="modeLbl"></label>
+      <div class="cfgrow"><select id="localMode"><option value="classic" class="optMode" data-m="classic">Classic</option><option value="quick" class="optMode" data-m="quick">Quick</option><option value="teams" class="optMode" data-m="teams">2v2</option></select></div>
+      <p class="note" id="localModeNote"></p>
       <label for="localMoney" data-i="startMoney"></label>
       <div class="cfgrow"><input id="localMoney" type="number" min="20" max="2000" step="10" inputmode="numeric"><span class="note" id="localMoneyNote"></span></div>
       <label for="localDays" data-i="dayLimit"></label>
@@ -88,6 +115,8 @@
     <div class="box">
       <h3 data-i="soloTitle"></h3>
       <p class="note" data-i="soloNote"></p>
+      <label data-i="modeLbl"></label>
+      <div class="seg3" id="soloMode"><button data-a="soloMode" data-m="classic"></button><button data-a="soloMode" data-m="quick"></button><button data-a="soloMode" data-m="teams"></button></div>
       <label data-i="tableSize"></label>
       <div class="seg3" id="soloCount"><button data-a="soloN" data-n="2"></button><button data-a="soloN" data-n="3"></button><button data-a="soloN" data-n="4"></button></div>
       <label data-i="yourAvatar"></label>
@@ -118,8 +147,12 @@
       <p class="note" data-i="avatarNote"></p>
     </div>
     <ul id="lobbyList" class="plist"></ul>
+    <div class="box" id="inviteBox" hidden></div>
     <div class="box" id="cfgBox">
       <h3 data-i="settings"></h3>
+      <label for="modeSel" data-i="modeLbl"></label>
+      <div class="cfgrow"><select id="modeSel"><option value="classic" class="optMode" data-m="classic">Classic</option><option value="quick" class="optMode" data-m="quick">Quick</option><option value="teams" class="optMode" data-m="teams">2v2</option></select></div>
+      <p class="note" id="modeNote"></p>
       <label for="startMoney" data-i="startMoney"></label>
       <div class="cfgrow"><input id="startMoney" type="number" min="20" max="2000" step="10" inputmode="numeric"><button class="btn small ghost" data-a="autoMoney" id="autoMoneyBtn" data-i="auto"></button></div>
       <p class="note" id="moneyNote"></p>
@@ -168,6 +201,8 @@
   <footer class="credit" id="gameCredit" hidden><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a></footer>
 </div>
 
+<div class="toast" id="toast" hidden></div>
+<div class="modal" id="modal" hidden><div class="modalcard" id="modalCard"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script type="module" src="js/app.js"></script>

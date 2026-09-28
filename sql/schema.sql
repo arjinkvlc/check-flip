@@ -62,6 +62,37 @@ create table if not exists public.game_results (
 create unique index if not exists game_results_seat on public.game_results (game_id, pid);
 create index if not exists game_results_user_time on public.game_results (user_id, created_at desc);
 
+-- Daily quests: one reward per user per UTC day
+create table if not exists public.quest_claims (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  day     date not null,
+  quest   text not null,
+  primary key (user_id, day)
+);
+
+-- Friends: requests, accepted friendships (stored in both directions), game invites
+create table if not exists public.friend_requests (
+  from_id    uuid not null references public.profiles (id) on delete cascade,
+  to_id      uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (from_id, to_id)
+);
+create table if not exists public.friends (
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  friend_id  uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, friend_id)
+);
+create table if not exists public.invites (
+  id         bigint generated always as identity primary key,
+  from_id    uuid not null references public.profiles (id) on delete cascade,
+  to_id      uuid not null references public.profiles (id) on delete cascade,
+  room       text not null check (room ~ '^[A-Z0-9]{5}$'),
+  created_at timestamptz not null default now()
+);
+create index if not exists invites_to on public.invites (to_id, created_at desc);
+alter table public.profiles add column if not exists last_seen timestamptz;
+
 -- Cosmetic catalog: the single source of truth for unlock rules.
 -- (Names and visuals live in the client; keys must match js/account.js.)
 create table if not exists public.cosmetics (
@@ -144,6 +175,11 @@ alter table public.achievements   enable row level security;
 alter table public.game_results   enable row level security;
 alter table public.cosmetics      enable row level security;
 alter table public.login_attempts enable row level security;
+alter table public.quest_claims   enable row level security;
+alter table public.friend_requests enable row level security;
+alter table public.friends        enable row level security;
+alter table public.invites        enable row level security;
+-- quest_claims, friend_requests, friends, invites: no policies → only reachable through the functions below
 
 drop policy if exists profiles_read on public.profiles;
 create policy profiles_read on public.profiles for select using (true);
@@ -159,7 +195,7 @@ grant usage on schema public to anon, authenticated;
 grant select on public.profiles, public.achievements, public.cosmetics to anon, authenticated;
 grant select on public.game_results to authenticated;
 revoke insert, update, delete on public.profiles, public.achievements, public.game_results, public.cosmetics from anon, authenticated;
-revoke all on public.login_attempts from anon, authenticated;
+revoke all on public.login_attempts, public.quest_claims, public.friend_requests, public.friends, public.invites from anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Helpers
@@ -279,8 +315,9 @@ end $$;
 
 -- ---------------------------------------------------------------------
 -- submit_result: called by each signed-in player at the end of a game
--- p = {game_id, mode:'online'|'solo', pid, order:[seat ids, winner first],
---      won, days, duration, stats:{deals, belt, tycoon, iron, bonus}}
+-- p = {game_id, mode:'online'|'solo', pid, order:[seat ids, winners first],
+--      winners:[seat ids] (optional; 2 in team games), won, days, duration,
+--      stats:{deals, belt, tycoon, iron, bonus, bought, upgrades, cards, paid, survived}}
 -- Place and player count are derived from `order`; the digest of the final
 -- standings is computed here, so players can't pick their own.
 -- ---------------------------------------------------------------------
@@ -299,6 +336,7 @@ declare
   v_digest text;
   v_stats jsonb; v_counted boolean; v_full int; v_now int := 0;
   v_recent int; v_verified boolean := false; v_before int; v_after int; v_new text[] := '{}'; o record;
+  v_winners jsonb := p -> 'winners'; v_nw int; v_eff int; v_q text; v_met boolean; v_qdone text := null; v_s jsonb := coalesce(p -> 'stats', '{}'::jsonb);
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   if v_gid is null or v_gid !~ '^[A-Za-z0-9_-]{6,40}$' then raise exception 'bad_game_id'; end if;
@@ -310,8 +348,16 @@ begin
   if (select count(distinct x) from jsonb_array_elements_text(v_order) x) <> v_players then raise exception 'bad_order'; end if;
   select i::int into v_place from jsonb_array_elements_text(v_order) with ordinality as e(x, i) where x = v_pid;
   if v_place is null then raise exception 'bad_pid'; end if;
-  if v_won and v_place <> 1 then v_won := false; end if;
-  v_digest := md5(v_gid || '|' || v_order::text || '|' || v_days);
+  -- winners must be the first seats of the order (1, or 2 teammates)
+  if v_winners is null or jsonb_typeof(v_winners) <> 'array' or jsonb_array_length(v_winners) = 0 then v_winners := jsonb_build_array(v_order -> 0); end if;
+  v_nw := jsonb_array_length(v_winners);
+  if v_nw > 2 or v_nw * 2 > v_players then raise exception 'bad_winners'; end if;
+  for i in 0 .. v_nw - 1 loop
+    if v_winners ->> i is distinct from v_order ->> i then raise exception 'bad_winners'; end if;
+  end loop;
+  v_won := v_won and v_winners ? v_pid;
+  v_eff := case when v_won then 1 else v_place end;
+  v_digest := md5(v_gid || '|' || v_order::text || '|' || v_winners::text || '|' || v_days);
 
   perform pg_advisory_xact_lock(hashtext(v_gid));
   select xp into v_before from public.profiles where id = v_uid;
@@ -333,7 +379,7 @@ begin
                      where user_id = v_uid and counted and created_at > now() - interval '4 minutes');
 
   v_full := case when v_counted then least(150,
-              20 + (v_players - v_place) * 10 + case when v_won then 50 else 0 end
+              20 + (v_players - v_eff) * 10 + case when v_won then 50 else 0 end
               + least(greatest(coalesce((p -> 'stats' ->> 'bonus')::int, 0), 0), 20))
             else 0 end;
   if v_mode = 'solo' then v_full := round(v_full * 0.5); end if;
@@ -370,12 +416,30 @@ begin
       end loop;
     end if;
   end if;
+  -- daily quest: +30 XP once per UTC day when this game meets today's goal
+  v_q := public.daily_quest();
+  v_met := case v_q
+       when 'play_online' then v_mode = 'online'
+       when 'win_any'     then v_won
+       when 'deal'        then coalesce((v_s ->> 'deals')::int, 0) >= 1
+       when 'buy2'        then coalesce((v_s ->> 'bought')::int, 0) >= 2
+       when 'upgrade'     then coalesce((v_s ->> 'upgrades')::int, 0) >= 1
+       when 'cards3'      then coalesce((v_s ->> 'cards')::int, 0) >= 3
+       when 'survive10'   then coalesce((v_s ->> 'survived')::int, 0) >= 10
+       when 'payer'       then coalesce((v_s ->> 'paid')::int, 0) >= 1
+       else false end;
+  if v_met and not exists (select 1 from public.quest_claims where user_id = v_uid and day = (now() at time zone 'utc')::date) then
+    insert into public.quest_claims (user_id, day, quest) values (v_uid, (now() at time zone 'utc')::date, v_q);
+    update public.profiles set xp = xp + 30 where id = v_uid;
+    v_qdone := v_q;
+  end if;
+
   -- achievements unlocked by this call (now() is the transaction start time)
   select coalesce(array_agg(key), '{}') into v_new from public.achievements
    where user_id = v_uid and unlocked_at = now();
 
   select xp into v_after from public.profiles where id = v_uid;
-  return jsonb_build_object('counted', true, 'verified', v_verified, 'xp_gained', v_after - v_before,
+  return jsonb_build_object('counted', true, 'verified', v_verified, 'xp_gained', v_after - v_before, 'quest', v_qdone,
                             'xp_pending', case when v_verified then 0 else v_full - v_now end,
                             'xp', v_after, 'level', public.level_of(v_after), 'new_achievements', to_jsonb(v_new));
 end $$;
@@ -408,6 +472,162 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
+-- Daily quest: the same quest for everyone, changes at 00:00 UTC
+-- ---------------------------------------------------------------------
+create or replace function public.daily_quest(p_day date default null)
+returns text language sql stable set search_path = '' as $$
+  select (array['play_online', 'win_any', 'deal', 'buy2', 'upgrade', 'cards3', 'survive10', 'payer'])
+         [1 + ((coalesce(p_day, (now() at time zone 'utc')::date) - date '2026-01-01') % 8)];
+$$;
+
+create or replace function public.my_daily()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'quest', public.daily_quest(),
+    'done', exists (select 1 from public.quest_claims where user_id = auth.uid() and day = (now() at time zone 'utc')::date),
+    'resets_in', extract(epoch from (date_trunc('day', now() at time zone 'utc') + interval '1 day') - (now() at time zone 'utc'))::int);
+$$;
+
+-- ---------------------------------------------------------------------
+-- Leaderboards: 'weekly' = XP earned this week (Monday 00:00 UTC), 'level' = all-time XP
+-- ---------------------------------------------------------------------
+create or replace function public.leaderboard(p_kind text, p_limit int default 50)
+returns table (pos bigint, username text, level int, xp int, week_xp int, wins int, games int, equipped jsonb, me boolean)
+language sql stable security definer set search_path = '' as $$
+  with w as (
+    select r.user_id, sum(r.xp)::int as wxp from public.game_results r
+     where r.created_at >= (date_trunc('week', now() at time zone 'utc') at time zone 'utc')
+     group by r.user_id
+  ), q as (
+    select c.user_id, count(*)::int * 30 as qxp from public.quest_claims c
+     where c.day >= date_trunc('week', now() at time zone 'utc')::date
+     group by c.user_id
+  ), t as (
+    select p.id, p.username, p.xp, p.wins, p.games, p.equipped,
+           coalesce(w.wxp, 0) + coalesce(q.qxp, 0) as wk
+      from public.profiles p left join w on w.user_id = p.id left join q on q.user_id = p.id
+  ), ranked as (
+    select row_number() over (order by case when p_kind = 'weekly' then t.wk else t.xp end desc, t.xp desc, t.username) as pos, t.*
+      from t where p_kind <> 'weekly' or t.wk > 0
+  )
+  select r.pos, r.username, public.level_of(r.xp), r.xp, r.wk, r.wins, r.games, r.equipped, r.id = auth.uid()
+    from ranked r
+   where r.pos <= least(greatest(coalesce(p_limit, 50), 1), 100) or r.id = auth.uid()
+   order by r.pos;
+$$;
+
+-- ---------------------------------------------------------------------
+-- Public profile card (what friends and other players can see)
+-- ---------------------------------------------------------------------
+create or replace function public.public_profile(p_username text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare p public.profiles%rowtype; v_me uuid := auth.uid();
+begin
+  select * into p from public.profiles where lower(username) = lower(p_username);
+  if not found then return null; end if;
+  return jsonb_build_object(
+    'username', p.username, 'level', public.level_of(p.xp), 'xp', p.xp, 'wins', p.wins, 'games', p.games,
+    'bot_games', p.bot_games, 'stats', p.stats, 'equipped', p.equipped, 'created_at', p.created_at,
+    'online', coalesce(p.last_seen > now() - interval '2 minutes', false),
+    'achievements', coalesce((select jsonb_agg(a.key order by a.unlocked_at) from public.achievements a where a.user_id = p.id), '[]'::jsonb),
+    'me', p.id = v_me,
+    'friend', exists (select 1 from public.friends f where f.user_id = v_me and f.friend_id = p.id),
+    'requested', exists (select 1 from public.friend_requests r where r.from_id = v_me and r.to_id = p.id),
+    'incoming', exists (select 1 from public.friend_requests r where r.from_id = p.id and r.to_id = v_me));
+end $$;
+
+-- ---------------------------------------------------------------------
+-- Friends
+-- ---------------------------------------------------------------------
+-- send a request (or accept theirs if they already asked). Returns 'requested' | 'friends'
+create or replace function public.friend_add(p_username text)
+returns text language plpgsql security definer set search_path = '' as $$
+declare v_me uuid := auth.uid(); v_to uuid;
+begin
+  if v_me is null then raise exception 'not_authenticated'; end if;
+  select id into v_to from public.profiles where lower(username) = lower(p_username);
+  if v_to is null then raise exception 'no_such_user'; end if;
+  if v_to = v_me then raise exception 'self'; end if;
+  if exists (select 1 from public.friends where user_id = v_me and friend_id = v_to) then return 'friends'; end if;
+  if (select count(*) from public.friends where user_id = v_me) >= 200 then raise exception 'too_many_friends'; end if;
+  if exists (select 1 from public.friend_requests where from_id = v_to and to_id = v_me) then
+    delete from public.friend_requests where (from_id = v_to and to_id = v_me) or (from_id = v_me and to_id = v_to);
+    insert into public.friends (user_id, friend_id) values (v_me, v_to), (v_to, v_me) on conflict do nothing;
+    return 'friends';
+  end if;
+  if (select count(*) from public.friend_requests where from_id = v_me and created_at > now() - interval '1 hour') >= 30 then
+    raise exception 'too_many_attempts';
+  end if;
+  insert into public.friend_requests (from_id, to_id) values (v_me, v_to) on conflict do nothing;
+  return 'requested';
+end $$;
+
+create or replace function public.friend_respond(p_username text, p_accept boolean)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_me uuid := auth.uid(); v_from uuid;
+begin
+  if v_me is null then raise exception 'not_authenticated'; end if;
+  select id into v_from from public.profiles where lower(username) = lower(p_username);
+  if v_from is null then return; end if;
+  delete from public.friend_requests where from_id = v_from and to_id = v_me;
+  if found and p_accept then
+    insert into public.friends (user_id, friend_id) values (v_me, v_from), (v_from, v_me) on conflict do nothing;
+  end if;
+end $$;
+
+-- remove a friend, or cancel a request I sent
+create or replace function public.friend_remove(p_username text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_me uuid := auth.uid(); v_o uuid;
+begin
+  if v_me is null then raise exception 'not_authenticated'; end if;
+  select id into v_o from public.profiles where lower(username) = lower(p_username);
+  if v_o is null then return; end if;
+  delete from public.friends where (user_id = v_me and friend_id = v_o) or (user_id = v_o and friend_id = v_me);
+  delete from public.friend_requests where from_id = v_me and to_id = v_o;
+end $$;
+
+-- friends, requests and fresh game invites in one call; also marks me as online
+create or replace function public.social()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_me uuid := auth.uid();
+begin
+  if v_me is null then raise exception 'not_authenticated'; end if;
+  update public.profiles set last_seen = now() where id = v_me;
+  delete from public.invites where created_at < now() - interval '10 minutes';
+  return jsonb_build_object(
+    'friends', coalesce((select jsonb_agg(jsonb_build_object('username', p.username, 'level', public.level_of(p.xp), 'equipped', p.equipped,
+                  'online', coalesce(p.last_seen > now() - interval '2 minutes', false)) order by coalesce(p.last_seen > now() - interval '2 minutes', false) desc, lower(p.username))
+                from public.friends f join public.profiles p on p.id = f.friend_id where f.user_id = v_me), '[]'::jsonb),
+    'incoming', coalesce((select jsonb_agg(p.username order by r.created_at) from public.friend_requests r join public.profiles p on p.id = r.from_id where r.to_id = v_me), '[]'::jsonb),
+    'outgoing', coalesce((select jsonb_agg(p.username order by r.created_at) from public.friend_requests r join public.profiles p on p.id = r.to_id where r.from_id = v_me), '[]'::jsonb),
+    'invites', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'from', p.username, 'room', i.room, 'equipped', p.equipped) order by i.created_at desc)
+                from public.invites i join public.profiles p on p.id = i.from_id where i.to_id = v_me), '[]'::jsonb));
+end $$;
+
+-- invite a friend to my room (no code typing needed on their side)
+create or replace function public.invite_friend(p_username text, p_room text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_me uuid := auth.uid(); v_to uuid;
+begin
+  if v_me is null then raise exception 'not_authenticated'; end if;
+  if p_room !~ '^[A-Z0-9]{5}$' then raise exception 'bad_room'; end if;
+  select f.friend_id into v_to from public.friends f join public.profiles p on p.id = f.friend_id
+   where f.user_id = v_me and lower(p.username) = lower(p_username);
+  if v_to is null then raise exception 'not_friends'; end if;
+  if (select count(*) from public.invites where from_id = v_me and created_at > now() - interval '10 minutes') >= 20 then
+    raise exception 'too_many_attempts';
+  end if;
+  delete from public.invites where from_id = v_me and to_id = v_to;
+  insert into public.invites (from_id, to_id, room) values (v_me, v_to, p_room);
+end $$;
+
+create or replace function public.invite_dismiss(p_id bigint)
+returns void language sql security definer set search_path = '' as $$
+  delete from public.invites where id = p_id and to_id = auth.uid();
+$$;
+
+-- ---------------------------------------------------------------------
 -- delete_my_account: the signed-in user deletes their account and all its
 -- data (profile, achievements and results cascade from auth.users)
 -- ---------------------------------------------------------------------
@@ -433,6 +653,11 @@ grant execute on function public.login_email(text, text) to anon, authenticated;
 grant execute on function public.submit_result(jsonb) to authenticated;
 grant execute on function public.set_equipped(jsonb) to authenticated;
 revoke execute on function public.delete_my_account() from public, anon;
+revoke execute on function public.my_daily(), public.social(), public.friend_add(text), public.friend_respond(text, boolean),
+  public.friend_remove(text), public.invite_friend(text, text), public.invite_dismiss(bigint) from public, anon;
+grant execute on function public.my_daily(), public.social(), public.friend_add(text), public.friend_respond(text, boolean),
+  public.friend_remove(text), public.invite_friend(text, text), public.invite_dismiss(bigint) to authenticated;
+grant execute on function public.daily_quest(date), public.leaderboard(text, int), public.public_profile(text) to anon, authenticated;
 grant execute on function public.delete_my_account() to authenticated;
 
 -- ---------------------------------------------------------------------

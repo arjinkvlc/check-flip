@@ -1,0 +1,159 @@
+/**
+ * Check Flip — social screens: friends, leaderboards, player profile cards,
+ * game invites (toast) and the "invite friends" box in a private lobby.
+ */
+import {
+  ACC, ACHS, loggedIn, level, levelOf, xpFor, MAX_LEVEL, safeItem, leaderboard, publicProfile,
+  friendAdd, friendRespond, friendRemove, inviteFriend, inviteDismiss, pollSocial, USERNAME_RE
+} from './account.js';
+import {frCls} from './account-ui.js';
+import {t, getLang} from './i18n.js';
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+let H = null;   // hooks from app.js
+export const SU = {lbKind: 'weekly', lb: {}, lbAt: {}, lbErr: '', fMsg: '', fErr: '', busy: false, invited: {}, hidden: {}};
+export function initSocialUI(hooks) { H = hooks; }
+
+// small round avatar with the player's equipped frame
+function face(eq, name, big) {
+  const e = eq || {}, av = e.avatar && H.AVATARS[e.avatar] ? H.avHTML(e.avatar) : esc((name || '?')[0].toUpperCase());
+  return `<span class="pfav ${big ? 'big' : 'sm'}${frCls(safeItem('frame', e.frame))}">${av}</span>`;
+}
+const titleOf = eq => t('itemName', 'title', safeItem('title', (eq || {}).title));
+const nameBtn = u => `<button class="linkbtn uname" data-a="viewp" data-u="${esc(u)}">${esc(u)}</button>`;
+
+/* ---------------- leaderboards ---------------- */
+async function loadBoard(kind, force) {
+  if (!force && SU.lb[kind] && Date.now() - (SU.lbAt[kind] || 0) < 60000) return;
+  try { SU.lb[kind] = await leaderboard(kind); SU.lbAt[kind] = Date.now(); SU.lbErr = ''; }
+  catch (e) { SU.lbErr = t(e && e.key ? e.key : 'aErrGeneric'); }
+  H.render();
+}
+export function renderLeaders(el) {
+  const kind = SU.lbKind, rows = SU.lb[kind];
+  if (!rows && !SU.lbErr) loadBoard(kind);
+  const val = r => kind === 'weekly' ? t('lbWeekXp', r.week_xp) : t('lbXp', r.xp);
+  const list = rows ? (rows.length ? `<ol class="lblist">${rows.map(r => `<li class="${r.me ? 'me' : ''}">
+      <span class="lbpos">${r.pos <= 3 ? ['🥇', '🥈', '🥉'][r.pos - 1] : r.pos}</span>${face(r.equipped, r.username)}
+      <span class="lbname">${nameBtn(r.username)}<small class="ptitle">${esc(titleOf(r.equipped))}</small></span>
+      <span class="lvtag">${esc(t('aLv', r.level))}</span><span class="lbval">${esc(val(r))}</span></li>`).join('')}</ol>`
+      : `<p class="note">${esc(t('lbEmpty'))}</p>`) : `<p class="note">${esc(SU.lbErr || t('aLoading'))}</p>`;
+  el.innerHTML = `<div class="box profhead"><span class="bigicon">🏆</span><div class="acctinfo"><b class="h2">${esc(t('lbTitle'))}</b>
+      <small class="note">${esc(kind === 'weekly' ? t('lbWeeklyNote') : t('lbLevelNote'))}</small></div>
+      <button class="btn small ghost" data-a="profBack">${esc(t('pBack'))}</button></div>
+    <div class="tabs"><button class="tab${kind === 'weekly' ? ' on' : ''}" data-a="lbTab" data-t="weekly">${esc(t('lbWeekly'))}</button>
+      <button class="tab${kind === 'level' ? ' on' : ''}" data-a="lbTab" data-t="level">${esc(t('lbLevel'))}</button></div>
+    <div class="box">${list}${!loggedIn() && ACC.enabled ? `<p class="note">${esc(t('lbGuest'))}</p>` : ''}</div>`;
+}
+
+/* ---------------- friends ---------------- */
+export function renderFriends(el) {
+  if (!loggedIn()) { el.innerHTML = `<div class="box"><p class="note">${esc(t('aLoading'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`; return; }
+  const s = ACC.social || {friends: [], incoming: [], outgoing: []};
+  const inc = s.incoming.length ? `<div class="box"><h3>${esc(t('frIncoming'))}</h3><ul class="frlist">${s.incoming.map(u => `<li>${nameBtn(u)}<span class="spacer"></span>
+      <button class="btn small primary" data-a="frAccept" data-u="${esc(u)}">${esc(t('frAccept'))}</button><button class="btn small ghost" data-a="frDecline" data-u="${esc(u)}">${esc(t('frDecline'))}</button></li>`).join('')}</ul></div>` : '';
+  const out = s.outgoing.length ? `<p class="note">${esc(t('frOutgoing'))} ${s.outgoing.map(u => `${esc(u)} <button class="linkbtn" data-a="frCancel" data-u="${esc(u)}">${esc(t('frCancel'))}</button>`).join(' · ')}</p>` : '';
+  const fl = s.friends.length ? `<ul class="frlist">${s.friends.map(f => `<li>${face(f.equipped, f.username)}<span class="frname">${nameBtn(f.username)}
+      <small class="${f.online ? 'online' : 'note'}">${esc(f.online ? t('frOnline') : t('frOffline'))}</small></span><span class="lvtag">${esc(t('aLv', f.level))}</span>
+      <button class="btn small ghost" data-a="frRemove" data-u="${esc(f.username)}" aria-label="${esc(t('frRemove'))}">✕</button></li>`).join('')}</ul>`
+    : `<p class="note">${esc(t('frNone'))}</p>`;
+  el.innerHTML = `<div class="box profhead"><span class="bigicon">👥</span><div class="acctinfo"><b class="h2">${esc(t('frTitle'))}</b><small class="note">${esc(t('frNote'))}</small></div>
+      <button class="btn small ghost" data-a="profBack">${esc(t('pBack'))}</button></div>
+    <div class="box"><form data-form="fradd" class="row"><input id="frName" maxlength="14" placeholder="${esc(t('frAddPh'))}" autocomplete="off" required>
+      <button class="btn primary" type="submit" ${SU.busy ? 'disabled' : ''}>${esc(t('frAdd'))}</button></form>
+      ${SU.fErr ? `<p class="err">${esc(SU.fErr)}</p>` : ''}${SU.fMsg ? `<p class="okmsg">${esc(SU.fMsg)}</p>` : ''}${out}</div>
+    ${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>`;
+}
+async function doFriend(fn, okMsg) {
+  if (SU.busy) return; SU.busy = true; SU.fErr = ''; SU.fMsg = ''; H.render();
+  try { const r = await fn(); SU.fMsg = typeof okMsg === 'function' ? okMsg(r) : okMsg || ''; }
+  catch (e) { SU.fErr = t(e && e.key ? e.key : 'aErrGeneric'); }
+  SU.busy = false; H.render(); if (modalUser) openProfile(modalUser);
+}
+
+/* ---------------- profile card (modal) ---------------- */
+let modalUser = null;
+export async function openProfile(username) {
+  modalUser = username;
+  const m = document.getElementById('modal'), c = document.getElementById('modalCard');
+  m.hidden = false; c.innerHTML = `<p class="note">${esc(t('aLoading'))}</p>`;
+  let p = null; try { p = await publicProfile(username); } catch (e) {}
+  if (modalUser !== username) return;
+  if (!p) { c.innerHTML = `<p class="err">${esc(t('aErrNoUser'))}</p><button class="btn ghost" data-a="modalClose">${esc(t('close'))}</button>`; return; }
+  const eq = p.equipped || {}, lv = p.level, a = xpFor(lv), b = xpFor(Math.min(MAX_LEVEL, lv + 1));
+  const rate = p.games ? Math.round(p.wins / p.games * 100) : 0, st = p.stats || {};
+  let act = '';
+  if (loggedIn() && !p.me) {
+    act = p.friend ? `<button class="btn small ghost" data-a="frRemove" data-u="${esc(p.username)}">${esc(t('frRemove'))}</button><span class="tag ok">${esc(t('frIsFriend'))}</span>`
+      : p.incoming ? `<button class="btn small primary" data-a="frAccept" data-u="${esc(p.username)}">${esc(t('frAccept'))}</button>`
+      : p.requested ? `<span class="tag">${esc(t('frRequested'))}</span>`
+      : `<button class="btn small primary" data-a="frAddU" data-u="${esc(p.username)}">${esc(t('frAdd'))}</button>`;
+  }
+  const cell = (k, v) => `<div class="stat"><b>${esc(String(v))}</b><small>${esc(t(k))}</small></div>`;
+  c.innerHTML = `<button class="btn small ghost mclose" data-a="modalClose" aria-label="${esc(t('close'))}">✕</button>
+    <div class="profhead">${face(eq, p.username, true)}<div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span>
+      ${p.online ? `<span class="tag ok">${esc(t('frOnline'))}</span>` : ''}</div><small class="ptitle">${esc(titleOf(eq))}</small>
+      <div class="xpbar"><i style="width:${lv >= MAX_LEVEL ? 100 : ((p.xp - a) / (b - a) * 100).toFixed(1)}%"></i></div></div></div>
+    <div class="stats">${cell('pWins', p.wins)}${cell('pGames', p.games)}${cell('pWinRate', rate + '%')}${cell('pBotGames', p.bot_games)}${cell('pDeals', st.deals || 0)}${cell('pMember', new Date(p.created_at).toLocaleDateString(getLang()))}</div>
+    <h3>${esc(t('pTabAch'))} · ${p.achievements.length}/${ACHS.length}</h3>
+    <div class="achgrid">${ACHS.map(x => `<span class="ach${p.achievements.includes(x.key) ? ' got' : ''}" title="${esc(t('achName', x.key) + ': ' + t('achDesc', x.key))}">${x.icon}<small>${esc(t('achName', x.key))}</small></span>`).join('')}</div>
+    ${act ? `<div class="row mact">${act}</div>` : ''}`;
+}
+export function closeProfile() { modalUser = null; const m = document.getElementById('modal'); m.hidden = true; document.getElementById('modalCard').innerHTML = ''; }
+
+/* ---------------- invites ---------------- */
+// toast for the newest invite (only when not already in a room)
+export function updateToast() {
+  const el = document.getElementById('toast'); if (!el || !H) return;
+  const inv = loggedIn() && ACC.social && !H.inRoom() ? (ACC.social.invites || []).find(i => !SU.hidden[i.id]) : null;
+  if (!inv) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `${face(inv.equipped, inv.from)}<span class="tmsg">${t('invMsg', esc(inv.from))}</span>
+    <button class="btn small primary" data-a="invJoin" data-id="${inv.id}" data-room="${esc(inv.room)}">${esc(t('invJoin'))}</button>
+    <button class="btn small ghost" data-a="invNo" data-id="${inv.id}" aria-label="${esc(t('close'))}">✕</button>`;
+}
+// "invite friends" box in a private room's lobby
+export function renderInviteBox(el, room, show) {
+  if (!show || !loggedIn() || !room) { el.hidden = true; return; }
+  const fr = (ACC.social && ACC.social.friends) || [];
+  el.hidden = false;
+  const done = SU.invited[room] || {};
+  el.innerHTML = `<h3>${esc(t('invTitle'))}</h3>` + (fr.length ? `<ul class="frlist">${fr.map(f => `<li>${face(f.equipped, f.username)}<span class="frname"><b>${esc(f.username)}</b>
+      <small class="${f.online ? 'online' : 'note'}">${esc(f.online ? t('frOnline') : t('frOffline'))}</small></span>
+      ${done[f.username] ? `<span class="tag ok">${esc(t('invSent'))}</span>` : `<button class="btn small" data-a="invite" data-u="${esc(f.username)}">${esc(t('invBtn'))}</button>`}</li>`).join('')}</ul>`
+    : `<p class="note">${esc(t('invNoFriends'))}</p>`);
+}
+
+/* ---------------- events ---------------- */
+export function socialClick(a, b) {
+  switch (a) {
+    case 'leaders': SU.lbErr = ''; H.go('leaders'); loadBoard(SU.lbKind, true); return true;
+    case 'friends': SU.fErr = ''; SU.fMsg = ''; H.go('friends'); pollSocial(); return true;
+    case 'lbTab': SU.lbKind = b.dataset.t; SU.lbErr = ''; H.render(); loadBoard(SU.lbKind); return true;
+    case 'viewp': openProfile(b.dataset.u); return true;
+    case 'modalClose': closeProfile(); return true;
+    case 'frAccept': doFriend(() => friendRespond(b.dataset.u, true), t('frNowFriends', b.dataset.u)); return true;
+    case 'frDecline': doFriend(() => friendRespond(b.dataset.u, false)); return true;
+    case 'frCancel': doFriend(() => friendRemove(b.dataset.u)); return true;
+    case 'frRemove': if (confirm(t('frRemoveQ', b.dataset.u))) doFriend(() => friendRemove(b.dataset.u)); return true;
+    case 'frAddU': doFriend(() => friendAdd(b.dataset.u), r => r === 'friends' ? t('frNowFriends', b.dataset.u) : t('frSent', b.dataset.u)); return true;
+    case 'invite': {
+      const room = H.roomCode(), u = b.dataset.u; if (!room) return true;
+      b.disabled = true;
+      inviteFriend(u, room).then(() => { (SU.invited[room] = SU.invited[room] || {})[u] = 1; H.render(); })
+        .catch(e => { b.disabled = false; b.textContent = t(e && e.key ? e.key : 'aErrGeneric'); });
+      return true;
+    }
+    case 'invJoin': { const id = +b.dataset.id, room = b.dataset.room; SU.hidden[id] = 1; updateToast(); inviteDismiss(id).catch(() => {}); H.joinRoom(room); return true; }
+    case 'invNo': { const id = +b.dataset.id; SU.hidden[id] = 1; updateToast(); inviteDismiss(id).catch(() => {}); return true; }
+  }
+  return false;
+}
+document.addEventListener('submit', e => {
+  const f = e.target.closest && e.target.closest('form[data-form="fradd"]'); if (!f) return;
+  e.preventDefault(); const inp = document.getElementById('frName'); const u = (inp.value || '').trim();
+  if (!USERNAME_RE.test(u)) { SU.fErr = t('aErrNoUser'); H.render(); return; }
+  doFriend(() => friendAdd(u), r => r === 'friends' ? t('frNowFriends', u) : t('frSent', u));
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && modalUser) closeProfile(); });
+document.addEventListener('click', e => { if (e.target && e.target.id === 'modal') closeProfile(); });

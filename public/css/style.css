@@ -517,3 +517,54 @@ body[data-board="neon"] .center{box-shadow:inset 0 0 0 2px rgba(0,229,255,.55),i
 body[data-board="chalk"] .board{padding:5px}
 .botrow{display:grid;gap:6px;margin-bottom:10px}
 .plist .rmbot{padding:2px 8px;margin-left:auto}
+
+/* ================= v1.1 ================= */
+.ver{font-family:var(--mono);font-size:11px;color:var(--muted);align-self:center;opacity:.8}
+#musicBtn.off{opacity:.45;text-decoration:line-through}
+.tag.team{font-weight:700;color:#fff;border:0}
+.tag.team.t0{background:#3a7fc2}.tag.team.t1{background:#e2483d}
+.pn.link{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+/* first-game tip */
+.tip{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;background:#fff4d6;border:1.5px solid var(--mustard);border-radius:12px;padding:8px 10px;font-size:14px;font-weight:600;animation:popin .3s ease}
+.tipi{font-size:20px;line-height:1.2}
+.tipb{grid-column:2;display:flex;gap:10px;align-items:center}
+body.ingame .tip{font-size:12.5px;padding:6px 8px}
+/* daily quest on home */
+.quest{display:flex;gap:8px;align-items:flex-start;background:#eef3fb;border:1.5px solid #b9cbe6;border-radius:12px;padding:8px 10px;font-size:13.5px}
+.quest.done{background:#e6f3ea;border-color:#9fd0ae}
+.quest .qi{font-size:20px;line-height:1.1}
+.quest small{display:block;font-size:12px}
+.nbadge{display:inline-block;min-width:18px;height:18px;border-radius:9px;background:#d4160b;color:#fff;font:800 11px/18px var(--body);text-align:center;padding:0 5px}
+/* rematch */
+.rematch{display:grid;gap:6px}
+/* invite toast */
+.toast{position:fixed;left:12px;right:12px;margin:0 auto;width:fit-content;max-width:560px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:90;display:flex;align-items:center;gap:10px;
+  background:var(--paper);border:2px solid var(--ink);border-radius:16px;padding:8px 10px;box-shadow:0 12px 34px rgba(0,0,0,.3);max-width:calc(100vw - 24px);animation:popin .3s ease}
+.toast .tmsg{font-weight:600;font-size:14px}
+/* profile modal */
+.modal{position:fixed;inset:0;z-index:95;background:rgba(12,22,34,.5);display:grid;place-items:center;padding:14px}
+.modalcard{position:relative;width:min(560px,100%);max-height:calc(var(--app-h,100dvh) - 28px);overflow:auto;background:var(--paper);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:popin .25s ease}
+.modalcard h3{margin:0;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mclose{position:absolute;top:10px;right:10px}
+.mact{justify-content:flex-end;align-items:center}
+.achgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.ach{display:grid;justify-items:center;gap:2px;text-align:center;font-size:26px;border:1.5px solid var(--line);border-radius:10px;padding:6px 4px;background:var(--card);filter:grayscale(1);opacity:.5}
+.ach small{font-size:11px;font-weight:700;color:var(--ink)}
+.ach.got{filter:none;opacity:1;border-color:var(--green);background:#e6f3ea}
+.pfav.sm{width:36px;height:36px;font-size:17px;border-width:2px}
+.pfav.sm[class*="fr-"]{outline-width:2.5px;outline-offset:1px}
+.bigicon{font-size:40px;line-height:1}
+.h2{font-family:var(--display);font-size:24px;line-height:1}
+.uname{font-weight:800;font-size:15px;color:var(--ink);text-decoration:none;padding:0;text-align:left}
+.uname:hover{text-decoration:underline}
+/* leaderboard + friends lists */
+.lblist,.frlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lblist li,.frlist li{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:12px;padding:6px 10px;background:var(--card);min-width:0}
+.lblist li.me{border-color:var(--ink);background:#fff9e8}
+.lbpos{font-family:var(--display);font-weight:800;font-size:20px;min-width:30px;text-align:center}
+.lbname,.frname{display:grid;flex:1;min-width:0}
+.lbval{font-family:var(--display);font-weight:800;font-size:17px;white-space:nowrap}
+.frlist .online{color:var(--green);font-weight:700;font-size:12px}
+.frlist .note{font-size:12px}
+#inviteBox .frlist li{padding:5px 8px}
+.modalcard .stat b{font-size:20px}

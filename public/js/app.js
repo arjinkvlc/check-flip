@@ -7,10 +7,17 @@
 import {
   COMS, UPC, COLLECT, CFG, N, autoMoney, LIM, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, setAvatar,
-  newState, addPlayer, L, rivals, worth, ownedBy, bill, act, actor, autoPick, checkStart, botDecide, botSide, standings
+  newState, addPlayer, L, rivals, worth, ownedBy, bill, act, actor, autoPick, checkStart, botDecide, botSide, standings, winners, isTeams, limits, modeOf
 } from './engine.js';
 import {SFX} from './sound.js';
 import {HubClient, hubUrl, hubAvailable} from './net.js';
+import './i18n-v11.js';
+import {Music} from './music.js';
+import {VERSION} from './version.js';
+import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
+import {shareResult} from './share.js';
+import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast, socialClick} from './social-ui.js';
+import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
 import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
@@ -151,6 +158,7 @@ function hostHandle(m) {
     return;
   }
   if (m.k === 'av') { if (S.ph !== 'lobby') return; setAvatar(S, pid, typeof m.a === 'string' ? m.a : null); commit(); return; }
+  if (m.k === 'rm') { if (S.ph !== 'over' || !S.pl.some(q => q.id === pid)) return; S.rm = S.rm || {}; S.rm[pid] = m.v ? 1 : 0; commit(); checkRematch(); return; }
   if (m.k === 'ready') { if (S.ph !== 'lobby' || !S.pl.some(q => q.id === pid)) return; S.rdy[pid] = m.v ? 1 : 0; checkStart(S); commit(); return; }
   if (m.k === 'act') {
     if (!S.pl.some(q => q.id === pid)) return; const n = +(m.act && m.act.n); if (!(n > (S.seq[pid] || 0))) return;
@@ -247,10 +255,24 @@ function setReady(v) {
 }
 const busy = () => mode === 'online' && S && !isHost() && myN > (S.seq[me.pid] || 0) && Date.now() - sentAt < 6000;
 setInterval(() => { if (mode === 'online' && S && ui.screen === 'game' && !animating) render(); }, 1500);
+// New game with the same table. Online: players who asked for a rematch (plus the host and bots)
+// start right away; if the table no longer fits the mode, everyone goes back to the lobby.
 function restart() {
-  const o = S, n = newState(); n.cfg = o.cfg || {start: null, days: 0}; n.pub = 0; n.rev = o.rev; n.ep = o.ep; n.ev = o.ev; n.host = o.host; n.seq = o.seq;
-  o.pl.forEach(q => addPlayer(n, q.id, q.n, {av: q.av, bot: q.bot, pf: q.pf || null})); S = n; ui.sel = null;
-  if (mode === 'local') { act(S, S.host, {t: 'start'}); sync(); } else { L(S, 'newLobby'); commit(); }
+  const o = S, n = newState(); n.cfg = Object.assign({start: null, days: 0, mode: 'classic'}, o.cfg); n.pub = 0; n.rev = o.rev; n.ep = o.ep; n.ev = o.ev; n.host = o.host; n.seq = o.seq;
+  if (modeOf(o) === 'quick') n.cfg.days = 0;
+  const keep = mode === 'local' ? o.pl : o.pl.filter(q => q.bot || q.id === o.host || (present.has(q.id) && o.rm && o.rm[q.id]));
+  keep.forEach(q => addPlayer(n, q.id, q.n, {av: q.av, bot: q.bot, pf: q.pf || null})); S = n; ui.sel = null;
+  if (mode === 'local') { act(S, S.host, {t: 'start'}); sync(); return; }
+  if (!act(S, S.host, {t: 'start'})) L(S, 'newLobby');
+  commit();
+}
+const rematchNeed = V => V.pl.filter(q => !q.bot && present.has(q.id));
+const rematchReady = V => rematchNeed(V).filter(q => V.rm && V.rm[q.id]);
+function checkRematch() { if (S && S.ph === 'over' && isHost() && rematchNeed(S).length && rematchReady(S).length === rematchNeed(S).length) restart(); }
+function setRematch(v) {
+  if (!S || S.ph !== 'over') return;
+  if (isHost()) { S.rm = S.rm || {}; S.rm[me.pid] = v ? 1 : 0; commit(); checkRematch(); }
+  else if (mq) { mq.publish(T('in'), JSON.stringify({k: 'rm', pid: me.pid, v: v ? 1 : 0}), {qos: 1}); S.rm = S.rm || {}; S.rm[me.pid] = v ? 1 : 0; render(); }
 }
 /* ---- end of game: save the result to the player's account ---- */
 const submitted = new Set();
@@ -264,9 +286,11 @@ function maybeSubmit(V) {
   if (!loggedIn()) { ui.result = {gid, st: 'guest', solo: isSolo}; return; }
   const q = V.pl[mi], st = q.st || {};
   const payload = {
-    game_id: gid, mode: isSolo ? 'solo' : 'online', pid: me.pid, order: standings(V).map(i => V.pl[i].id), won: V.win === mi,
+    game_id: gid, mode: isSolo ? 'solo' : 'online', pid: me.pid, order: standings(V).map(i => V.pl[i].id),
+    winners: winners(V).map(i => V.pl[i].id), won: winners(V).includes(mi),
     days: V.day, duration: Math.max(0, Math.round((Date.now() - (V.t0 || Date.now())) / 1000)),
-    stats: {deals: st.d || 0, belt: st.b || 0, iron: !!st.i, tycoon: !!st.t, bonus: Math.min(20, q.a ? V.day : (q.od || 0))}
+    stats: {deals: st.d || 0, belt: st.b || 0, iron: !!st.i, tycoon: !!st.t, bonus: Math.min(20, q.a ? V.day : (q.od || 0)),
+      bought: st.by || 0, upgrades: st.up || 0, cards: st.cu || 0, paid: st.pd || 0, survived: q.a ? V.day : (q.od || 0)}
   };
   ui.result = {gid, st: 'saving', solo: isSolo};
   const done = r => { ui.result = r; if (!animating && shown && shown.ph === 'over') render(); };
@@ -394,7 +418,7 @@ function deltas(prev, nx) {
   });
   return rows;
 }
-const POP_KEYS = ['lap', 'half', 'out', 'won', 'dayStart', 'order', 'paid', 'belt', 'handFull', 'waits', 'commission', 'freed', 'daysOver', 'rent', 'gotBelt', 'dutch', 'startMoney'];
+const POP_KEYS = ['lap', 'half', 'out', 'won', 'teamWon', 'teamHelp', 'dayStart', 'order', 'paid', 'belt', 'handFull', 'waits', 'commission', 'freed', 'daysOver', 'rent', 'gotBelt', 'dutch', 'startMoney'];
 function popHTML(prev, nx, fx) {
   if (fx.quiet || fx.t === 'roll') return ''; const dr = deltas(prev, nx); let head, hc, title, sub;
   if (fx.card) {
@@ -428,7 +452,7 @@ $('#center').addEventListener('click', () => { if (animating) skipNow(); });
 /* ================= turn timer ================= */
 let turnKey = '', turnAt = 0, lastTickSec = -1;
 function curKey(V) { if (!V || (V.ph !== 'play' && V.ph !== 'feast')) return ''; const A = actor(V); if (A < 0) return ''; return `${V.tk || 0}|${V.ph}|${A}`; }
-const limitOf = V => !V ? LIM.def : V.ph === 'feast' ? (V.fe && V.fe.off ? LIM.reply : LIM.feast) : V.pend && V.pend.k === 'ow' ? LIM.reply : LIM.def;
+const limitOf = V => { const l = limits(V); return !V ? l.def : V.ph === 'feast' ? (V.fe && V.fe.off ? l.reply : l.feast) : V.pend && V.pend.k === 'ow' ? l.reply : l.def; };
 const timerFrac = () => turnKey && curKey(shown) === turnKey ? Math.max(0, limitOf(shown) - (Date.now() - turnAt)) / limitOf(shown) : 1;
 function trackTurn() {
   if (animating || ui.screen !== 'game' || !shown) return; const k = curKey(shown);
@@ -480,9 +504,12 @@ function applyStatic() {
   document.querySelectorAll('[data-ih]').forEach(el => { el.innerHTML = t(el.dataset.ih); });
   document.querySelectorAll('[data-ip]').forEach(el => { el.placeholder = t(el.dataset.ip); });
   document.querySelectorAll('[data-ia]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.ia)); });
-  $('#rulesList').innerHTML = t('rules').concat(ACC.enabled ? [t('rulesAcc')] : []).map(r => `<li>${r}</li>`).join('');
+  $('#rulesList').innerHTML = t('rules').concat([t('rulesModes')], ACC.enabled ? [t('rulesAcc')] : []).map(r => `<li>${r}</li>`).join('');
   document.querySelectorAll('.optOff').forEach(o => { o.textContent = t('off'); });
   document.querySelectorAll('.optDays').forEach(o => { o.textContent = t('nDays', +o.value); });
+  document.querySelectorAll('.optMode').forEach(o => { o.textContent = t('m_' + o.dataset.m); });
+  document.querySelectorAll('#soloMode button').forEach(b => { b.innerHTML = `${esc(t('m_' + b.dataset.m))}<small>${esc(t('mShort_' + b.dataset.m))}</small>`; });
+  $('#verTag').textContent = 'v' + VERSION;
   document.querySelectorAll('#soloCount button').forEach(b => { const n = +b.dataset.n; b.innerHTML = `${esc(t('nPlayers', n))}<small>${esc(t('youBots', n - 1))}</small>`; });
   $('#rxlist').innerHTML = EMOJIS.map(e => `<button data-a="rx" data-e="${e}" aria-label="${esc(t('sendEmoji', e))}">${e}</button>`).join('');
   $('#nm').placeholder = t('nickPh', myNick);
@@ -491,7 +518,7 @@ function applyStatic() {
 }
 
 function show(id) {
-  for (const s of ['home', 'auth', 'profile', 'local', 'solo', 'joining', 'lobby', 'game']) $('#' + s).hidden = s !== id;
+  for (const s of ['home', 'auth', 'profile', 'friends', 'leaders', 'local', 'solo', 'joining', 'lobby', 'game']) $('#' + s).hidden = s !== id;
   document.body.classList.toggle('ingame', id === 'game'); $('#logBtn').hidden = id !== 'game'; if (id !== 'game') document.body.classList.remove('showlog');
 }
 function setAppH() { document.documentElement.style.setProperty('--app-h', (window.visualViewport ? Math.round(visualViewport.height) : innerHeight) + 'px'); }
@@ -551,6 +578,7 @@ function sendReact(e) {
   if (!solo && mq) mq.publish(T('react'), JSON.stringify({pid: me.pid, e}), {qos: 0});
 }
 const colOf = i => COLORS[i % COLORS.length];
+const teamTag = tm => `<span class="tag team t${tm}">${esc(t(tm ? 'teamB' : 'teamA'))}</span>`;
 let AVM = [], FRM = [];
 const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${avHTML(AVM[i])}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}"></span>`;
 const setAVM = V => { AVM = V && V.pl ? V.pl.map(q => q.av) : []; FRM = V && V.pl ? V.pl.map(q => q.pf && q.pf.fr) : []; };
@@ -575,8 +603,12 @@ function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
   if (code) $('#roomChip').innerHTML = `${esc(S && S.pub ? t('chipPub') : t('chipRoom'))} <b>${esc(code)}</b>`;
   $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').textContent = SFX.on ? '🔊' : '🔇'; $('#gameCredit').hidden = ui.screen === 'home';
+  $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').title = t('music');
   $('#langBtn').textContent = t('langBtn'); $('#langBtn').setAttribute('aria-label', t('langAria'));
   if (ui.screen === 'home') { show('home'); renderHome(); return; }
+  updateToast();
+  if (ui.screen === 'friends') { show('friends'); renderFriends($('#friendsBox')); return; }
+  if (ui.screen === 'leaders') { show('leaders'); renderLeaders($('#leadersBox')); return; }
   if (ui.screen === 'auth') { show('auth'); renderAuth($('#authBox')); return; }
   if (ui.screen === 'profile') { show('profile'); renderProfile($('#profileBox')); return; }
   if (ui.screen === 'local') { show('local'); renderLocal(); return; }
@@ -591,18 +623,25 @@ function render(prev, forceV) {
 function renderHome() {
   const ok = netOk();
   renderAcctPanel($('#acct'), $('#nickWrap'));
+  $('#installBtn').hidden = !canInstall();
   $('#btnCreate').disabled = !ok; $('#btnJoin').disabled = !ok; $('#btnQuick').disabled = !ok;
   $('#netNote').textContent = ok ? t('netOk') : t('netFail');
   { let l = null; try { l = JSON.parse(lsGet('hs-last') || 'null'); } catch (e) {} const rb = $('#btnRejoin'); const okL = ok && l && l.code && Date.now() - l.t < 12 * 3600e3; rb.hidden = !okL; if (okL) rb.textContent = t('rejoin', l.code); }
   $('#homeErr').hidden = !ui.err; $('#homeErr').textContent = ui.err || '';
 }
 function renderSolo() {
-  ui.soloN = ui.soloN || 3; document.querySelectorAll('#soloCount button').forEach(b => b.classList.toggle('on', +b.dataset.n === ui.soloN));
+  ui.soloMode = ui.soloMode || 'classic'; if (ui.soloMode === 'teams') ui.soloN = 4;
+  document.querySelectorAll('#soloMode button').forEach(b => b.classList.toggle('on', b.dataset.m === ui.soloMode));
+  ui.soloN = ui.soloN || 3; document.querySelectorAll('#soloCount button').forEach(b => { b.classList.toggle('on', +b.dataset.n === ui.soloN); b.disabled = ui.soloMode === 'teams' && +b.dataset.n !== 4; });
+  $('#soloDays').disabled = ui.soloMode === 'quick'; if (ui.soloMode === 'quick') $('#soloDays').value = '10';
   $('#soloAv').innerHTML = avGrid({}, ui.soloAv || null, 'sav'); const el = $('#soloMoney'); el.placeholder = M(autoMoney(ui.soloN)); $('#soloMoneyNote').textContent = el.value ? '' : t('autoMoney', autoMoney(ui.soloN));
 }
 function readLocal() { ui.names = ui.names.map((_, k) => { const el = $('#ln' + k); return el ? el.value : ui.names[k]; }); }
+function showLocalErr(m) { render(); $('#localModeNote').textContent = m; $('#localModeNote').classList.add('err'); }
 function renderLocal() {
   ui.lav = ui.lav || [];
+  { const md = $('#localMode').value || 'classic', ln = $('#localModeNote'); ln.classList.remove('err'); ln.textContent = t('mNote_' + md);
+    $('#localDays').disabled = md === 'quick'; if (md === 'quick') $('#localDays').value = '10'; }
   { const n = ui.names.length, el = $('#localMoney'); el.placeholder = M(autoMoney(n)); $('#localMoneyNote').textContent = el.value ? '' : t('autoMoney', autoMoney(n)); }
   keepInputs($('#localNames'), () => {
     $('#localNames').innerHTML = ui.names.map((n, k) => `<div class="localrow"><button class="avmini" data-a="lav" data-k="${k}" style="--c:${colOf(k)}" aria-label="${esc(t('pickAvatar'))}">${ui.lav[k] ? avHTML(ui.lav[k]) : '<span class="dot" style="--c:' + colOf(k) + '"></span>'}</button><input id="ln${k}" maxlength="14" value="${esc(n)}" placeholder="${esc(t('randomName'))}" aria-label="${esc(t('playerNameAria', k + 1))}">${ui.names.length > 2 ? `<button class="btn small ghost" data-a="delp" data-k="${k}" aria-label="${esc(t('removePlayer'))}">✕</button>` : ''}</div>`).join('');
@@ -629,17 +668,20 @@ function renderLobby(V) {
     inp.disabled = !host; $('#autoMoneyBtn').hidden = !host;
     if (document.activeElement !== inp) inp.value = cur; inp.placeholder = M(autoMoney(V.pl.length));
     $('#moneyNote').textContent = cur ? t('moneyCustom', cur) : t('moneyAuto', V.pl.length, autoMoney(V.pl.length));
-    const ds = $('#daysSel'); ds.disabled = !host; if (document.activeElement !== ds) ds.value = String((V.cfg && V.cfg.days) || 0);
-    $('#daysNote').textContent = V.cfg && V.cfg.days ? t('daysOn', V.cfg.days) : t('daysOff');
+    const md = modeOf(V), msel = $('#modeSel'); msel.disabled = !host; if (document.activeElement !== msel) msel.value = md;
+    $('#modeNote').textContent = t('mNote_' + md);
+    const ds = $('#daysSel'); ds.disabled = !host || md === 'quick'; if (document.activeElement !== ds) ds.value = String(md === 'quick' ? 10 : (V.cfg && V.cfg.days) || 0);
+    $('#daysNote').textContent = md === 'quick' ? t('daysOn', 10) : V.cfg && V.cfg.days ? t('daysOn', V.cfg.days) : t('daysOff');
   } else {
     const mr = !!V.rdy[me.pid]; const rb = $('#readyBtn'); rb.textContent = mr ? t('readyUndo') : t('ready'); rb.classList.toggle('primary', !mr);
     $('#pubNote').textContent = t('pubNote', V.pl.length, CFG.PUBMAX);
   }
   const max = pub ? CFG.PUBMAX : CFG.MAXP;
-  $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn">${esc(q.n)}</span>${pfTitle(q)}</span>${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${q.bot ? `<span class="tag">${esc(t('botTag'))}</span>${host && !pub ? `<button class="btn small ghost rmbot" data-a="rmbot" data-id="${esc(q.id)}" aria-label="${esc(t('removeBot'))}">✕</button>` : ''}` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
+  $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn${q.pf ? ' link' : ''}"${q.pf ? ` data-a="viewp" data-u="${esc(q.pf.u)}"` : ''}>${esc(q.n)}</span>${pfTitle(q)}</span>${isTeams(V) && i < 4 ? teamTag(i % 2) : ''}${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${q.bot ? `<span class="tag">${esc(t('botTag'))}</span>${host && !pub ? `<button class="btn small ghost rmbot" data-a="rmbot" data-id="${esc(q.id)}" aria-label="${esc(t('removeBot'))}">✕</button>` : ''}` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
     (V.pl.length < max ? `<li class="note" style="justify-content:center">${esc(t('seatsFree', max - V.pl.length))}</li>` : '');
+  renderInviteBox($('#inviteBox'), code, mode === 'online' && !pub);
   $('#lobbyAct').innerHTML = pub ? '' : host
-    ? `${V.pl.length < max ? `<div class="botrow"><button class="btn" data-a="addbot">${esc(t('addBot'))}</button><p class="note">${esc(t('addBotNote'))}</p></div>` : ''}<button class="btn primary big" data-a="start" ${V.pl.length < 2 ? 'disabled' : ''}>${esc(t('startGame'))}</button>${V.pl.length < 2 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('need2'))}</p>` : ''}`
+    ? `${V.pl.length < max ? `<div class="botrow"><button class="btn" data-a="addbot">${esc(t('addBot'))}</button><p class="note">${esc(t('addBotNote'))}</p></div>` : ''}<button class="btn primary big" data-a="start" ${V.pl.length < 2 || (isTeams(V) && V.pl.length !== 4) ? 'disabled' : ''}>${esc(t('startGame'))}</button>${V.pl.length < 2 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('need2'))}</p>` : isTeams(V) && V.pl.length !== 4 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('teamsNeed4'))}</p>` : ''}`
     : `<p class="note" style="text-align:center">${esc(t('waitHost'))}</p>`;
 }
 
@@ -670,6 +712,18 @@ function billQueue(V) {
   return `<div class="billq"><span class="bql">${esc(t('billQueue'))}</span>${items.join('<span class="sep">›</span>')}</div>`;
 }
 
+function winText(V) {
+  if (V.win == null) return t('noWinner');
+  if (isTeams(V)) { const w = winners(V).map(i => V.pl[i].n); return t('teamWins', w[0], w[1] || ''); }
+  return t('wins', V.pl[V.win].n);
+}
+function rematchHTML(V) {
+  if (mode === 'local') return `<button class="btn primary" data-a="restart">${esc(t('again'))}</button>`;
+  const need = rematchNeed(V), ready = rematchReady(V), mineOn = !!(V.rm && V.rm[me.pid]);
+  return `<div class="rematch"><button class="btn ${mineOn ? '' : 'primary'}" data-a="rematch">${esc(mineOn ? t('rematchUndo') : t('rematchBtn'))}</button>
+    <p class="note">${esc(t('rematchNote', ready.length, need.length))}</p>
+    ${isHost() && ready.some(q => q.id !== me.pid) ? `<button class="btn small" data-a="restart">${esc(t('rematchNow'))}</button>` : ''}</div>`;
+}
 function renderGame(V, prev) {
   setAVM(V);
   const A = actor(V), lock = animating || busy() || lost, dis = lock ? 'disabled' : '';
@@ -695,10 +749,11 @@ function renderGame(V, prev) {
     h = `<h3>${esc(cardName(c))}</h3><p class="status">${esc(cardDesc(c))}. ${esc(t('whom'))}</p><div class="targets">${rivals(V, i).map(j => `<button class="btn" data-a="usetgt" data-to="${j}">${dot(j)}${nm(j)} · ${esc(t('hungerN', V.pl[j].h))}</button>`).join('')}<button class="btn ghost" data-a="cancel">${esc(t('cancelBtn'))}</button></div>`;
   } else if (V.ph === 'over') {
     const sc = V.end === 'days' ? V.ord.map(j => ({j, w: worth(V, j)})).sort((a, b) => b.w - a.w) : null;
-    h = `<h3>${esc(t('over'))}</h3><div class="win">${V.win != null ? esc(t('wins', V.pl[V.win].n)) : esc(t('noWinner'))}</div>
+    h = `<h3>${esc(t('over'))}</h3><div class="win">${esc(winText(V))}</div>
       ${sc ? `<div class="receipt"><div class="hd">${esc(t('resultDay', V.cfg.days))}</div>${sc.map(o => `<div class="ln"><span>${nm(o.j)}</span><span>${M(o.w)}</span></div>`).join('')}<div class="note">${esc(t('worthNote'))}</div></div>` : `<p class="note">${esc(t('lastStanding', V.day))}</p>`}
       ${ui.result && ui.result.gid === V.gid ? resultHTML(ui.result) : ''}
-      ${isHost() ? `<button class="btn primary" data-a="restart">${esc(t('again'))}</button>` : `<p class="note">${esc(t('hostRestarts'))}</p>`}`;
+      ${rematchHTML(V)}
+      <button class="btn" data-a="share">${esc(t('shareBtn'))}</button>`;
   } else if (V.ph === 'play') {
     const you = mine(V, A), who = you && !hot() ? esc(t('yourTurn')) : esc(Q.n);
     h = `<div class="turnhead">${dot(A)}<span>${who}</span></div>`;
@@ -764,6 +819,8 @@ function renderGame(V, prev) {
       } else h += r + `<p class="note">${esc(t('waitCards'))}</p>`;
     }
   }
+  // first-game guide
+  if (!hot() && !ui.sel && !lock) { const tk = tipFor(V, myIdx(V)); if (tk) h = tipHTML(tk) + h; }
   if ((V.ph === 'play' || V.ph === 'feast') && !ui.sel) {
     const tf = timerFrac(); const lbl = V.ph === 'feast' ? (V.fe.off ? t('replyTime') : t('payTime')) : P && P.k === 'ow' ? t('replyTime') : t('timeLbl');
     h = `<div class="tline"><span>${esc(lbl)}</span><span id="tsec">${animating ? '' : esc(t('sec', Math.ceil(tf * limitOf(V) / 1000)))}</span></div><div class="timer${tf < .2 ? ' crit' : tf < .5 ? ' warn' : ''}"${animating ? ' hidden' : ''}><i style="width:${(tf * 100).toFixed(1)}%"></i></div>` + h;
@@ -785,7 +842,7 @@ function renderGame(V, prev) {
       return ok ? `<button class="${cls}" data-a="${any ? 'sel' : 'use'}" data-i="${i}" data-c="${c}" title="${tl}">${esc(cardName(c))}</button>` : `<span class="${cls}" title="${tl}">${esc(cardName(c))}</span>`; }).join('');
     const vs = ownedBy(V, i).map(p => `<span class="card venue" title="${esc(t('value', V.own[p].pr, pct(COMS[V.own[p].lv || 1])))}">${esc(vfull(p))} ${'★'.repeat(V.own[p].lv || 1)}</span>`).join('');
     const fl = k => o && o[k] !== q[k] ? ' flash' : '';
-    const tags = [i === mi && !hot() ? `<span class="tag">${esc(t('you'))}</span>` : '', q.bot ? `<span class="tag">${esc(t('botTag'))}</span>` : '', V.tq[V.ti] === i && V.ph !== 'over' ? `<span class="tag bill">${esc(t('payTodayTag'))}</span>` : '', q.s ? `<span class="tag">${esc(t('waitsTag'))}</span>` : '',
+    const tags = [isTeams(V) && q.tm != null ? teamTag(q.tm) : '', i === mi && !hot() ? `<span class="tag">${esc(t('you'))}</span>` : '', q.bot ? `<span class="tag">${esc(t('botTag'))}</span>` : '', V.tq[V.ti] === i && V.ph !== 'over' ? `<span class="tag bill">${esc(t('payTodayTag'))}</span>` : '', q.s ? `<span class="tag">${esc(t('waitsTag'))}</span>` : '',
       mode === 'online' && !here(q) ? `<span class="tag off">${esc(t('offTag'))}</span>` : ''].join('');
     const rx = reacts[i] && reacts[i].until > Date.now() ? `<span class="rxb">${reacts[i].e}</span>` : '';
     return `<li class="${i === A && V.ph !== 'over' ? 'turn' : ''}${q.a ? '' : ' out'}" style="--c:${colOf(i)}">${rx}
@@ -807,11 +864,12 @@ function startLocalGame(isSolo) {
     addPlayer(S, 'L0', nm, {av: ui.soloAv || null, pf: publicCard()});
     const pool = shuffle(nickList().filter(x => x !== nm)); const avs = shuffle(Object.keys(AVATARS).filter(k => k !== ui.soloAv));
     for (let k = 1; k < (ui.soloN || 3); k++) addPlayer(S, 'B' + k, uniqName(S, pool[k], nickList()), {bot: 1, av: avs[k]});
-    S.cfg.start = cfgNum($('#soloMoney').value); S.cfg.days = +$('#soloDays').value || 0;
+    S.cfg.start = cfgNum($('#soloMoney').value); S.cfg.days = +$('#soloDays').value || 0; S.cfg.mode = ui.soloMode || 'classic';
   } else {
     readLocal(); me = {pid: 'L0', nm: ''};
     const pool = shuffle(nickList().slice()); ui.names.forEach((n, k) => addPlayer(S, 'L' + k, uniqName(S, clean(n) || pool[k], nickList()), {av: (ui.lav || [])[k] || null}));
-    S.cfg.start = cfgNum($('#localMoney').value); S.cfg.days = +$('#localDays').value || 0;
+    S.cfg.start = cfgNum($('#localMoney').value); S.cfg.days = +$('#localDays').value || 0; S.cfg.mode = $('#localMode').value || 'classic';
+    if (S.cfg.mode === 'teams' && S.pl.length !== 4) { mode = null; S = null; ui.screen = 'local'; showLocalErr(t('teamsNeed4')); return; }
   }
   shown = clone(S); ui.screen = 'game'; act(S, 'L0', {t: 'start'}); sync();
 }
@@ -821,7 +879,7 @@ function copyText(txt, btn, okLabel, resetLabel, selectEl) {
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-a]'); if (!b || b.disabled) return; const a = b.dataset.a;
-  if (accountClick(a, b)) { SFX.play('click'); return; }
+  if (accountClick(a, b) || socialClick(a, b)) { SFX.play('click'); return; }
   if (['create', 'join', 'quick', 'local', 'solo', 'lstart', 'sstart', 'leave', 'addp', 'delp', 'copy', 'copycode', 'rejoin', 'start', 'restart', 'sel', 'cancel', 'autoMoney', 'ready', 'lang'].includes(a)) SFX.play(['create', 'join', 'quick', 'local', 'solo'].includes(a) ? 'menu' : 'click');
   switch (a) {
     case 'lang': setLang(getLang() === 'en' ? 'tr' : 'en'); pickNick(); applyStatic(); render(); break;
@@ -832,6 +890,8 @@ document.addEventListener('click', e => {
     case 'local': ui.err = ''; ui.screen = 'local'; render(); break;
     case 'solo': ui.err = ''; ui.screen = 'solo'; if (ui.soloAv === undefined) ui.soloAv = myAvatarPref(); render(); break;
     case 'soloN': ui.soloN = +b.dataset.n; render(); break;
+    case 'soloMode': ui.soloMode = b.dataset.m; if (ui.soloMode !== 'quick' && $('#soloDays').value === '10') $('#soloDays').value = '0'; render(); break;
+    case 'rematch': setRematch(!(S && S.rm && S.rm[me.pid])); break;
     case 'sav': ui.soloAv = b.dataset.k || null; render(); break;
     case 'lav': { readLocal(); ui.lav = ui.lav || []; const k = +b.dataset.k, keys = [null, ...Object.keys(AVATARS)]; const used = new Set(ui.lav.filter((x, j) => x && j !== k));
       let idx = keys.indexOf(ui.lav[k] || null); for (let n = 0; n < keys.length; n++) { idx = (idx + 1) % keys.length; if (!keys[idx] || (!used.has(keys[idx]) && avOpen(keys[idx]))) break; } ui.lav[k] = keys[idx]; render(); break; }
@@ -862,6 +922,12 @@ document.addEventListener('click', e => {
     case 'usetgt': { const s = ui.sel; if (s) send({t: 'use', c: s.c, to: +b.dataset.to}, s.i); break; }
     case 'cancel': ui.sel = null; render(); break;
     case 'snd': SFX.toggle(); render(); if (SFX.on) SFX.play('click'); break;
+    case 'music': Music.toggle(); render(); break;
+    case 'share': { const V = shown || S; if (!V) break; b.disabled = true; shareResult(V, hot() ? -1 : myIdx(V)).then(r => { b.disabled = false; if (r === 'downloaded') b.textContent = t('shareSaved'); }).catch(() => { b.disabled = false; }); break; }
+    case 'tipok': tipSeen(b.dataset.k); render(); break;
+    case 'tipoff': tipsOff(); render(); break;
+    case 'tipsreset': tipsReset(); b.textContent = t('tipsOn'); break;
+    case 'install': install().then(r => { if (r === 'ios') alert(t('installIOS')); render(); }); break;
     case 'sheetmin': document.body.classList.toggle('sheetmin'); break;
     case 'log': document.body.classList.remove('showchat'); document.body.classList.toggle('showlog'); updChat(); break;
     case 'chatopen':
@@ -881,6 +947,8 @@ document.addEventListener('keydown', e => {
   if ((e.key === ' ' || e.key === 'Enter') && animating && ui.screen === 'game' && !/INPUT|BUTTON|SELECT/.test(el.tagName)) { e.preventDefault(); skipNow(); }
 });
 $('#startMoney').addEventListener('change', e => { if (!S || !isHost() || S.ph !== 'lobby') return; S.cfg.start = cfgNum(e.target.value); if (mode === 'local') sync(); else commit(); });
+$('#modeSel').addEventListener('change', e => { if (!S || !isHost() || S.ph !== 'lobby') return; S.cfg.mode = e.target.value; if (mode === 'local') sync(); else commit(); });
+$('#localMode').addEventListener('change', () => renderLocal());
 $('#daysSel').addEventListener('change', e => { if (!S || !isHost() || S.ph !== 'lobby') return; S.cfg.days = +e.target.value || 0; if (mode === 'local') sync(); else commit(); });
 $('#localMoney').addEventListener('input', () => renderLocal());
 $('#soloMoney').addEventListener('input', () => renderSolo());
@@ -889,8 +957,19 @@ pickNick();
 $('#nm').value = lsGet('hs-nm') || '';
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
 { const qs = new URLSearchParams(location.search); const qp = qs.get('room') || qs.get('oda'); if (qp) $('#code').value = qp.toUpperCase().slice(0, 5); }
-initAccountUI({go: sc => { ui.screen = sc; render(); }, render: () => { if (['home', 'auth', 'profile'].includes(ui.screen) || (shown && shown.ph === 'over')) render(); }, AVATARS, avatarLabel, avHTML});
+const uiHooks = {
+  go: sc => { ui.screen = sc; render(); },
+  render: () => { updateToast(); if (['home', 'auth', 'profile', 'friends', 'leaders'].includes(ui.screen) || (shown && (shown.ph === 'over' || shown.ph === 'lobby'))) render(); },
+  AVATARS, avatarLabel, avHTML,
+  inRoom: () => !!mode, roomCode: () => code,
+  joinRoom: room => { if (mode) return; ui.err = ''; ui.quick = 0; $('#code').value = room; joinRoom(room); }
+};
+initAccountUI(uiHooks); initSocialUI(uiHooks); onInstallChange(() => render());
 applyStatic();
 setDice(1, 1);
 render();
 initAccount().then(() => { applyStatic(); render(); });
+// local testing only: http://localhost:8787/?debug=1 exposes a few internals
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]debug=1/.test(location.search)) {
+  window.__cf = {state: () => S, endGame: () => { if (!S || !isHost()) return; S.ph = 'over'; S.win = 0; S.end = 'last'; S.fe = null; S.pend = null; if (mode === 'local') sync(); else commit(); }};
+}
