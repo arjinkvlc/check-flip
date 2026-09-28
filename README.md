@@ -148,6 +148,7 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 ├── sql/schema.sql          # Supabase database: tables, security rules, functions
 ├── tests/simulate.mjs      # engine simulation (hundreds of bot games)
 ├── tools/avatars/          # generator for the avatar illustrations (Python, no dependencies)
+├── tools/email-templates/  # password-reset e-mail for Supabase
 └── tools/netlify-redirect/ # optional: redirect an old Netlify address to the new domain
 ```
 
@@ -170,7 +171,11 @@ When a limit is reached, new connections fall back to the public MQTT brokers un
 2. **SQL Editor → New query:** paste all of `sql/schema.sql` and **Run**. Run it again after every update of the file; it's safe to re-run.
 3. **Authentication → Sign In / Providers → Email:** keep the Email provider on and turn **Confirm email off** (accounts without an e-mail can't confirm one).
 4. **Authentication → URL Configuration:** *Site URL* `https://checkflipgame.com`; add `https://checkflipgame.com` and `https://www.checkflipgame.com` to *Redirect URLs* (password-reset links return there).
-5. **Password-reset e-mails:** the built-in mailer only delivers to your own team's addresses and a few mails per hour. For real players, add a custom SMTP server under **Authentication → Emails → SMTP Settings** (e.g. Resend or Brevo free tiers).
+5. **Password-reset e-mails:** the built-in mailer only delivers to your own team's addresses and a few mails per hour. For real players, use a custom SMTP server, e.g. [Resend](https://resend.com) (free: 3,000 e-mails/month):
+   - Resend → **Domains → Add domain** `checkflipgame.com` and add the DNS records it shows (Resend can add them to Cloudflare automatically). They live on the `send.` subdomain, so they don't clash with Email Routing.
+   - Resend → **API Keys → Create** (permission: *Sending access*).
+   - Supabase → **Authentication → Emails → SMTP Settings → Enable custom SMTP**: sender `noreply@checkflipgame.com`, name `Check Flip`, host `smtp.resend.com`, port `465`, username `resend`, password = the API key.
+   - Optional: paste `tools/email-templates/reset-password.html` into **Emails → Templates → Reset Password** for a bilingual e-mail.
 6. Put the *Project URL* and *publishable key* (Project Settings → API Keys) into `public/js/config.js` and into `vars` in `wrangler.jsonc`.
 
 Never put the **secret / service_role key** or the database password anywhere in this repository.
@@ -185,7 +190,12 @@ Never put the **secret / service_role key** or the database password anywhere in
 4. Worker → **Settings → Domains & Routes → Add → Custom domain:** add `checkflipgame.com` and `www.checkflipgame.com`. If the domain has older A/CNAME records (e.g. for Netlify), delete them first.
 5. **E-mail for the privacy notice:** Cloudflare → your domain → **Email → Email Routing** → create `contact@checkflipgame.com` and forward it to your personal inbox (free).
 
-### 3. Moving away from an old host (optional)
+### 3. Search and statistics (optional)
+
+- **Google Search Console:** add a *Domain* property for `checkflipgame.com` and verify it with the TXT record Google shows (DNS → Records in Cloudflare, or Google's automatic Cloudflare verification). Then submit `https://checkflipgame.com/sitemap.xml`. `public/robots.txt` and `public/sitemap.xml` are included.
+- **Cloudflare Web Analytics:** Cloudflare → **Analytics & Logs → Web Analytics → Add a site** → `checkflipgame.com` → automatic setup. Cookieless, so no consent banner is needed; it's listed in the privacy notice.
+
+### 4. Moving away from an old host (optional)
 
 To keep old links working, deploy the two files in `tools/netlify-redirect/` to the old Netlify site (drag the folder onto the site's *Deploys* page). Every old link then redirects to `checkflipgame.com`.
 
@@ -236,6 +246,11 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.1.1
+- `robots.txt`, `sitemap.xml` and a canonical link for search engines
+- Privacy notice: visitor statistics (Cloudflare Web Analytics) and the e-mail provider (Resend)
+- Bilingual password-reset e-mail template (`tools/email-templates/`)
 
 ### 1.1.0
 - Game modes: Quick (10 days) and 2v2 teams

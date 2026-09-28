@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /ws
+
+Sitemap: https://checkflipgame.com/sitemap.xml

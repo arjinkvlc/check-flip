@@ -41,7 +41,7 @@
         <tr><th>Data</th><th>When</th><th>Why (legal basis)</th></tr>
         <tr><td>Nickname, avatar, game moves, chat messages and emoji reactions</td><td>When you play online (with or without an account)</td><td>To run the game you asked to play (performance of a contract)</td></tr>
         <tr><td>Username and password (stored only as a secure hash)</td><td>When you create an account</td><td>To give you an account (performance of a contract)</td></tr>
-        <tr><td>E-mail address (optional)</td><td>Only if you add one at sign-up</td><td>To send password-reset links (performance of a contract)</td></tr>
+        <tr><td>E-mail address (optional)</td><td>Only if you add one at sign-up</td><td>To send password-reset links, delivered through our e-mail provider Resend (performance of a contract)</td></tr>
         <tr><td>XP, level, achievements, equipped cosmetics, results of finished games</td><td>When you finish a game while logged in</td><td>Progression features of your account (performance of a contract)</td></tr>
         <tr><td>Friends list, friend requests, game invites and when you were last online</td><td>When you use the friends features</td><td>Letting you play with friends (performance of a contract)</td></tr>
         <tr><td>Technical data: IP address, browser type, time of requests</td><td>Every visit, in server logs of our providers</td><td>Security and keeping the service running (legitimate interest)</td></tr>
@@ -49,12 +49,16 @@
       <p>Your username, level, XP, title, equipped cosmetics, achievements and win statistics are public: other players can see them on leaderboards and profile cards.</p>
       <p>Chat messages are only relayed to the players in your room; they are not stored. A room's game state is kept on the server for at most 12 hours so players can reconnect. We do not sell your data, we do not use it for advertising profiles and we do not collect special categories of personal data.</p>
 
+      <h2>Visitor statistics</h2>
+      <p>We use <b>Cloudflare Web Analytics</b> to count visits (pages viewed, country, browser and device type, referring site). It uses no cookies, doesn't store your IP address and doesn't follow you across sites (legal basis: legitimate interest in improving the game).</p>
+
       <h2>Browser storage</h2>
       <p>The game stores a few things in your browser's local storage: your language, nickname, sound setting, the last room you joined and, if you log in, your login session. These are needed for the game to work. We don't use tracking or advertising cookies. If that ever changes, we will ask for your consent first.</p>
 
       <h2>Where your data is processed</h2>
       <ul>
-        <li><b>Cloudflare, Inc.</b>: hosting the website and relaying online games.</li>
+        <li><b>Cloudflare, Inc.</b>: hosting the website, relaying online games and anonymous visitor statistics.</li>
+        <li><b>Resend (Plus Five Five, Inc.)</b>: sending password-reset e-mails.</li>
         <li><b>Supabase, Inc.</b>: accounts, passwords (hashed), progression data and password-reset e-mails.</li>
         <li><b>Public MQTT brokers</b> (EMQX, HiveMQ, Eclipse Mosquitto): used only as a backup connection if our own server can't be reached. Data sent there (names, moves and chat of a room) passes through public servers.</li>
       </ul>
@@ -86,7 +90,7 @@
         <tr><th>Veri</th><th>Ne zaman</th><th>Amaç (hukuki sebep)</th></tr>
         <tr><td>Takma ad, avatar, oyun hamleleri, sohbet mesajları ve emoji tepkileri</td><td>Çevrim içi oynarken (hesaplı veya hesapsız)</td><td>Oynamak istediğiniz oyunu sunmak (sözleşmenin ifası)</td></tr>
         <tr><td>Kullanıcı adı ve şifre (yalnızca güvenli özet/hash olarak)</td><td>Hesap açtığınızda</td><td>Hesap hizmeti (sözleşmenin ifası)</td></tr>
-        <tr><td>E-posta adresi (isteğe bağlı)</td><td>Sadece kayıtta eklerseniz</td><td>Şifre sıfırlama bağlantısı göndermek (sözleşmenin ifası)</td></tr>
+        <tr><td>E-posta adresi (isteğe bağlı)</td><td>Sadece kayıtta eklerseniz</td><td>Şifre sıfırlama bağlantısı göndermek; e-postalar sağlayıcımız Resend üzerinden iletilir (sözleşmenin ifası)</td></tr>
         <tr><td>XP, seviye, başarımlar, kuşanılan görünümler, biten oyunların sonuçları</td><td>Giriş yapmışken oyun bitirdiğinizde</td><td>Hesabın ilerleme özellikleri (sözleşmenin ifası)</td></tr>
         <tr><td>Arkadaş listesi, arkadaşlık istekleri, oyun davetleri ve en son ne zaman çevrim içi olduğunuz</td><td>Arkadaş özelliklerini kullandığınızda</td><td>Arkadaşlarla oynamanızı sağlamak (sözleşmenin ifası)</td></tr>
         <tr><td>Teknik veriler: IP adresi, tarayıcı türü, istek zamanları</td><td>Her ziyarette, hizmet sağlayıcıların sunucu kayıtlarında</td><td>Güvenlik ve hizmetin sürekliliği (meşru menfaat)</td></tr>
@@ -94,12 +98,16 @@
       <p>Kullanıcı adınız, seviyeniz, XP’niz, unvanınız, kuşandığınız görünümler, başarımlarınız ve galibiyet istatistikleriniz herkese açıktır: diğer oyuncular bunları liderlik tablolarında ve profil kartlarında görebilir.</p>
       <p>Sohbet mesajları yalnızca odadaki oyunculara iletilir, saklanmaz. Oyuncuların yeniden bağlanabilmesi için odanın oyun durumu sunucuda en fazla 12 saat tutulur. Verilerinizi satmıyoruz, reklam profili çıkarmak için kullanmıyoruz ve özel nitelikli kişisel veri toplamıyoruz.</p>
 
+      <h2>Ziyaret istatistikleri</h2>
+      <p>Ziyaretleri saymak için <b>Cloudflare Web Analytics</b> kullanıyoruz (görüntülenen sayfalar, ülke, tarayıcı ve cihaz türü, gelinen site). Çerez kullanmaz, IP adresinizi saklamaz ve sizi başka sitelerde takip etmez (hukuki sebep: oyunu geliştirmeye yönelik meşru menfaat).</p>
+
       <h2>Tarayıcıda saklananlar</h2>
       <p>Oyun, tarayıcınızın yerel depolamasında dil, takma ad, ses ayarı, son katıldığınız oda ve giriş yaptıysanız oturum bilgisini tutar. Bunlar oyunun çalışması için gereklidir. Takip veya reklam çerezi kullanmıyoruz; bu değişirse önce onayınızı isteriz.</p>
 
       <h2>Verilerin işlendiği yerler ve yurt dışına aktarım</h2>
       <ul>
-        <li><b>Cloudflare, Inc.</b>: web sitesinin barındırılması ve çevrim içi oyun bağlantısı.</li>
+        <li><b>Cloudflare, Inc.</b>: web sitesinin barındırılması, çevrim içi oyun bağlantısı ve anonim ziyaret istatistikleri.</li>
+        <li><b>Resend (Plus Five Five, Inc.)</b>: şifre sıfırlama e-postalarının gönderimi.</li>
         <li><b>Supabase, Inc.</b>: hesaplar, şifreler (hash), ilerleme verileri ve şifre sıfırlama e-postaları.</li>
         <li><b>Herkese açık MQTT sunucuları</b> (EMQX, HiveMQ, Eclipse Mosquitto): yalnızca kendi sunucumuza ulaşılamadığında yedek bağlantı olarak. Bu durumda odanın isimleri, hamleleri ve sohbeti herkese açık sunuculardan geçer.</li>
       </ul>
