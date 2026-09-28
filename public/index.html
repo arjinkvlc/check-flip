@@ -29,50 +29,65 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="css/style.css">
+<script>try{var th=localStorage.getItem("cf-theme");if(!th)th=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=th;}catch(e){}</script>
 </head>
 <body>
 <div class="app">
   <header class="top">
     <div class="logo"><img class="logo-svg" src="assets/logo.svg" alt="" aria-hidden="true"><span data-i="title">Check Flip</span></div>
-    <div class="spacer"></div>
     <span id="roomChip" class="chip" hidden></span>
-    <button id="logBtn" class="btn small ghost logbtn" data-a="log" data-ia="showLog" hidden>📜</button>
-    <button id="chatHdr" class="btn small ghost chathdr" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge2" hidden>0</span></button>
-    <button id="langBtn" class="btn small ghost langbtn" data-a="lang">🌐 TR</button>
-    <button id="musicBtn" class="btn small ghost snd" data-a="music" data-ia="music">🎵</button>
-    <button id="sndBtn" class="btn small ghost snd" data-a="snd" data-ia="sound">🔊</button>
-    <button id="leaveBtn" class="btn small ghost" data-a="leave" hidden><span class="lt" data-i="leaveLong"></span><span class="st" data-i="leave"></span></button>
+    <div class="spacer"></div>
+    <button id="logBtn" class="iconbtn logbtn" data-a="log" data-ia="showLog" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></button>
+    <button id="chatHdr" class="iconbtn chathdr" data-a="chatopen" data-ia="openChat" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="chatbadge" id="chatBadge2" hidden>0</span></button>
+    <button id="langBtn" class="iconbtn langbtn" data-a="lang">TR</button>
+    <button id="musicBtn" class="iconbtn" data-a="music" data-ia="music"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+    <button id="sndBtn" class="iconbtn" data-a="snd" data-ia="sound"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="w" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="x" d="M22 9l-6 6M16 9l6 6"/></svg></button>
+    <button id="themeBtn" class="iconbtn" data-a="theme" data-ia="themeAria"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="moon" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg></button>
+    <div id="acctChip" class="acctchip" hidden></div>
+    <button id="leaveBtn" class="iconbtn leavebtn" data-a="leave" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span class="lt" data-i="leaveLong"></span><span class="st" data-i="leave"></span></button>
   </header>
 
   <section id="home" class="home">
-    <div>
-      <div class="hero-logo"><img class="logo-svg" src="assets/logo.svg" alt="" aria-hidden="true"></div>
-      <h1>Check<br><span>Flip</span></h1>
-      <p class="tag-line" data-i="tagline"></p>
-      <p class="lede" data-i="lede"></p>
-      <div class="tokrow" aria-hidden="true"><i style="--c:#e2483d"></i><i style="--c:#3a7fc2"></i><i style="--c:#f0ad2c"></i><i style="--c:#1b9a86"></i><i style="--c:#8b5cf6"></i><i style="--c:#f07c2a"></i></div>
-    </div>
-    <div class="box panel">
-      <div id="acct" class="acct" hidden></div>
+    <div class="hmain">
+      <p class="eyebrow" data-i="tagline"></p>
+      <h1 data-i="heroQ"></h1>
       <div id="nickWrap" class="nickwrap">
         <label for="nm" data-i="nickLabel"></label>
         <input id="nm" maxlength="14" autocomplete="nickname">
       </div>
-      <button id="btnQuick" class="btn primary big" data-a="quick" data-i="quick" disabled></button>
-      <button id="btnCreate" class="btn" data-a="create" data-i="createPrivate" disabled></button>
-      <div class="row">
-        <input id="code" maxlength="5" data-ip="codePh" autocapitalize="characters" autocomplete="off" data-ia="codeAria">
-        <button id="btnJoin" class="btn" data-a="join" data-i="join" disabled></button>
-      </div>
+      <div class="seg2" id="homeMode" role="group" data-ia="modeLbl"><button data-a="hmode" data-m="classic"></button><button data-a="hmode" data-m="quick"></button></div>
+      <button id="btnQuick" class="bigplay" data-a="quick" disabled><span><b data-i="quickTitle"></b><small data-i="quickSub"></small></span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       <button id="btnRejoin" class="btn" data-a="rejoin" hidden></button>
-      <p id="netNote" class="note"></p>
       <p id="homeErr" class="err" hidden></p>
-      <div class="or" data-i="or"></div>
-      <div class="row"><button class="btn" data-a="solo" style="flex:1" data-i="solo"></button><button class="btn ghost" data-a="local" style="flex:1" data-i="local"></button></div>
-      <div class="row"><button class="btn ghost" data-a="leaders" style="flex:1" data-i="leadersBtn"></button><button class="btn ghost" data-a="install" id="installBtn" style="flex:1" data-i="installBtn" hidden></button></div>
+      <div class="tiles">
+        <button class="tile" data-a="friendsPlay" id="tileFriends" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span><b data-i="tFriends"></b><small data-i="tFriendsSub"></small></span></button>
+        <button class="tile" data-a="solo"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4"/><circle cx="12" cy="3" r="1"/><circle cx="9" cy="14" r="1.2"/><circle cx="15" cy="14" r="1.2"/></svg><span><b data-i="tBots"></b><small data-i="tBotsSub"></small></span></button>
+        <button class="tile" data-a="local"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg><span><b data-i="tLocal"></b><small data-i="tLocalSub"></small></span></button>
+      </div>
+      <div class="roompanel" id="roomPanel" hidden>
+        <button id="btnCreate" class="btn primary" data-a="create" data-i="createPrivate" disabled></button>
+        <div class="row">
+          <input id="code" maxlength="5" data-ip="codePh" autocapitalize="characters" autocomplete="off" data-ia="codeAria">
+          <button id="btnJoin" class="btn" data-a="join" data-i="join" disabled></button>
+        </div>
+      </div>
+      <p id="netNote" class="note"></p>
     </div>
-    <details class="rules">
+    <aside class="hfelt" aria-hidden="true">
+      <div class="hrec"><b data-i="recHd"></b><hr><span><i data-i="rec1"></i><i>45</i></span><span><i data-i="rec2"></i><i>210</i></span><span><i data-i="rec3"></i><i>95</i></span><hr><span class="tot"><i data-i="recTot"></i><i>350</i></span><em>?</em></div>
+      <img class="hav a1" src="assets/avatars/foodie.svg" alt=""><img class="hav a2" src="assets/avatars/grandma.svg" alt=""><img class="hav a3" src="assets/avatars/barista.svg" alt=""><img class="hav a4" src="assets/avatars/waiter.svg" alt="">
+    </aside>
+    <div class="hstrip">
+      <div id="acct" class="acct" hidden></div>
+      <div class="hlinks">
+        <button class="pill" data-a="leaders"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span data-i="lbTitle"></span></button>
+        <button class="pill" data-a="install" id="installBtn" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span data-i="installShort"></span></button>
+        <button class="pill" data-a="howto"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg><span data-i="rulesTitle"></span></button>
+      </div>
+    </div>
+    <details class="rules" id="rulesBox">
       <summary data-i="rulesTitle"></summary>
+      <p class="lede" data-i="lede"></p>
       <ul id="rulesList"></ul>
       <p><button class="linkbtn" data-a="tipsreset" data-i="tipsReset"></button></p>
       <div class="cols" id="cardLists"></div>
@@ -184,19 +199,20 @@
       </div>
     </div>
     <aside id="actions" class="box"></aside>
+    <div class="sidetabs" id="sideTabs"><button class="stab on" data-a="stab" data-t="log" data-i="events"></button><button class="stab" data-a="stab" data-t="chat" id="stabChat"><span data-i="chat"></span><span class="chatbadge" id="chatBadge3" hidden>0</span></button></div>
     <section class="box logbox">
-      <h3 data-i="events"></h3>
+      <h3 class="logh" data-i="events"></h3>
       <ul id="log" class="log"></ul>
       <details class="rules" style="padding:10px 12px">
         <summary data-i="squaresCards"></summary>
         <div id="legend" class="cols"></div>
       </details>
     </section>
-  </section>
   <section class="box chatbox" id="chatbox" hidden>
-    <div class="chathead"><h3 data-i="chat"></h3><button class="btn small ghost chatclose" data-a="chatclose" data-ia="closeChat">✕</button></div>
-    <ul class="chatlist" id="chatList"><li class="chatempty"></li></ul>
-    <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn primary" type="submit" data-i="send"></button></form>
+      <div class="chathead"><h3 data-i="chat"></h3><button class="btn small ghost chatclose" data-a="chatclose" data-ia="closeChat">✕</button></div>
+      <ul class="chatlist" id="chatList"><li class="chatempty"></li></ul>
+      <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn primary" type="submit" data-i="send"></button></form>
+    </section>
   </section>
   <button class="chatfab" id="chatFab" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge" hidden>0</span></button>
   <footer class="credit" id="gameCredit" hidden><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a></footer>

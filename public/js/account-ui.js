@@ -58,26 +58,34 @@ export function renderAcctPanel(el, nickWrap) {
   if (!ACC.ready) { el.innerHTML = `<p class="note">${esc(t('aLoading'))}</p>`; nickWrap.hidden = false; return; }
   if (!loggedIn()) {
     nickWrap.hidden = false;
-    el.innerHTML = `<div class="acctguest"><b>${esc(t('aGuest'))}</b><p class="note">${esc(t('aGuestNote'))}</p>
-      <div class="row"><button class="btn small" data-a="authLogin">${esc(t('aLogin'))}</button><button class="btn small primary" data-a="authSignup">${esc(t('aSignup'))}</button></div></div>`;
+    el.innerHTML = `<div class="acctguest scard"><span><b>${esc(t('aGuest'))}</b><small class="note">${esc(t('signupPitch'))}</small></span>
+      <button class="btn small" data-a="authLogin">${esc(t('aLogin'))}</button><button class="btn small primary" data-a="authSignup">${esc(t('aSignup'))}</button></div>`;
     return;
   }
   nickWrap.hidden = true;
   const p = ACC.profile, e = equipped(), x = xpLine(p);
-  el.innerHTML = `<div class="acctcard"><span class="pfav${frCls(e.frame)}">${avatarGlyph()}</span>
+  el.innerHTML = `<div class="acctcard scard"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span>
     <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span></div>
-    <small class="ptitle">${esc(itemName('title', e.title))}</small>
     <div class="xpbar" title="${esc(x.txt)}"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small></div></div>
     ${questHTML()}
-    <div class="row"><button class="btn small" data-a="profile" style="flex:1">${esc(t('aProfile'))}</button><button class="btn small" data-a="friends" style="flex:1">${esc(t('frBtn'))}${friendBadge()}</button><button class="btn small ghost" data-a="logout">${esc(t('aLogout'))}</button></div>
-    <p class="note">${esc(t('aNameLocked'))}</p>${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`;
+    <button class="pill" data-a="profile">${esc(t('profileBtn'))}</button><button class="pill" data-a="friends">${esc(t('friendsShort'))}${friendBadge()}</button><button class="pill ghost" data-a="logout">${esc(t('aLogout'))}</button>
+    ${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`;
+}
+
+// small account button in the header (avatar + name + level, or "Log in")
+export function renderAcctChip(el) {
+  if (!ACC.enabled || !ACC.ready) { el.hidden = true; return; }
+  el.hidden = false;
+  if (!loggedIn()) { el.hidden = true; el.innerHTML = ''; return; }
+  const p = ACC.profile, e = equipped();
+  el.innerHTML = `<button class="chipbtn me" data-a="profile" aria-label="${esc(t('profileBtn'))}"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span><span class="cname"><b>${esc(p.username)}</b><small>${esc(t('aLv', level()))}</small></span>${friendBadge()}</button>`;
 }
 
 // today's quest (same for everyone, resets at 00:00 UTC)
 function questHTML() {
   const d = ACC.daily; if (!d || !d.quest) return '';
   const h = Math.floor((d.resets_in || 0) / 3600), m = Math.floor(((d.resets_in || 0) % 3600) / 60);
-  return `<div class="quest${d.done ? ' done' : ''}"><span class="qi">${d.done ? '✅' : '🎯'}</span><div><b>${esc(t('qTitle'))}</b> · ${esc(t('q_' + d.quest))}
+  return `<div class="quest scard${d.done ? ' done' : ''}"><svg class="ic qi" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><div><b>${esc(t('qTitle'))}</b> · ${esc(t('q_' + d.quest))}
     <small class="note">${esc(d.done ? t('qDone') : t('qReward'))} · ${esc(t('qResets', h, m))}</small></div></div>`;
 }
 const friendBadge = () => { const n = ACC.social && ACC.social.incoming ? ACC.social.incoming.length : 0; return n ? ` <span class="nbadge">${n}</span>` : ''; };

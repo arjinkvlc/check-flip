@@ -12,6 +12,7 @@ import {
 import {SFX} from './sound.js';
 import {HubClient, hubUrl, hubAvailable} from './net.js';
 import './i18n-v11.js';
+import './i18n-v13.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
 import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
@@ -19,7 +20,7 @@ import {shareResult} from './share.js';
 import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast, socialClick} from './social-ui.js';
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
 import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG} from './account.js';
-import {initAccountUI, renderAcctPanel, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
+import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 
 setVenueIconFn(key => VICON[key] || '');
@@ -95,7 +96,7 @@ function listPub(c, ms) {
   return new Promise(res => {
     const out = {};
     const h = (tp, buf) => { if (!tp.startsWith(PUB)) return; const cd = tp.slice(PUB.length); const s = buf.toString(); if (!s) { delete out[cd]; return; }
-      try { const m = JSON.parse(s); if (m && typeof m.n === 'number') out[cd] = {code: cd, n: m.n, t: +m.t || 0}; } catch (e) {} };
+      try { const m = JSON.parse(s); if (m && typeof m.n === 'number') out[cd] = {code: cd, n: m.n, t: +m.t || 0, m: m.m === 'quick' ? 'quick' : 'classic'}; } catch (e) {} };
     c.on('message', h); c.subscribe(PUB + '+', {qos: 1}); setTimeout(() => { c.removeListener('message', h); res(Object.values(out)); }, ms);
   });
 }
@@ -140,7 +141,7 @@ function afterState() {
 function publish() { if (mode !== 'online' || !isHost() || !mq) return; S.rev++; mq.publish(T('state'), JSON.stringify(S), {qos: 1, retain: true, properties: EXP}); advert(); }
 function advert() {
   if (!mq || !S || !S.pub || !isHost()) return;
-  if (S.ph === 'lobby' && S.pl.length < CFG.PUBMAX) mq.publish(PUB + code, JSON.stringify({n: S.pl.length, t: Date.now()}), {qos: 1, retain: true, properties: {messageExpiryInterval: 60}});
+  if (S.ph === 'lobby' && S.pl.length < CFG.PUBMAX) mq.publish(PUB + code, JSON.stringify({n: S.pl.length, t: Date.now(), m: modeOf(S)}), {qos: 1, retain: true, properties: {messageExpiryInterval: 60}});
   else mq.publish(PUB + code, '', {qos: 1, retain: true});
 }
 function commit() { publish(); sync(); }
@@ -184,6 +185,7 @@ setInterval(() => {
 }, 2000);
 setInterval(() => { if (mode === 'online' && S && S.pub && isHost() && S.ph === 'lobby') advert(); }, 20000);
 
+const homeMode = () => ui.hmode === 'quick' ? 'quick' : 'classic';
 function myName() { if (loggedIn()) return clean(ACC.profile.username); const typed = clean($('#nm').value); if (typed) lsSet('hs-nm', typed); return typed || myNick; }
 async function createRoom(pub, ix0) {
   if (!netOk()) { showErr(t('eLib')); return; }
@@ -192,7 +194,7 @@ async function createRoom(pub, ix0) {
   let c = null, last = null; for (let ix = ix0 || 0; ix < BROKERS.length && !c; ix++) { try { c = await openBroker(ix); } catch (e) { last = e; } }
   if (!c) { reset(); showErr(t('eServer', errMsg(last))); return; }
   lsSet('hs-pid-' + code, me.pid);
-  S = newState(); S.host = me.pid; S.pub = pub ? 1 : 0; addPlayer(S, me.pid, nm, {pf: publicCard(), av: myAvatarPref()}); L(S, 'created', {n: nm, pub: pub ? 1 : 0});
+  S = newState(); S.host = me.pid; S.pub = pub ? 1 : 0; S.cfg.mode = homeMode(); addPlayer(S, me.pid, nm, {pf: publicCard(), av: myAvatarPref()}); L(S, 'created', {n: nm, pub: pub ? 1 : 0});
   wire(c); ui.screen = 'game'; commit();
 }
 async function joinRoom(forced) {
@@ -222,7 +224,7 @@ async function quickPlay() {
     let c; try { c = await openBroker(ix, false); } catch (e) { continue; }
     const list = await listPub(c, 1800); try { c.end(true); } catch (e) {}
     if (mode !== 'online') return;
-    const cand = list.filter(r => r.n >= 1 && r.n < CFG.PUBMAX && Math.abs(Date.now() - r.t) < 600000).sort((a, b) => b.n - a.n);
+    const cand = list.filter(r => r.n >= 1 && r.n < CFG.PUBMAX && Math.abs(Date.now() - r.t) < 600000 && r.m === homeMode()).sort((a, b) => b.n - a.n);
     if (cand.length && ui.quick <= 3) { ui.joinMsg = ['jFound', cand[0].n, CFG.PUBMAX]; render(); return joinRoom(cand[0].code); }
     return createRoom(true, ix);
   }
@@ -539,6 +541,11 @@ const reacts = {}; let lastReact = 0;
 /* ---- chat ---- */
 let unread = 0, chatInView = false, lastChat = 0;
 const chatOpen = () => mobileQ.matches ? document.body.classList.contains('showchat') : chatInView;
+function setTab(tb) { document.body.classList.toggle('tabchat', tb === 'chat'); if (tb === 'chat') { unread = 0; const l = $('#chatList'); requestAnimationFrame(() => { l.scrollTop = l.scrollHeight; }); } updChat(); }
+function setTheme(th, save = true) {
+  document.documentElement.dataset.theme = th; if (save) lsSet('cf-theme', th);
+  const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = th === 'dark' ? '#0f141d' : '#eef0f4';
+}
 function clearChat() { unread = 0; const l = $('#chatList'); if (l) l.innerHTML = `<li class="chatempty">${esc(t('chatEmpty'))}</li>`; updChat(); }
 function addChat(pid, nm, text, own) {
   const V = shown || S; const i = V ? V.pl.findIndex(q => q.id === pid) : -1; const name = i >= 0 ? V.pl[i].n : (clean(nm) || '?');
@@ -556,7 +563,9 @@ function updChat() {
   box.hidden = !on; if (!on) document.body.classList.remove('showchat');
   if (chatOpen()) unread = 0;
   fab.hidden = !on || chatOpen(); $('#chatHdr').hidden = !on;
-  for (const id of ['#chatBadge', '#chatBadge2']) { const bd = $(id); bd.hidden = !unread; bd.textContent = unread > 9 ? '9+' : String(unread); }
+  $('#sideTabs').hidden = !on; if (!on) document.body.classList.remove('tabchat');
+  document.querySelectorAll('.stab').forEach(x => x.classList.toggle('on', (x.dataset.t === 'chat') === document.body.classList.contains('tabchat')));
+  for (const id of ['#chatBadge', '#chatBadge2', '#chatBadge3']) { const bd = $(id); bd.hidden = !unread; bd.textContent = unread > 9 ? '9+' : String(unread); }
 }
 new IntersectionObserver(es => { chatInView = es[0].isIntersecting; updChat(); }, {threshold: .25}).observe($('#chatbox'));
 mobileQ.addEventListener ? mobileQ.addEventListener('change', updChat) : mobileQ.addListener(updChat);
@@ -602,9 +611,11 @@ document.addEventListener('input', e => { if (e.target.id) e.target.dataset.touc
 function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
   if (code) $('#roomChip').innerHTML = `${esc(S && S.pub ? t('chipPub') : t('chipRoom'))} <b>${esc(code)}</b>`;
-  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').textContent = SFX.on ? '🔊' : '🔇'; $('#gameCredit').hidden = ui.screen === 'home';
-  $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').title = t('music');
-  $('#langBtn').textContent = t('langBtn'); $('#langBtn').setAttribute('aria-label', t('langAria'));
+  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('off', !SFX.on); $('#sndBtn').setAttribute('aria-pressed', String(SFX.on)); $('#gameCredit').hidden = ui.screen === 'home';
+  $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').setAttribute('aria-pressed', String(Music.on)); $('#musicBtn').title = t('music');
+  $('#langBtn').textContent = getLang() === 'en' ? 'TR' : 'EN'; $('#langBtn').setAttribute('aria-label', t('langAria'));
+  $('#themeBtn').title = t('themeAria'); renderAcctChip($('#acctChip'));
+  Music.scene(ui.screen === 'game' && shown && shown.ph !== 'lobby' ? 'game' : 'menu');
   if (ui.screen === 'home') { show('home'); renderHome(); return; }
   updateToast();
   if (ui.screen === 'friends') { show('friends'); renderFriends($('#friendsBox')); return; }
@@ -625,6 +636,8 @@ function renderHome() {
   renderAcctPanel($('#acct'), $('#nickWrap'));
   $('#installBtn').hidden = !canInstall();
   $('#btnCreate').disabled = !ok; $('#btnJoin').disabled = !ok; $('#btnQuick').disabled = !ok;
+  document.querySelectorAll('#homeMode button').forEach(b => { const on = b.dataset.m === homeMode(); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.innerHTML = `${esc(t('m_' + b.dataset.m))}<small>${esc(t('mShort_' + b.dataset.m))}</small>`; });
+  $('#roomPanel').hidden = !ui.roomOpen; $('#tileFriends').setAttribute('aria-expanded', String(!!ui.roomOpen)); $('#tileFriends').classList.toggle('on', !!ui.roomOpen);
   $('#netNote').textContent = ok ? t('netOk') : t('netFail');
   { let l = null; try { l = JSON.parse(lsGet('hs-last') || 'null'); } catch (e) {} const rb = $('#btnRejoin'); const okL = ok && l && l.code && Date.now() - l.t < 12 * 3600e3; rb.hidden = !okL; if (okL) rb.textContent = t('rejoin', l.code); }
   $('#homeErr').hidden = !ui.err; $('#homeErr').textContent = ui.err || '';
@@ -882,13 +895,18 @@ document.addEventListener('click', e => {
   if (accountClick(a, b) || socialClick(a, b)) { SFX.play('click'); return; }
   if (['create', 'join', 'quick', 'local', 'solo', 'lstart', 'sstart', 'leave', 'addp', 'delp', 'copy', 'copycode', 'rejoin', 'start', 'restart', 'sel', 'cancel', 'autoMoney', 'ready', 'lang'].includes(a)) SFX.play(['create', 'join', 'quick', 'local', 'solo'].includes(a) ? 'menu' : 'click');
   switch (a) {
+    case 'hmode': ui.hmode = b.dataset.m; lsSet('cf-hmode', ui.hmode); render(); break;
+    case 'friendsPlay': ui.roomOpen = !ui.roomOpen; render(); if (ui.roomOpen) setTimeout(() => $('#code').focus(), 30); break;
+    case 'howto': { const d = $('#rulesBox'); d.open = true; d.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'}); break; }
+    case 'theme': setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); break;
+    case 'stab': setTab(b.dataset.t); break;
     case 'lang': setLang(getLang() === 'en' ? 'tr' : 'en'); pickNick(); applyStatic(); render(); break;
     case 'create': ui.err = ''; ui.quick = 0; createRoom(false); break;
     case 'quick': ui.err = ''; ui.quick = 0; quickPlay(); break;
     case 'join': ui.err = ''; ui.quick = 0; joinRoom(); break;
     case 'rejoin': { ui.err = ''; ui.quick = 0; let l = null; try { l = JSON.parse(lsGet('hs-last') || 'null'); } catch (err) {} if (l && l.code) { $('#code').value = l.code; joinRoom(l.code); } break; }
     case 'local': ui.err = ''; ui.screen = 'local'; render(); break;
-    case 'solo': ui.err = ''; ui.screen = 'solo'; if (ui.soloAv === undefined) ui.soloAv = myAvatarPref(); render(); break;
+    case 'solo': ui.err = ''; ui.screen = 'solo'; if (!ui.soloMode) ui.soloMode = homeMode(); if (ui.soloAv === undefined) ui.soloAv = myAvatarPref(); render(); break;
     case 'soloN': ui.soloN = +b.dataset.n; render(); break;
     case 'soloMode': ui.soloMode = b.dataset.m; if (ui.soloMode !== 'quick' && $('#soloDays').value === '10') $('#soloDays').value = '0'; render(); break;
     case 'rematch': setRematch(!(S && S.rm && S.rm[me.pid])); break;
@@ -932,7 +950,7 @@ document.addEventListener('click', e => {
     case 'log': document.body.classList.remove('showchat'); document.body.classList.toggle('showlog'); updChat(); break;
     case 'chatopen':
       if (mobileQ.matches) { document.body.classList.remove('showlog'); document.body.classList.add('showchat'); updChat(); const l = $('#chatList'); l.scrollTop = l.scrollHeight; setTimeout(() => $('#chatIn').focus(), 50); }
-      else { $('#chatbox').scrollIntoView({behavior: 'smooth', block: 'end'}); setTimeout(() => $('#chatIn').focus({preventScroll: true}), 400); }
+      else { setTab('chat'); $('#chatbox').scrollIntoView({behavior: 'smooth', block: 'nearest'}); setTimeout(() => $('#chatIn').focus({preventScroll: true}), 300); }
       break;
     case 'chatclose': document.body.classList.remove('showchat'); updChat(); break;
     case 'rxopen': { const l = $('#rxlist'); l.hidden = !l.hidden; b.setAttribute('aria-expanded', String(!l.hidden)); break; }
@@ -956,7 +974,8 @@ $('#soloMoney').addEventListener('input', () => renderSolo());
 pickNick();
 $('#nm').value = lsGet('hs-nm') || '';
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
-{ const qs = new URLSearchParams(location.search); const qp = qs.get('room') || qs.get('oda'); if (qp) $('#code').value = qp.toUpperCase().slice(0, 5); }
+{ const qs = new URLSearchParams(location.search); const qp = qs.get('room') || qs.get('oda'); if (qp) { $('#code').value = qp.toUpperCase().slice(0, 5); ui.roomOpen = true; } }
+ui.hmode = lsGet('cf-hmode') || 'classic'; setTheme(document.documentElement.dataset.theme || 'light', false);
 const uiHooks = {
   go: sc => { ui.screen = sc; render(); },
   render: () => { updateToast(); if (['home', 'auth', 'profile', 'friends', 'leaders'].includes(ui.screen) || (shown && (shown.ph === 'over' || shown.ph === 'lobby'))) render(); },
