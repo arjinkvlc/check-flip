@@ -47,7 +47,7 @@ const C = {
       B10: ['Pass the check', "Hand today's check to the next player in line"], B11: ['Going Dutch', "When it's your turn to pay, everyone pays their own share"],
       K: ['Tighten the Belt', "When you pay, you don't eat: you skip your own share and keep your hunger"]
     },
-    avatars: {waiter: 'Waiter', waitress: 'Waitress', student: 'Student', foodie: 'Food blogger', italian: 'Italian chef', doner: 'Döner master', noodle: 'Noodle chef', baker: 'Pastry chef', grandma: 'Grandma', critic: 'Food critic'},
+    avatars: {waiter: 'Waiter', waitress: 'Waitress', student: 'Student', foodie: 'Food blogger', italian: 'Italian chef', doner: 'Döner master', noodle: 'Noodle chef', baker: 'Pastry chef', grandma: 'Grandma', critic: 'Food critic', barista: 'Barista', sommelier: 'Sommelier'},
     nicks: ['Hungry Wolf', 'Pizza Lover', 'Taco Boss', 'Noodle King', 'Burger Fan', 'Sushi Chef', 'Donut Hunter', 'Pasta Queen', 'Snack Attack', 'Big Appetite', 'Waffle Wizard', 'Curry Master', 'Pretzel Pro', 'Bagel Baron', 'Dumpling Duke', 'Ramen Rider', 'Nacho Ninja', 'Pancake Pal', 'Cheese Chaser', 'Fry Guy']
   },
   tr: {
@@ -80,7 +80,7 @@ const C = {
       B10: ['Hesabı Kaydır', 'Bugünkü ısmarlamayı sıradakine devret'], B11: ['Alman Usulü', 'Ismarlama sendeyken herkes kendi hesabını öder'],
       K: ['Kemer Sıkma', 'Ismarlarken sen yemezsin: kendi payını ödemezsin, açlığın korunur']
     },
-    avatars: {waiter: 'Garson', waitress: 'Garson kız', student: 'Öğrenci', foodie: 'Yemek blogcusu', italian: 'İtalyan şef', doner: 'Dönerci usta', noodle: 'Erişte ustası', baker: 'Pastacı', grandma: 'Nine', critic: 'Yemek eleştirmeni'},
+    avatars: {waiter: 'Garson', waitress: 'Garson kız', student: 'Öğrenci', foodie: 'Yemek blogcusu', italian: 'İtalyan şef', doner: 'Dönerci usta', noodle: 'Erişte ustası', baker: 'Pastacı', grandma: 'Nine', critic: 'Yemek eleştirmeni', barista: 'Barista', sommelier: 'Şarap uzmanı'},
     nicks: ['Aç Kurt', 'Pizza Sever', 'Taco Patronu', 'Erişte Kralı', 'Burgerci', 'Suşi Ustası', 'Donut Avcısı', 'Makarnacı', 'Atıştırmacı', 'Obur', 'Waffle Ustası', 'Köri Ustası', 'Simitçi', 'Mantıcı', 'Köfteci', 'Tostçu', 'Nacho Ninja', 'Pankekçi', 'Peynirci', 'Patatesçi']
   }
 };

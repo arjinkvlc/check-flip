@@ -287,7 +287,7 @@ function maybeSubmit(V) {
   const q = V.pl[mi], st = q.st || {};
   const payload = {
     game_id: gid, mode: isSolo ? 'solo' : 'online', pid: me.pid, order: standings(V).map(i => V.pl[i].id),
-    winners: winners(V).map(i => V.pl[i].id), won: winners(V).includes(mi),
+    winners: winners(V).map(i => V.pl[i].id), won: winners(V).includes(mi), gmode: modeOf(V),
     days: V.day, duration: Math.max(0, Math.round((Date.now() - (V.t0 || Date.now())) / 1000)),
     stats: {deals: st.d || 0, belt: st.b || 0, iron: !!st.i, tycoon: !!st.t, bonus: Math.min(20, q.a ? V.day : (q.od || 0)),
       bought: st.by || 0, upgrades: st.up || 0, cards: st.cu || 0, paid: st.pd || 0, survived: q.a ? V.day : (q.od || 0)}

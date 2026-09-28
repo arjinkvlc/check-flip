@@ -29,7 +29,7 @@ const BOARD = ['start', 'bos', 'sans', 'gelir', 'atis', 'olay', 'mekan', 'fatura
 const CARD_IDS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'B0', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11'];
 const HOLD = {A10: 'feast', B8: 'any', B9: 'any', B10: 'feast', B11: 'feast', K: 'feast'};
 // avatar keys → illustrations in public/assets/avatars/<key>.svg (unlock rules in js/account.js)
-const AVATARS = {waiter: 1, waitress: 1, student: 1, foodie: 1, italian: 1, doner: 1, noodle: 1, baker: 1, grandma: 1, critic: 1};
+const AVATARS = {waiter: 1, waitress: 1, student: 1, foodie: 1, italian: 1, doner: 1, noodle: 1, baker: 1, grandma: 1, critic: 1, barista: 1, sommelier: 1};
 const EMOJIS = ['😂', '😭', '😡', '😱', '👏', '😋'];
 const cellIcon = p => BOARD[p] === 'mekan' ? VICON[VENUES[p]] : KICON[BOARD[p]];
 const venueIconAt = p => VICON[VENUES[p]] || '';

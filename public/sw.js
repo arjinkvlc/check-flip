@@ -14,7 +14,7 @@ const SHELL = [
   '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/sound.js', '/js/music.js',
   '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js',
   '/js/pwa.js', '/js/version.js',
-  ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic'].map(k => `/assets/avatars/${k}.svg`)
+  ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic', 'barista', 'sommelier'].map(k => `/assets/avatars/${k}.svg`)
 ];
 const CDN = ['https://cdn.jsdelivr.net/', 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/'];
 

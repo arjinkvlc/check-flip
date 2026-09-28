@@ -25,6 +25,14 @@ export function initAccountUI(hooks) {
     H.render();
   });
   applyBoard();
+  // arrived from an expired or already used e-mail link (Supabase adds #error=…&error_code=… to the URL)
+  const hp = new URLSearchParams(location.hash.slice(1));
+  if (hp.get('error') || hp.get('error_code')) {
+    const code = hp.get('error_code') || '';
+    AU.tab = 'forgot'; AU.err = t(/expired|not_found/.test(code) || /expired/i.test(hp.get('error_description') || '') ? 'aErrLinkExpired' : 'aErrGeneric');
+    history.replaceState(null, '', location.pathname + location.search);
+    setTimeout(() => H.go('auth'), 0);
+  }
 }
 
 // Board style is personal: applied to <body data-board="…">
@@ -90,8 +98,9 @@ export function renderAuth(el) {
     f = `<form data-form="signup" class="aform">
       <label for="auName">${esc(t('aUsername'))} <span id="auNameChk" class="chk"></span></label><input id="auName" autocomplete="username" maxlength="14" pattern="[A-Za-z0-9_]{3,14}" required>
       <p class="note">${esc(t('aUsernameHint'))}</p>
-      <label for="auPw">${esc(t('aPassword'))}</label><input id="auPw" type="password" autocomplete="new-password" minlength="6" maxlength="72" required>
+      <label for="auPw">${esc(t('aPassword'))}</label><input id="auPw" type="password" autocomplete="new-password" maxlength="72" required>
       <p class="note">${esc(t('aPasswordHint'))}</p>
+      <label for="auPw2">${esc(t('aPassword2'))}</label><input id="auPw2" type="password" autocomplete="new-password" maxlength="72" required>
       <label for="auEmail">${esc(t('aEmailOpt'))}</label><input id="auEmail" type="email" autocomplete="email" maxlength="120">
       <p class="note">${esc(t('aEmailHint'))}</p>
       <label class="consent"><input type="checkbox" id="auConsent" required><span>${t('aConsent')}</span></label>
@@ -104,8 +113,9 @@ export function renderAuth(el) {
       <button class="linkbtn" type="button" data-a="authTab" data-t="login">${esc(t('aBackToLogin'))}</button></form>`;
   } else if (AU.tab === 'reset') {
     f = `<h3>${esc(t('aNewPwTitle'))}</h3><form data-form="reset" class="aform">
-      <label for="auNewPw">${esc(t('aNewPw'))}</label><input id="auNewPw" type="password" autocomplete="new-password" minlength="6" maxlength="72" required>
+      <label for="auNewPw">${esc(t('aNewPw'))}</label><input id="auNewPw" type="password" autocomplete="new-password" maxlength="72" required>
       <p class="note">${esc(t('aPasswordHint'))}</p>
+      <label for="auNewPw2">${esc(t('aNewPw2'))}</label><input id="auNewPw2" type="password" autocomplete="new-password" maxlength="72" required>
       <button class="btn primary" type="submit" ${dis}>${esc(AU.busy ? t('aWorking') : t('aSave'))}</button></form>`;
   }
   el.innerHTML = tabs + (AU.err ? `<p class="err" role="alert">${esc(AU.err)}</p>` : '') + (AU.msg ? `<p class="okmsg" role="status">${esc(AU.msg)}</p>` : '') + f +
@@ -117,14 +127,17 @@ const val = id => { const e = document.getElementById(id); return e ? e.value : 
 async function runForm(kind) {
   if (AU.busy) return;
   const keep = {auId: val('auId'), auName: val('auName'), auEmail: val('auEmail'), auFEmail: val('auFEmail')};
+  const cb = document.getElementById('auConsent'); keep.consent = !!(cb && cb.checked);
   const pw = val('auPw'), npw = val('auNewPw');
+  // the two password boxes must match (sign-up and reset)
+  if ((kind === 'signup' && pw !== val('auPw2')) || (kind === 'reset' && npw !== val('auNewPw2'))) { AU.err = t('aErrPwMatch'); rerenderAuth(keep); return; }
   AU.busy = true; AU.err = ''; AU.msg = ''; rerenderAuth(keep);
   try {
     if (kind === 'login') { await signIn(keep.auId, pw); done('welcome'); return; }
     if (kind === 'signup') { await signUp(keep.auName, pw, keep.auEmail); done('welcome'); return; }
     if (kind === 'forgot') { await sendReset(keep.auFEmail); AU.msg = t('aLinkSent'); }
     if (kind === 'reset') { await setNewPassword(npw); done('pw'); return; }
-  } catch (e) { AU.err = t(e && e.key ? e.key : 'aErrGeneric'); }
+  } catch (e) { AU.err = errText(e); if (e && e.key === 'aErrLinkExpired' && kind === 'reset') AU.tab = 'forgot'; }
   AU.busy = false; rerenderAuth(keep);
 }
 let flashTimer = null;
@@ -132,6 +145,7 @@ function done(kind) { AU.busy = false; AU.err = ''; AU.msg = ''; AU.flash = kind
 function rerenderAuth(keep) {
   const el = document.getElementById('authBox'); if (!el) return; renderAuth(el);
   for (const id in keep || {}) { const e = document.getElementById(id); if (e && keep[id]) e.value = keep[id]; }
+  const cb = document.getElementById('auConsent'); if (cb && keep && keep.consent) cb.checked = true;
 }
 let nameTimer = null, nameSeq = 0;
 function checkName() {
@@ -144,6 +158,12 @@ function checkName() {
     if (my !== nameSeq || ok == null) return;
     el.textContent = ok ? t('aNameFree') : t('aNameUsed'); el.className = 'chk ' + (ok ? 'ok' : 'bad');
   }, 450);
+}
+
+// readable message for an error from account.js (unknown errors show their code for support)
+export function errText(e) {
+  const k = e && e.key ? e.key : 'aErrGeneric';
+  return k === 'aErrGeneric' && e && e.code ? t('aErrGenericCode', e.code) : t(k);
 }
 
 /* ---------------- profile & looks ---------------- */
@@ -203,7 +223,7 @@ export function renderProfile(el) {
 
 async function doEquip(patch) {
   if (AU.busy) return; AU.busy = true; AU.err = ''; H.render();
-  try { await equip(patch); } catch (e) { AU.err = t(e && e.key ? e.key : 'aErrGeneric'); }
+  try { await equip(patch); } catch (e) { AU.err = errText(e); }
   AU.busy = false; H.render();
 }
 
@@ -257,7 +277,7 @@ export function accountClick(a, b) {
       if (typed.trim().toLowerCase() !== name.toLowerCase()) { AU.err = t('pDeleteMismatch'); H.render(); return true; }
       AU.busy = true; AU.err = ''; H.render();
       deleteAccount().then(() => { AU.busy = false; AU.flash = null; H.go('home'); })
-        .catch(e => { AU.busy = false; AU.err = t(e && e.key ? e.key : 'aErrGeneric'); H.render(); });
+        .catch(e => { AU.busy = false; AU.err = errText(e); H.render(); });
       return true;
     }
   }

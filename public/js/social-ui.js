@@ -32,7 +32,7 @@ async function loadBoard(kind, force) {
 export function renderLeaders(el) {
   const kind = SU.lbKind, rows = SU.lb[kind];
   if (!rows && !SU.lbErr) loadBoard(kind);
-  const val = r => kind === 'weekly' ? t('lbWeekXp', r.week_xp) : t('lbXp', r.xp);
+  const val = r => kind === 'weekly' ? t('lbWeekWins', r.week_wins) : t('lbXp', r.xp);
   const list = rows ? (rows.length ? `<ol class="lblist">${rows.map(r => `<li class="${r.me ? 'me' : ''}">
       <span class="lbpos">${r.pos <= 3 ? ['🥇', '🥈', '🥉'][r.pos - 1] : r.pos}</span>${face(r.equipped, r.username)}
       <span class="lbname">${nameBtn(r.username)}<small class="ptitle">${esc(titleOf(r.equipped))}</small></span>

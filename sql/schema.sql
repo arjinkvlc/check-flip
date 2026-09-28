@@ -129,6 +129,8 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('avatar', 'baker',    25, null,           7),
   ('avatar', 'grandma',   1, 'first_bite',   8),
   ('avatar', 'critic',    1, 'regular',      9),
+  ('avatar', 'barista',   1, 'quester',     10),
+  ('avatar', 'sommelier', 1, 'marathon',    11),
   ('frame',  'none',      1, null,           0),
   ('frame',  'bronze',    5, null,           1),
   ('frame',  'silver',   15, null,           2),
@@ -137,6 +139,11 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('frame',  'neon',      1, 'negotiator',   5),
   ('frame',  'flame',     1, 'gourmet',      6),
   ('frame',  'royal',     1, 'tycoon',       7),
+  ('frame',  'ember',     1, 'line_cook',    8),
+  ('frame',  'crown',     1, 'executive_chef', 9),
+  ('frame',  'ivy',       1, 'renovator',   10),
+  ('frame',  'duo',       1, 'team_player', 11),
+  ('frame',  'star',      1, 'deal_maker',  12),
   ('board',  'felt',      1, null,           0),
   ('board',  'hearts',    1, null,           1),
   ('board',  'wood',      3, null,           2),
@@ -148,12 +155,19 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('board',  'chalk',    30, null,           8),
   ('board',  'neon',     35, null,           9),
   ('board',  'ocean',     1, 'iron_stomach', 10),
+  ('board',  'bistro',    1, 'realtor',     11),
+  ('board',  'gold',      1, 'big_spender', 12),
+  ('board',  'lavender',  1, 'devoted',     13),
   ('bubble', 'plain',     1, null,           0),
   ('bubble', 'receipt',   4, null,           1),
   ('bubble', 'comic',     8, null,           2),
   ('bubble', 'neon',     25, null,           3),
   ('bubble', 'heart',     1, 'first_bite',   4),
   ('bubble', 'gold',      1, 'regular',      5),
+  ('bubble', 'suits',     1, 'card_shark',   6),
+  ('bubble', 'zen',       1, 'survivor',     7),
+  ('bubble', 'zoom',      1, 'speed_eater',  8),
+  ('bubble', 'mint',      1, 'social',       9),
   ('title',  'rookie',    1, null,           0),
   ('title',  'first_bite',1, 'first_bite',   1),
   ('title',  'sous_chef', 1, 'sous_chef',    2),
@@ -164,7 +178,21 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('title',  'iron_stomach',1,'iron_stomach',7),
   ('title',  'tycoon',    1, 'tycoon',       8),
   ('title',  'gourmet',   1, 'gourmet',      9),
-  ('title',  'head_chef', 1, 'head_chef',   10)
+  ('title',  'head_chef', 1, 'head_chef',   10),
+  ('title',  'line_cook', 1, 'line_cook',   11),
+  ('title',  'executive_chef', 1, 'executive_chef', 12),
+  ('title',  'realtor',   1, 'realtor',     13),
+  ('title',  'renovator', 1, 'renovator',   14),
+  ('title',  'card_shark',1, 'card_shark',  15),
+  ('title',  'big_spender',1,'big_spender', 16),
+  ('title',  'survivor',  1, 'survivor',    17),
+  ('title',  'team_player',1,'team_player', 18),
+  ('title',  'speed_eater',1,'speed_eater', 19),
+  ('title',  'deal_maker',1, 'deal_maker',  20),
+  ('title',  'marathon',  1, 'marathon',    21),
+  ('title',  'social',    1, 'social',      22),
+  ('title',  'quester',   1, 'quester',     23),
+  ('title',  'devoted',   1, 'devoted',     24)
 on conflict (kind, key) do update set req_level = excluded.req_level, req_ach = excluded.req_ach, sort = excluded.sort;
 
 -- ---------------------------------------------------------------------
@@ -254,11 +282,14 @@ end $$;
 create or replace function public.check_achievements(p_user uuid)
 returns text[] language plpgsql security definer set search_path = '' as $$
 declare
-  p public.profiles%rowtype; lv int; new_keys text[] := '{}'; k text;
+  p public.profiles%rowtype; lv int; new_keys text[] := '{}'; k text; qn int; fn int;
+  st jsonb;
 begin
   select * into p from public.profiles where id = p_user;
   if not found then return new_keys; end if;
-  lv := public.level_of(p.xp);
+  lv := public.level_of(p.xp); st := p.stats;
+  select count(*) into qn from public.quest_claims where user_id = p_user;
+  select count(*) into fn from public.friends where user_id = p_user;
   foreach k in array array[
     case when p.wins  >= 1   then 'first_bite' end,
     case when p.wins  >= 10  then 'regular' end,
@@ -269,7 +300,22 @@ begin
     case when coalesce((p.stats ->> 'deals')::int, 0)  >= 10 then 'negotiator' end,
     case when coalesce((p.stats ->> 'belt')::int, 0)   >= 20 then 'belt_master' end,
     case when coalesce((p.stats ->> 'tycoon')::int, 0) >= 1  then 'tycoon' end,
-    case when coalesce((p.stats ->> 'iron')::int, 0)   >= 1  then 'iron_stomach' end
+    case when coalesce((p.stats ->> 'iron')::int, 0)   >= 1  then 'iron_stomach' end,
+    -- v1.2
+    case when lv >= 25 then 'line_cook' end,
+    case when lv >= 75 then 'executive_chef' end,
+    case when coalesce((st ->> 'bought')::int, 0)     >= 25  then 'realtor' end,
+    case when coalesce((st ->> 'upgrades')::int, 0)   >= 15  then 'renovator' end,
+    case when coalesce((st ->> 'cards')::int, 0)      >= 50  then 'card_shark' end,
+    case when coalesce((st ->> 'paid')::int, 0)       >= 30  then 'big_spender' end,
+    case when coalesce((st ->> 'best_days')::int, 0)  >= 20  then 'survivor' end,
+    case when coalesce((st ->> 'team_wins')::int, 0)  >= 5   then 'team_player' end,
+    case when coalesce((st ->> 'quick_wins')::int, 0) >= 5   then 'speed_eater' end,
+    case when coalesce((st ->> 'deals')::int, 0)      >= 50  then 'deal_maker' end,
+    case when p.games >= 200 then 'marathon' end,
+    case when fn >= 5  then 'social' end,
+    case when qn >= 10 then 'quester' end,
+    case when qn >= 30 then 'devoted' end
   ] loop
     if k is not null then
       insert into public.achievements (user_id, key) values (p_user, k) on conflict do nothing;
@@ -303,11 +349,18 @@ begin
   update public.profiles set
     xp    = xp + (r.xp_full - r.xp),
     wins  = wins + case when r.won then 1 else 0 end,
-    stats = jsonb_build_object(
-      'deals',  coalesce((stats ->> 'deals')::int, 0)  + coalesce((r.stats ->> 'deals')::int, 0),
-      'belt',   coalesce((stats ->> 'belt')::int, 0)   + coalesce((r.stats ->> 'belt')::int, 0),
-      'tycoon', coalesce((stats ->> 'tycoon')::int, 0) + coalesce((r.stats ->> 'tycoon')::int, 0),
-      'iron',   coalesce((stats ->> 'iron')::int, 0)   + coalesce((r.stats ->> 'iron')::int, 0))
+    stats = stats || jsonb_build_object(
+      'deals',    coalesce((stats ->> 'deals')::int, 0)    + coalesce((r.stats ->> 'deals')::int, 0),
+      'belt',     coalesce((stats ->> 'belt')::int, 0)     + coalesce((r.stats ->> 'belt')::int, 0),
+      'tycoon',   coalesce((stats ->> 'tycoon')::int, 0)   + coalesce((r.stats ->> 'tycoon')::int, 0),
+      'iron',     coalesce((stats ->> 'iron')::int, 0)     + coalesce((r.stats ->> 'iron')::int, 0),
+      'bought',   coalesce((stats ->> 'bought')::int, 0)   + coalesce((r.stats ->> 'bought')::int, 0),
+      'upgrades', coalesce((stats ->> 'upgrades')::int, 0) + coalesce((r.stats ->> 'upgrades')::int, 0),
+      'cards',    coalesce((stats ->> 'cards')::int, 0)    + coalesce((r.stats ->> 'cards')::int, 0),
+      'paid',     coalesce((stats ->> 'paid')::int, 0)     + coalesce((r.stats ->> 'paid')::int, 0),
+      'best_days', greatest(coalesce((stats ->> 'best_days')::int, 0), coalesce((r.stats ->> 'survived')::int, 0)),
+      'team_wins',  coalesce((stats ->> 'team_wins')::int, 0)  + case when r.won and coalesce((r.stats ->> 'teams')::int, 0) = 1 then 1 else 0 end,
+      'quick_wins', coalesce((stats ->> 'quick_wins')::int, 0) + case when r.won and coalesce((r.stats ->> 'quick')::int, 0) = 1 then 1 else 0 end)
   where id = p_user;
   update public.game_results set verified = true, xp = xp_full where game_id = p_game and user_id = p_user;
   perform public.check_achievements(p_user);
@@ -368,7 +421,14 @@ begin
     'deals',  least(greatest(coalesce((p -> 'stats' ->> 'deals')::int, 0), 0), 6),
     'belt',   least(greatest(coalesce((p -> 'stats' ->> 'belt')::int, 0), 0), 6),
     'tycoon', case when coalesce((p -> 'stats' ->> 'tycoon')::boolean, false) then 1 else 0 end,
-    'iron',   case when coalesce((p -> 'stats' ->> 'iron')::boolean, false) then 1 else 0 end);
+    'iron',   case when coalesce((p -> 'stats' ->> 'iron')::boolean, false) then 1 else 0 end,
+    'bought',   least(greatest(coalesce((p -> 'stats' ->> 'bought')::int, 0), 0), 4),
+    'upgrades', least(greatest(coalesce((p -> 'stats' ->> 'upgrades')::int, 0), 0), 8),
+    'cards',    least(greatest(coalesce((p -> 'stats' ->> 'cards')::int, 0), 0), 15),
+    'paid',     least(greatest(coalesce((p -> 'stats' ->> 'paid')::int, 0), 0), least(v_days, 40)),
+    'survived', least(greatest(coalesce((p -> 'stats' ->> 'survived')::int, 0), 0), v_days),
+    'teams', case when p ->> 'gmode' = 'teams' then 1 else 0 end,
+    'quick', case when p ->> 'gmode' = 'quick' then 1 else 0 end);
 
   -- anti-abuse: short games and result flooding don't count
   -- (max 12 counted results per hour, and at least 4 minutes between two counted results)
@@ -431,6 +491,7 @@ begin
   if v_met and not exists (select 1 from public.quest_claims where user_id = v_uid and day = (now() at time zone 'utc')::date) then
     insert into public.quest_claims (user_id, day, quest) values (v_uid, (now() at time zone 'utc')::date, v_q);
     update public.profiles set xp = xp + 30 where id = v_uid;
+    perform public.check_achievements(v_uid);
     v_qdone := v_q;
   end if;
 
@@ -485,17 +546,21 @@ returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
     'quest', public.daily_quest(),
     'done', exists (select 1 from public.quest_claims where user_id = auth.uid() and day = (now() at time zone 'utc')::date),
+    'total', (select count(*) from public.quest_claims where user_id = auth.uid()),
     'resets_in', extract(epoch from (date_trunc('day', now() at time zone 'utc') + interval '1 day') - (now() at time zone 'utc'))::int);
 $$;
 
 -- ---------------------------------------------------------------------
 -- Leaderboards: 'weekly' = XP earned this week (Monday 00:00 UTC), 'level' = all-time XP
 -- ---------------------------------------------------------------------
+drop function if exists public.leaderboard(text, int);
 create or replace function public.leaderboard(p_kind text, p_limit int default 50)
-returns table (pos bigint, username text, level int, xp int, week_xp int, wins int, games int, equipped jsonb, me boolean)
+returns table (pos bigint, username text, level int, xp int, week_xp int, week_wins int, wins int, games int, equipped jsonb, me boolean)
 language sql stable security definer set search_path = '' as $$
   with w as (
-    select r.user_id, sum(r.xp)::int as wxp from public.game_results r
+    select r.user_id, sum(r.xp)::int as wxp,
+           (count(*) filter (where r.won and r.verified and r.mode = 'online'))::int as wwins
+      from public.game_results r
      where r.created_at >= (date_trunc('week', now() at time zone 'utc') at time zone 'utc')
      group by r.user_id
   ), q as (
@@ -504,13 +569,14 @@ language sql stable security definer set search_path = '' as $$
      group by c.user_id
   ), t as (
     select p.id, p.username, p.xp, p.wins, p.games, p.equipped,
-           coalesce(w.wxp, 0) + coalesce(q.qxp, 0) as wk
+           coalesce(w.wxp, 0) + coalesce(q.qxp, 0) as wk, coalesce(w.wwins, 0) as ww
       from public.profiles p left join w on w.user_id = p.id left join q on q.user_id = p.id
   ), ranked as (
-    select row_number() over (order by case when p_kind = 'weekly' then t.wk else t.xp end desc, t.xp desc, t.username) as pos, t.*
+    select row_number() over (order by case when p_kind = 'weekly' then t.ww else 0 end desc,
+                                       case when p_kind = 'weekly' then t.wk else t.xp end desc, t.xp desc, t.username) as pos, t.*
       from t where p_kind <> 'weekly' or t.wk > 0
   )
-  select r.pos, r.username, public.level_of(r.xp), r.xp, r.wk, r.wins, r.games, r.equipped, r.id = auth.uid()
+  select r.pos, r.username, public.level_of(r.xp), r.xp, r.wk, r.ww, r.wins, r.games, r.equipped, r.id = auth.uid()
     from ranked r
    where r.pos <= least(greatest(coalesce(p_limit, 50), 1), 100) or r.id = auth.uid()
    order by r.pos;
@@ -553,6 +619,7 @@ begin
   if exists (select 1 from public.friend_requests where from_id = v_to and to_id = v_me) then
     delete from public.friend_requests where (from_id = v_to and to_id = v_me) or (from_id = v_me and to_id = v_to);
     insert into public.friends (user_id, friend_id) values (v_me, v_to), (v_to, v_me) on conflict do nothing;
+    perform public.check_achievements(v_me); perform public.check_achievements(v_to);
     return 'friends';
   end if;
   if (select count(*) from public.friend_requests where from_id = v_me and created_at > now() - interval '1 hour') >= 30 then
@@ -572,6 +639,7 @@ begin
   delete from public.friend_requests where from_id = v_from and to_id = v_me;
   if found and p_accept then
     insert into public.friends (user_id, friend_id) values (v_me, v_from), (v_from, v_me) on conflict do nothing;
+    perform public.check_achievements(v_me); perform public.check_achievements(v_from);
   end if;
 end $$;
 

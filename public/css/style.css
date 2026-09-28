@@ -568,3 +568,33 @@ body.ingame .tip{font-size:12.5px;padding:6px 8px}
 .frlist .note{font-size:12px}
 #inviteBox .frlist li{padding:5px 8px}
 .modalcard .stat b{font-size:20px}
+
+/* ================= v1.2 rewards ================= */
+/* frames */
+.fr-ember{--fr:#ff5a36;animation:frflame 1.2s ease-in-out infinite alternate}
+.fr-crown{--fr:#f5c542;filter:drop-shadow(0 0 5px rgba(245,197,66,.9))}
+.fr-ivy{--fr:#2f9e57}
+.fr-duo{--fr:#3a7fc2}
+.fr-star{--fr:#ffd166;animation:frglow 2.4s ease-in-out infinite;--g1:#ffd166;--g2:#fff6d0}
+.dot.fr-ivy,.pfav.fr-ivy,.tok.fr-ivy{outline-style:dashed}
+.dot.fr-star,.pfav.fr-star,.tok.fr-star{outline-style:dotted;outline-width:3.5px}
+.pfav.fr-star{outline-width:6px}
+.dot.fr-duo,.pfav.fr-duo{box-shadow:0 0 0 2.5px var(--c),0 0 0 7px #e2483d}
+.pfav.fr-duo{box-shadow:0 0 0 9px #e2483d}
+.dot.fr-crown,.pfav.fr-crown{outline-style:double;outline-width:5px}
+.pfav.fr-crown{outline-width:8px}
+/* boards */
+[data-board="bistro"]{--felt:#b83a36;--felt2:#d4524c;--felt3:#7d2522;--frame:#3d1d1c;--pat:repeating-linear-gradient(90deg,rgba(255,247,230,.9) 0 5%,transparent 5% 10%);--patsz:auto;--pvsz:auto;--patop:.3}
+[data-board="gold"]{--felt:#b8862b;--felt2:#f0cf6a;--felt3:#6f4c12;--frame:#3b2a0c;--pat:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.45) 45%,transparent 60%),radial-gradient(rgba(255,240,190,.5) 1px,transparent 1.6px);--patsz:auto,3cqi 3cqi;--pvsz:auto,8px 8px;--patop:.45}
+[data-board="lavender"]{--felt:#8f79c4;--felt2:#c3b3ec;--felt3:#5c4796;--frame:#3b2c66;--pat:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='%23ffffff'%3E%3Cellipse cx='10' cy='10' rx='2' ry='3.2'/%3E%3Cellipse cx='10' cy='15' rx='2.2' ry='3.2'/%3E%3Cellipse cx='10' cy='20' rx='2.4' ry='3.2'/%3E%3Cpath d='M10 22v12' stroke='%23ffffff' stroke-width='1.2'/%3E%3Cellipse cx='30' cy='26' rx='2' ry='3.2'/%3E%3Cellipse cx='30' cy='31' rx='2.2' ry='3.2'/%3E%3Cellipse cx='30' cy='36' rx='2.4' ry='3.2'/%3E%3Cpath d='M30 38v8 M30 -2v4' stroke='%23ffffff' stroke-width='1.2'/%3E%3C/g%3E%3C/svg%3E");--patsz:7cqi 7cqi;--pvsz:18px 18px;--patop:.3}
+body[data-board="gold"] .board{box-shadow:0 0 0 2px #f0cf6a,0 10px 28px -10px rgba(111,76,18,.6)}
+/* chat bubbles */
+.bb-suits{background:#fff;border:1.5px solid #131a26;color:#131a26!important}
+.bb-suits::before{content:"♠ ";color:#131a26}.bb-suits::after{content:" ♥";color:#e2483d}
+.bb-zen{background:#eef4ef;border:1.5px solid #9fc2a8;color:#2f5a3c!important;font-style:italic;border-radius:18px!important}
+.bb-zen::before{content:"🍃 "}
+.bb-zoom{background:linear-gradient(90deg,#ffd166,#ffb347);color:#3d2a00!important;font-weight:800;font-style:italic;border:0;box-shadow:3px 0 0 #e2483d}
+.bb-zoom::before{content:"⚡ "}
+.bb-mint{background:#d9f5ea;border:1.5px solid #62c9a2;color:#145c43!important}
+
+.rxbtn .rxicon{display:block;width:62%;height:62%;margin:auto}

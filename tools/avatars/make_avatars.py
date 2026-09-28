@@ -238,9 +238,38 @@ def critic():
     return badge('#9fb6c9', s)
 
 
+def barista():
+    skin = '#e9b48f'; hair = '#5a3322'
+    s = f'<path d="M29 46 C24 62 28 76 34 78 L36 54 Z M71 46 C76 62 72 76 66 78 L64 54 Z" fill="{hair}"/>'  # hair back
+    s += body('#6b8f71')
+    s += '<path d="M34 80 L66 80 L68 104 L32 104 Z" fill="#3d2b22"/><path d="M34 80 L66 80" stroke="#2a1d17" stroke-width="2"/>'  # brown apron
+    s += '<path d="M60 90 h9 v9 a4 4 0 0 1 -4 4 h-1 a4 4 0 0 1 -4 -4 Z" fill="#fff"/><path d="M69 93 q4 0 4 3 t-4 3" stroke="#fff" stroke-width="1.6" fill="none"/>'  # cup
+    s += neck(skin) + head(skin)
+    s += f'<path d="M30 50 C28 34 38 28 50 28 C62 28 72 34 70 50 C66 42 58 38 50 38 C42 38 34 42 30 50 Z" fill="{hair}"/>'
+    s += '<path d="M29 40 C29 24 40 16 50 16 C60 16 71 24 71 40 C60 36 40 36 29 40 Z" fill="#e2483d"/>'  # beanie
+    s += '<path d="M28 38 C40 34 60 34 72 38 L72 43 C60 39 40 39 28 43 Z" fill="#b3342b"/><circle cx="50" cy="15" r="4" fill="#f7f3e6"/>'
+    s += face(skin, 'grin', lashes=True, brows=hair)
+    s += '<circle cx="42" cy="57" r=".7" fill="#8a5a3b"/><circle cx="45" cy="58.4" r=".7" fill="#8a5a3b"/><circle cx="57" cy="57" r=".7" fill="#8a5a3b"/>'  # freckles
+    return badge('#f2c9a0', s)
+
+
+def sommelier():
+    skin = '#f0c4a0'; hair = '#2c2230'
+    s = body('#2b2f3a', v=True, collar='#ffffff')
+    s += '<path d="M38 80 L50 90 L62 80 L64 104 L36 104 Z" fill="#7a1f35"/>'  # wine vest
+    s += '<path d="M45 81 L50 84 L55 81 L55 86 L50 83 L45 86 Z" fill="#131a26"/>'  # bow tie
+    s += '<path d="M66 84 q6 0 6 7 q0 5 -4.5 6 v4 h3 v1.6 h-8 v-1.6 h3 v-4 q-4.5 -1 -4.5 -6 q0 -7 5 -7 Z" fill="#fff" opacity=".9"/><path d="M62.3 90 q3.7 1.6 9.4 0 q0 4.6 -4.7 5.4 q-4.7 -0.8 -4.7 -5.4 Z" fill="#9b1c3a"/>'  # wine glass
+    s += neck(skin) + head(skin)
+    s += f'<path d="M31 46 C29 30 40 24 51 24 C62 24 71 30 69 46 C66 36 60 32 44 34 C38 35 34 39 31 46 Z" fill="{hair}"/>'  # slicked hair
+    s += f'<path d="M44 34 C52 30 60 31 66 36" stroke="#5a4a60" stroke-width="1.4" fill="none"/>'
+    s += face(skin, 'smirk', brows=hair)
+    s += f'<path d="M43 55.5 Q50 53 57 55.5" stroke="{hair}" stroke-width="2" fill="none" stroke-linecap="round"/>'  # thin mustache
+    return badge('#b9a6d6', s)
+
+
 AVATARS = {
     'waiter': waiter, 'waitress': waitress, 'student': student, 'foodie': foodie,
-    'italian': italian, 'doner': doner, 'noodle': noodle, 'baker': baker, 'grandma': grandma, 'critic': critic,
+    'italian': italian, 'doner': doner, 'noodle': noodle, 'baker': baker, 'grandma': grandma, 'critic': critic, 'barista': barista, 'sommelier': sommelier,
 }
 
 if __name__ == '__main__':

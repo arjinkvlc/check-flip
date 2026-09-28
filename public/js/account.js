@@ -28,28 +28,46 @@ export const ACHS = [
   {key: 'negotiator', icon: '🤝', goal: 10, get: p => +(p.stats && p.stats.deals) || 0},
   {key: 'belt_master', icon: '🪢', goal: 20, get: p => +(p.stats && p.stats.belt) || 0},
   {key: 'iron_stomach', icon: '🦾', goal: 1, get: p => +(p.stats && p.stats.iron) || 0},
-  {key: 'tycoon', icon: '🏙️', goal: 1, get: p => +(p.stats && p.stats.tycoon) || 0}
+  {key: 'tycoon', icon: '🏙️', goal: 1, get: p => +(p.stats && p.stats.tycoon) || 0},
+  // v1.2
+  {key: 'line_cook', icon: '🍳', goal: 25, get: p => levelOf(p.xp), level: 1},
+  {key: 'executive_chef', icon: '🎩', goal: 75, get: p => levelOf(p.xp), level: 1},
+  {key: 'marathon', icon: '🏃', goal: 200, get: p => p.games},
+  {key: 'realtor', icon: '🏪', goal: 25, get: p => st(p, 'bought')},
+  {key: 'renovator', icon: '🔨', goal: 15, get: p => st(p, 'upgrades')},
+  {key: 'card_shark', icon: '🃏', goal: 50, get: p => st(p, 'cards')},
+  {key: 'big_spender', icon: '💳', goal: 30, get: p => st(p, 'paid')},
+  {key: 'deal_maker', icon: '💼', goal: 50, get: p => st(p, 'deals')},
+  {key: 'survivor', icon: '⏳', goal: 20, get: p => st(p, 'best_days')},
+  {key: 'team_player', icon: '👥', goal: 5, get: p => st(p, 'team_wins')},
+  {key: 'speed_eater', icon: '⚡', goal: 5, get: p => st(p, 'quick_wins')},
+  {key: 'social', icon: '💬', goal: 5, get: () => (ACC.social && ACC.social.friends || []).length},
+  {key: 'quester', icon: '🎯', goal: 10, get: () => +(ACC.daily && ACC.daily.total) || 0},
+  {key: 'devoted', icon: '📅', goal: 30, get: () => +(ACC.daily && ACC.daily.total) || 0}
 ];
+function st(p, k) { return +(p.stats && p.stats[k]) || 0; }
 
 // Cosmetics: lv = required level, ach = required achievement (mirror of public.cosmetics)
 export const CATALOG = {
   avatar: [
     {key: 'waiter', lv: 1}, {key: 'waitress', lv: 1}, {key: 'student', lv: 1}, {key: 'foodie', lv: 1},
     {key: 'italian', lv: 5}, {key: 'doner', lv: 10}, {key: 'noodle', lv: 15}, {key: 'baker', lv: 25},
-    {key: 'grandma', ach: 'first_bite'}, {key: 'critic', ach: 'regular'}
+    {key: 'grandma', ach: 'first_bite'}, {key: 'critic', ach: 'regular'}, {key: 'barista', ach: 'quester'}, {key: 'sommelier', ach: 'marathon'}
   ],
   frame: [
     {key: 'none', lv: 1}, {key: 'bronze', lv: 5}, {key: 'silver', lv: 15}, {key: 'gold', lv: 30}, {key: 'diamond', lv: 50},
-    {key: 'neon', ach: 'negotiator'}, {key: 'flame', ach: 'gourmet'}, {key: 'royal', ach: 'tycoon'}
+    {key: 'neon', ach: 'negotiator'}, {key: 'flame', ach: 'gourmet'}, {key: 'royal', ach: 'tycoon'},
+    {key: 'ember', ach: 'line_cook'}, {key: 'crown', ach: 'executive_chef'}, {key: 'ivy', ach: 'renovator'}, {key: 'duo', ach: 'team_player'}, {key: 'star', ach: 'deal_maker'}
   ],
   board: [
     {key: 'felt', lv: 1}, {key: 'hearts', lv: 1}, {key: 'wood', lv: 3}, {key: 'feast', lv: 6}, {key: 'terracotta', lv: 10},
     {key: 'marble', lv: 15}, {key: 'sunset', lv: 20}, {key: 'night', lv: 25}, {key: 'chalk', lv: 30}, {key: 'neon', lv: 35},
-    {key: 'ocean', ach: 'iron_stomach'}
+    {key: 'ocean', ach: 'iron_stomach'}, {key: 'bistro', ach: 'realtor'}, {key: 'gold', ach: 'big_spender'}, {key: 'lavender', ach: 'devoted'}
   ],
   bubble: [
     {key: 'plain', lv: 1}, {key: 'receipt', lv: 4}, {key: 'comic', lv: 8}, {key: 'neon', lv: 25},
-    {key: 'heart', ach: 'first_bite'}, {key: 'gold', ach: 'regular'}
+    {key: 'heart', ach: 'first_bite'}, {key: 'gold', ach: 'regular'},
+    {key: 'suits', ach: 'card_shark'}, {key: 'zen', ach: 'survivor'}, {key: 'zoom', ach: 'speed_eater'}, {key: 'mint', ach: 'social'}
   ],
   title: [{key: 'rookie', lv: 1}, ...ACHS.map(a => ({key: a.key, ach: a.key}))]
 };
@@ -98,9 +116,32 @@ export function publicCard() {
 
 /* ---------------- errors ---------------- */
 // Maps Supabase / database errors to i18n keys (see js/i18n-account.js)
+// Supabase Auth error codes → specific messages (https://supabase.com/docs/guides/auth/debugging/error-codes)
+const AUTH_CODES = {
+  same_password: 'aErrSamePw', weak_password: 'aErrPwWeak', otp_expired: 'aErrLinkExpired', flow_state_expired: 'aErrLinkExpired',
+  flow_state_not_found: 'aErrLinkExpired', bad_jwt: 'aErrSession', session_not_found: 'aErrSession', session_expired: 'aErrSession',
+  refresh_token_not_found: 'aErrSession', reauthentication_needed: 'aErrSession', no_authorization: 'aErrSession',
+  invalid_credentials: 'aErrLogin', user_already_exists: 'aErrEmailTaken', email_exists: 'aErrEmailTaken',
+  email_address_invalid: 'aErrEmailInvalid', email_address_not_authorized: 'aErrEmailInvalid', email_not_confirmed: 'aErrConfirm',
+  signup_disabled: 'aErrSignupOff', email_provider_disabled: 'aErrSignupOff',
+  over_email_send_rate_limit: 'aErrEmailRate', over_request_rate_limit: 'aErrTooMany', over_sms_send_rate_limit: 'aErrTooMany',
+  user_banned: 'aErrBanned', request_timeout: 'aErrNet', unexpected_failure: 'aErrServer'
+};
 function errKey(e) {
+  if (e && typeof e.code === 'string') {
+    if (e.code === 'weak_password') {
+      const r = (e.reasons || (e.weak_password && e.weak_password.reasons) || []).map(String);
+      if (r.includes('pwned')) return 'aErrPwPwned';
+      if (r.includes('characters')) return 'aErrPwChars';
+      return 'aErrPwShort';
+    }
+    if (AUTH_CODES[e.code]) return AUTH_CODES[e.code];
+  }
   const m = String((e && (e.message || e.error_description || e.code)) || e || '').toLowerCase();
   if (!m) return 'aErrGeneric';
+  if (m.includes('should be different from the old password')) return 'aErrSamePw';
+  if (m.includes('expired') || m.includes('invalid or has expired')) return 'aErrLinkExpired';
+  if (m.includes('auth session missing')) return 'aErrSession';
   if (m.includes('too_many_attempts') || m.includes('rate limit') || m.includes('over_request') || m.includes('429')) return 'aErrTooMany';
   if (m.includes('invalid login') || m.includes('invalid_credentials')) return 'aErrLogin';
   if (m.includes('already registered') || m.includes('user_already_exists') || m.includes('email_exists')) return 'aErrEmailTaken';
@@ -116,7 +157,8 @@ function errKey(e) {
   if (m.includes('too_many_friends')) return 'aErrTooManyFriends';
   return 'aErrGeneric';
 }
-const fail = e => { const k = errKey(e); const err = new Error(k); err.key = k; err.raw = e; return err; };
+const fail = e => { const k = errKey(e); const err = new Error(k); err.key = k; err.code = e && (e.code || e.status); err.raw = e; if (k === 'aErrGeneric') console.warn('unmapped error', e); return err; };
+export const PW_MIN = 6, PW_MAX = 72;
 
 /* ---------------- setup ---------------- */
 export async function initAccount() {
@@ -160,6 +202,11 @@ export async function refreshProfile() {
 export const USERNAME_RE = /^[A-Za-z0-9_]{3,14}$/;
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+function checkPw(pw) {
+  const n = String(pw || '').length;
+  if (n < PW_MIN) throw Object.assign(new Error('aErrPwShort'), {key: 'aErrPwShort'});
+  if (n > PW_MAX) throw Object.assign(new Error('aErrPwLong'), {key: 'aErrPwLong'});
+}
 export async function usernameAvailable(name) {
   if (!sb || !USERNAME_RE.test(name)) return false;
   const {data, error} = await sb.rpc('username_available', {p_username: name});
@@ -171,7 +218,7 @@ export async function signUp(username, password, email) {
   if (!sb) throw fail('disabled');
   username = String(username || '').trim(); email = String(email || '').trim().toLowerCase();
   if (!USERNAME_RE.test(username)) throw Object.assign(new Error('aErrName'), {key: 'aErrName'});
-  if (String(password || '').length < 6) throw Object.assign(new Error('aErrPwShort'), {key: 'aErrPwShort'});
+  checkPw(password);
   if (email && !EMAIL_RE.test(email)) throw Object.assign(new Error('aErrEmailInvalid'), {key: 'aErrEmailInvalid'});
   if (!(await usernameAvailable(username))) throw Object.assign(new Error('aErrNameTaken'), {key: 'aErrNameTaken'});
   const rnd = Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(16).padStart(2, '0')).join('');
@@ -211,7 +258,7 @@ export async function sendReset(email) {
 
 export async function setNewPassword(pw) {
   if (!sb) throw fail('disabled');
-  if (String(pw || '').length < 6) throw Object.assign(new Error('aErrPwShort'), {key: 'aErrPwShort'});
+  checkPw(pw);
   const {error} = await sb.auth.updateUser({password: pw});
   if (error) throw fail(error);
   ACC.recovery = false; emit();

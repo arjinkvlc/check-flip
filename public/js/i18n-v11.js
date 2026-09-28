@@ -47,9 +47,9 @@ const en = {
   installIOS: 'On iPhone/iPad: tap the Share button in Safari, then "Add to Home Screen".',
   // leaderboards
   leadersBtn: '🏆 Leaderboard', lbTitle: 'Leaderboard', lbWeekly: 'This week', lbLevel: 'All time (level)',
-  lbWeeklyNote: 'XP earned this week, including daily quests. Resets every Monday 00:00 UTC.',
+  lbWeeklyNote: 'Online wins this week (ties are broken by XP). Resets every Monday 00:00 UTC.', lbWeekWins: n => `${n} ${n === 1 ? 'win' : 'wins'}`,
   lbLevelNote: 'Total XP and level of all players.', lbWeekXp: n => `${n} XP`, lbXp: n => `${n} XP`,
-  lbEmpty: 'Nobody has earned XP this week yet. Be the first!', lbGuest: 'Log in to appear on the leaderboard.',
+  lbEmpty: 'Nobody has played an online game this week yet. Be the first!', lbGuest: 'Log in to appear on the leaderboard.',
   // friends
   frBtn: '👥 Friends', frTitle: 'Friends', frNote: 'Add friends by username, see their profiles and invite them to your room.',
   frAddPh: 'Username', frAdd: 'Add friend', frIncoming: 'Friend requests', frAccept: 'Accept', frDecline: 'Decline',
@@ -93,9 +93,9 @@ const tr = {
   music: 'Müzik aç/kapat', installBtn: '📲 Uygulamayı yükle',
   installIOS: 'iPhone/iPad’de: Safari’de Paylaş düğmesine dokun, sonra "Ana Ekrana Ekle"yi seç.',
   leadersBtn: '🏆 Liderlik tablosu', lbTitle: 'Liderlik tablosu', lbWeekly: 'Bu hafta', lbLevel: 'Tüm zamanlar (seviye)',
-  lbWeeklyNote: 'Bu hafta kazanılan XP (günlük görevler dahil). Her pazartesi 03:00’te (TSİ) sıfırlanır.',
+  lbWeeklyNote: 'Bu haftaki çevrim içi galibiyetler (eşitlikte XP’ye bakılır). Her pazartesi 03:00’te (TSİ) sıfırlanır.', lbWeekWins: n => `${n} galibiyet`,
   lbLevelNote: 'Tüm oyuncuların toplam XP’si ve seviyesi.', lbWeekXp: n => `${n} XP`, lbXp: n => `${n} XP`,
-  lbEmpty: 'Bu hafta henüz kimse XP kazanmadı. İlk sen ol!', lbGuest: 'Tabloda yer almak için giriş yap.',
+  lbEmpty: 'Bu hafta henüz kimse çevrim içi oynamadı. İlk sen ol!', lbGuest: 'Tabloda yer almak için giriş yap.',
   frBtn: '👥 Arkadaşlar', frTitle: 'Arkadaşlar', frNote: 'Kullanıcı adıyla arkadaş ekle, profillerini gör, odana davet et.',
   frAddPh: 'Kullanıcı adı', frAdd: 'Arkadaş ekle', frIncoming: 'Arkadaşlık istekleri', frAccept: 'Kabul et', frDecline: 'Reddet',
   frOutgoing: 'Yanıt bekleniyor:', frCancel: 'iptal', frList: n => `Arkadaşlar (${n})`, frNone: 'Henüz arkadaşın yok. Kullanıcı adıyla birini ekle.',
