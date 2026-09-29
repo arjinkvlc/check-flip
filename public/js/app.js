@@ -19,13 +19,15 @@ import './i18n-v16.js';
 import './i18n-v17.js';
 import './i18n-v18.js';
 import './i18n-v19.js';
+import './i18n-v110.js';
+import {renderAdmin, adminClick, initAdminUI} from './admin-ui.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
 import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
 import {shareResult} from './share.js';
 import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast, socialClick} from './social-ui.js';
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
-import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck} from './account.js';
+import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck, onAccount, logEvent, reportChat, isAdmin} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 
@@ -83,7 +85,7 @@ function openBroker(ix, will) {
     try {
       if (BROKERS[ix] === 'hub') {
         if (!hubAvailable()) throw new Error('no hub');
-        c = new HubClient(hubUrl(code || '_pub'), o.will ? {topic: o.will.topic, payload: '0', retain: true, ttl: EXP.messageExpiryInterval} : null);
+        c = new HubClient(hubUrl(code || '_pub'), o.will ? {topic: o.will.topic, payload: '0', retain: true, ttl: EXP.messageExpiryInterval} : null, () => code && loggedIn() ? ACC.token : null);
       } else {
         if (!mqttOk()) throw new Error('no mqtt');
         c = mqtt.connect(BROKERS[ix], o);
@@ -113,7 +115,8 @@ function listPub(c, ms) {
 function wire(c0) {
   const c = c0.kind === 'multi' ? c0 : new MultiClient(c0);
   mq = c; lost = false; lostAt = 0; fbDone = false; ui.fbAt = 0; joinedAt = Date.now(); lastHb = Date.now();
-  c.on('message', (tp, buf) => { if (!tp.startsWith(T(''))) return; const s = buf.toString(); if (!s) return; let m; try { m = JSON.parse(s); } catch (e) { return; } onMsg(tp.slice(T('').length), m); });
+  c.on('message', (tp, buf, meta) => { if (!tp.startsWith(T(''))) return; const s = buf.toString(); if (!s) return; let m; try { m = JSON.parse(s); } catch (e) { return; } onMsg(tp.slice(T('').length), m, meta); });
+  c.on('status', st => { const u = st.t === 'chatban' ? st.until : st.chatUntil; ui.chatBan = u && u > Date.now() ? u : 0; if (st.t === 'chatban') addSys(t('chatBannedMsg', banDate(u))); updChat(); });
   c.on('connect', () => { lost = false; lostAt = 0; c.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP}); lastHb = Date.now(); render(); });
   c.on('offline', () => { if (mode === 'online') { if (!lost) lostAt = Date.now(); lost = true; render(); } });
   c.on('close', () => { if (mode === 'online' && !lost) { lostAt = Date.now(); lost = true; render(); } });
@@ -121,14 +124,19 @@ function wire(c0) {
   c.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP});
   lsSet('hs-last', JSON.stringify({code, t: Date.now()}));
 }
-function onMsg(sub, m) {
+function onMsg(sub, m, meta) {
   if (sub === 'state') { if (!m || typeof m !== 'object' || !Array.isArray(m.pl)) return; if (S && !newer(m, S)) return; S = m; if (S.host !== me.pid) lastHb = Date.now(); afterState(); return; }
   if (sub === 'in') {
     // someone (re)joined: share my copy of the table and my presence, in case the server's copy is older
     if (m && m.k === 'sync' && m.pid !== me.pid && mq && S) { const cl = mq; setTimeout(() => { if (mq !== cl || !S) return; cl.publish(T('state'), JSON.stringify(S), {qos: 1, retain: true, properties: EXP}); cl.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP}); }, 150 + Math.random() * 450); return; }
     if (isHost()) hostHandle(m); return;
   }
-  if (sub === 'chat') { if (!m || typeof m.pid !== 'string' || m.pid === me.pid || ui.muted.has(m.pid)) return; const qk = QUICK.includes(m.q) ? m.q : null; if (!qk && typeof m.t !== 'string') return; addChat(m.pid, m.n, qk ? t('qc_' + qk) : m.t, false); return; }
+  if (sub === 'chat') {
+    if (!m || typeof m.pid !== 'string' || m.pid === me.pid || ui.muted.has(m.pid)) return; const qk = QUICK.includes(m.q) ? m.q : null; if (!qk && typeof m.t !== 'string') return;
+    // public tables: typed messages only from signed-in players (the server vouches for them); ready-made lines from everyone
+    if (!qk && S && S.pub && !(meta && meta.from)) return;
+    addChat(m.pid, m.n, qk ? t('qc_' + qk) : m.t, false, !qk && meta && meta.sig ? {uid: meta.from, ts: meta.ts, sig: meta.sig, text: m.t, room: code} : null); return;
+  }
   if (sub === 'react') { if (!m || !EMOJIS.includes(m.e) || m.pid === me.pid || !shown || ui.muted.has(m.pid)) return; const i = shown.pl.findIndex(q => q.id === m.pid); if (i >= 0) showReact(i, m.e); return; }
   if (sub === 'hb') { if (m && S && m.pid === S.host) lastHb = Date.now(); return; }
   if (sub === 'dm/' + me.pid) { if (m && m.k === 'deny') { if (m.m === 'kicked') { ui.quick = 0; failJoin(t('eKicked'), false); } else failJoin(t(m.m === 'full' ? 'eFull' : m.m === 'started' ? 'eStarted' : 'eJoin'), true); } return; }
@@ -351,7 +359,15 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let waiters = [];
 const wait = ms => skip ? Promise.resolve() : new Promise(r => { const tm = setTimeout(r, reduce ? Math.min(ms, 250) : ms); waiters.push(() => { clearTimeout(tm); r(); }); });
 function skipNow() { skip = true; const w = waiters; waiters = []; w.forEach(f => f()); }
-function sync() { if (!S) return; maybeSubmit(S); animQ.push(clone(S)); pump(); }
+function sync() { if (!S) return; maybeSubmit(S); trackGame(S); animQ.push(clone(S)); pump(); }
+// anonymous counts: a game started / finished on this device, by kind
+function trackGame(V) {
+  if (!V.gid || V.ph === 'lobby' || myIdx(V) < 0) return;
+  const kind = mode === 'local' ? (solo ? 'solo' : 'local') : V.pub ? 'quick' : 'room';
+  const seen = k => { try { const v = localStorage.getItem('cf-tg' + k); if (v === V.gid) return true; localStorage.setItem('cf-tg' + k, V.gid); } catch (e) {} return false; };   // once per game, also after a reload
+  if (ui.trackStart !== V.gid) { ui.trackStart = V.gid; if (!seen('s')) logEvent('game_start', kind); }
+  if (V.ph === 'over' && ui.trackEnd !== V.gid) { ui.trackEnd = V.gid; if (!seen('e')) logEvent('game_end', kind); }
+}
 async function pump() {
   if (animating) return; animating = true;
   while (animQ.length) {
@@ -600,8 +616,9 @@ function applyStatic() {
 }
 
 function show(id) {
-  for (const s of ['home', 'auth', 'profile', 'friends', 'leaders', 'local', 'solo', 'joining', 'lobby', 'game']) $('#' + s).hidden = s !== id;
+  for (const s of ['home', 'auth', 'profile', 'friends', 'leaders', 'admin', 'local', 'solo', 'joining', 'lobby', 'game']) $('#' + s).hidden = s !== id;
   document.body.classList.toggle('ingame', id === 'game'); $('#logBtn').hidden = id !== 'game'; if (id !== 'game') document.body.classList.remove('showlog');
+  if (id === 'home' && typeof showOnline === 'function') showOnline();
 }
 function setAppH() { document.documentElement.style.setProperty('--app-h', (window.visualViewport ? Math.round(visualViewport.height) : innerHeight) + 'px'); }
 setAppH(); addEventListener('resize', () => { setAppH(); requestAnimationFrame(fitSheet); }); addEventListener('orientationchange', () => setTimeout(setAppH, 300)); if (window.visualViewport) visualViewport.addEventListener('resize', setAppH);
@@ -633,6 +650,16 @@ function sendQuick(k) {
   if (!QUICK.includes(k) || !mq || mode !== 'online' || Date.now() - lastChat < 800) return; lastChat = Date.now();
   addChat(me.pid, me.nm, t('qc_' + k), true); mq.publish(T('chat'), JSON.stringify({pid: me.pid, n: me.nm, q: k, t: t('qc_' + k), ts: Date.now()}), {qos: 1});
 }
+// typed chat is off for guests at public tables and during a chat ban (ready-made lines still work)
+const chatLocked = () => (ui.chatBan && ui.chatBan > Date.now()) || (mode === 'online' && S && S.pub && !loggedIn());
+const banDate = ms => !ms || ms > 8e15 || ms === Infinity ? t('banForever') : new Date(ms).toLocaleString(getLang() === 'tr' ? 'tr-TR' : 'en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+function addSys(text) { const ul = $('#chatList'); if (!ul) return; const em = ul.querySelector('.chatempty'); if (em) em.remove(); const li = document.createElement('li'); li.className = 'sys'; li.innerHTML = `<span>${esc(text)}</span>`; ul.appendChild(li); ul.scrollTop = ul.scrollHeight; }
+function chatLockUI() {
+  const lk = $('#chatLock'), inp = $('#chatIn'), btn = $('#chatForm button'); if (!lk || !inp) return;
+  const ban = ui.chatBan && ui.chatBan > Date.now(), guest = !ban && mode === 'online' && S && S.pub && !loggedIn();
+  lk.hidden = !(ban || guest); lk.textContent = ban ? t('chatBannedMsg', banDate(ui.chatBan)) : guest ? t('chatGuestPub') : '';
+  inp.disabled = ban || guest; btn.disabled = ban || guest;
+}
 function renderQuick() { const el = $('#quickChat'); if (el && el.dataset.lang !== getLang()) { el.dataset.lang = getLang(); el.innerHTML = QUICK.map(k => `<button type="button" class="qchip" data-a="quick1" data-k="${k}">${esc(t('qc_' + k))}</button>`).join(''); } }
 function mutePlayer(pid, on) {
   if (on) ui.muted.add(pid); else ui.muted.delete(pid);
@@ -641,13 +668,14 @@ function mutePlayer(pid, on) {
   if (on) { const ul = $('#chatList'); const li = document.createElement('li'); li.className = 'sys'; li.innerHTML = `<span>${esc(t('mutedMsg', q ? q.n : '?'))}</span><button class="linkbtn" data-a="unmute" data-pid="${esc(pid)}">${esc(t('unmute'))}</button>`; ul.appendChild(li); ul.scrollTop = ul.scrollHeight; }
   render();
 }
-function addChat(pid, nm, text, own) {
+function addChat(pid, nm, text, own, rep) {
   const V = shown || S; const i = V ? V.pl.findIndex(q => q.id === pid) : -1; const name = i >= 0 ? V.pl[i].n : (clean(nm) || '?');
   const tt = censor(String(text).replace(/[\u0000-\u001f\u007f​-‏‪-‮⁠-⁯]/g, ' ').trim().slice(0, 200)); if (!tt) return;
   const ul = $('#chatList'); const em = ul.querySelector('.chatempty'); if (em) em.remove();
   const li = document.createElement('li'); if (own) li.className = 'own'; li.dataset.pid = pid;
   const bu = own ? (loggedIn() ? equipped().bubble : null) : (i >= 0 && V.pl[i].pf ? V.pl[i].pf.bu : null);
-  li.innerHTML = `<span class="dot" style="--c:${i >= 0 ? colOf(i) : '#888'}"></span><b>${esc(name)}</b><span class="ct${bbCls(bu)}">${esc(tt)}</span>${own ? '' : `<button class="mutebtn" data-a="mute" data-pid="${esc(pid)}" aria-label="${esc(t('muteAria', name))}" title="${esc(t('muteAria', name))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg></button>`}`;
+  li.innerHTML = `<span class="dot" style="--c:${i >= 0 ? colOf(i) : '#888'}"></span><b>${esc(name)}</b><span class="ct${bbCls(bu)}">${esc(tt)}</span>${rep && loggedIn() ? `<button class="mutebtn repbtn" data-a="report" aria-label="${esc(t('reportAria', name))}" title="${esc(t('reportAria', name))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg></button>` : ''}${own ? '' : `<button class="mutebtn" data-a="mute" data-pid="${esc(pid)}" aria-label="${esc(t('muteAria', name))}" title="${esc(t('muteAria', name))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg></button>`}`;
+  if (rep) li._rep = rep;
   const atBottom = ul.scrollHeight - ul.scrollTop - ul.clientHeight < 40; ul.appendChild(li); while (ul.children.length > 80) ul.firstChild.remove();
   if (atBottom || own) ul.scrollTop = ul.scrollHeight;
   if (!own && !chatOpen()) { unread++; SFX.play('pop'); } updChat();
@@ -657,7 +685,7 @@ function updChat() {
   box.hidden = !on; if (!on) document.body.classList.remove('showchat');
   if (chatOpen()) unread = 0;
   fab.hidden = true; $('#chatHdr').hidden = !on;
-  if (on) renderQuick();
+  if (on) { renderQuick(); chatLockUI(); }
   $('#sideTabs').hidden = !on; document.body.classList.toggle('chaton', on); if (!on) document.body.classList.remove('tablog');
   document.querySelectorAll('.stab').forEach(x => x.classList.toggle('on', (x.dataset.t === 'log') === document.body.classList.contains('tablog')));
   for (const id of ['#chatBadge', '#chatBadge2', '#chatBadge3']) { const bd = $(id); bd.hidden = !unread; bd.textContent = unread > 9 ? '9+' : String(unread); }
@@ -665,7 +693,7 @@ function updChat() {
 new IntersectionObserver(es => { chatInView = es[0].isIntersecting; updChat(); }, {threshold: .25}).observe($('#chatbox'));
 mobileQ.addEventListener ? mobileQ.addEventListener('change', updChat) : mobileQ.addListener(updChat);
 $('#chatForm').addEventListener('submit', e => {
-  e.preventDefault(); const inp = $('#chatIn'); const tt = inp.value.trim().slice(0, 200); if (!tt || !mq || mode !== 'online') return;
+  e.preventDefault(); const inp = $('#chatIn'); const tt = inp.value.trim().slice(0, 200); if (!tt || !mq || mode !== 'online' || chatLocked()) return;
   if (Date.now() - lastChat < 800) return; lastChat = Date.now(); inp.value = '';
   addChat(me.pid, me.nm, tt, true); mq.publish(T('chat'), JSON.stringify({pid: me.pid, n: me.nm, t: tt, ts: Date.now()}), {qos: 1});
 });
@@ -722,6 +750,7 @@ function render(prev, forceV) {
   updateToast();
   if (ui.screen === 'friends') { show('friends'); renderFriends($('#friendsBox')); return; }
   if (ui.screen === 'leaders') { show('leaders'); renderLeaders($('#leadersBox')); return; }
+  if (ui.screen === 'admin') { show('admin'); renderAdmin($('#adminBox')); return; }
   if (ui.screen === 'auth') { show('auth'); renderAuth($('#authBox')); return; }
   if (ui.screen === 'profile') { show('profile'); renderProfile($('#profileBox')); return; }
   if (ui.screen === 'local') { show('local'); renderLocal(); return; }
@@ -816,6 +845,7 @@ function drawTokens(V) {
 function drawCells(V, targets) {
   cells.forEach((el, p) => {
     el.classList.toggle('feastv', V.ph === 'feast' && V.fe && V.fe.v === p);
+    el.classList.toggle('dinner', V.ph === 'play' && V.dv === p);
     if (BOARD[p] === 'mekan') { const o = V.own && V.own[p]; el.classList.toggle('owned', !!o); el.style.setProperty('--oc', o ? colOf(o.o) : 'transparent');
       const b = el.querySelector('.own'); b.textContent = o ? '★'.repeat(o.lv || 1) : M(CFG.VPRICE); b.title = o ? t('ownerTitle', V.pl[o.o].n) : t('forSale'); }
     const tg = targets && targets[p];
@@ -846,12 +876,16 @@ function winText(V) {
   if (isTeams(V)) { const w = winners(V).map(i => V.pl[i].n); return t('teamWins', w[0], w[1] || ''); }
   return t('wins', V.pl[V.win].n);
 }
+// end of the game: a new game of the same kind (quick play → another quick table, a room → same room,
+// bots / one device → same players and settings), then back to the menu
 function rematchHTML(V) {
-  if (mode === 'local') return `<button class="btn primary" data-a="restart">${esc(t('again'))}</button>`;
+  const menu = `<button class="btn ghost" data-a="leave">${esc(t('backToMenu'))}</button>`;
+  if (mode === 'local') return `<div class="endbtns"><button class="btn primary big" data-a="restart">${esc(t('newGameBtn'))}</button>${menu}</div>`;
+  if (V.pub) return `<div class="endbtns"><button class="btn primary big" data-a="quickagain">${esc(t('newGameBtn'))}</button>${menu}</div>`;
   const need = rematchNeed(V), ready = rematchReady(V), mineOn = !!(V.rm && V.rm[me.pid]);
-  return `<div class="rematch"><button class="btn ${mineOn ? '' : 'primary'}" data-a="rematch">${esc(mineOn ? t('rematchUndo') : t('rematchBtn'))}</button>
-    <p class="note">${esc(t('rematchNote', ready.length, need.length))}</p>
-    ${isHost() && ready.some(q => q.id !== me.pid) ? `<button class="btn small" data-a="restart">${esc(t('rematchNow'))}</button>` : ''}</div>`;
+  return `<div class="endbtns rematch"><button class="btn ${mineOn ? '' : 'primary'} big" data-a="rematch">${esc(mineOn ? t('rematchUndo') : t('newGameBtn'))}</button>
+    <p class="note">${esc(t('newGameNote', ready.length, need.length))}</p>
+    ${isHost() && ready.some(q => q.id !== me.pid) ? `<button class="btn small" data-a="restart">${esc(t('rematchNow'))}</button>` : ''}${menu}</div>`;
 }
 function renderGame(V, prev) {
   setAVM(V);
@@ -862,6 +896,7 @@ function renderGame(V, prev) {
   drawCells(V, targets);
   const d = V.dice;
   if (!animating) { skinDice(V, V.ph === 'play' ? V.ord[V.cur] : -1); setDice(d ? d[0] : 1, d ? d[1] : 1); $('#dice').classList.toggle('dbl', !!(d && d[0] === d[1])); }
+  const din = $('#cDin'); din.hidden = !(V.ph === 'play' && V.dv != null && VENUES[V.dv]); if (!din.hidden) din.textContent = t('dinnerTonight', vfull(V.dv));
   $('#cDay').textContent = V.ph === 'feast' ? t('dayFeast', V.day) : V.ph === 'over' ? t('gameOver') : t('dayMove', V.day, V.cfg && V.cfg.days, Math.min(V.rd + 1, 2));
   const whoI = V.ph === 'over' ? V.win : A;
   if (!animating) {
@@ -883,8 +918,8 @@ function renderGame(V, prev) {
       <ol class="standings">${rows}</ol>${awardsHTML(V)}
       <p class="note">${esc(days ? t('resultNote', V.cfg.days) : t('lastStanding', V.day))}</p>
       ${ui.result && ui.result.gid === V.gid ? resultHTML(ui.result) : ''}
-      ${rematchHTML(V)}
-      <button class="btn" data-a="share">${esc(t('shareBtn'))}</button>`;
+      <button class="btn small ghost sharebtn" data-a="share">${esc(t('shareBtn'))}</button>
+      ${rematchHTML(V)}`;
   } else if (V.ph === 'play') {
     const you = mine(V, A), who = you && !hot() ? esc(t('yourTurn')) : esc(Q.n);
     h = `<div class="turnhead">${dot(A)}<span>${who}</span></div>`;
@@ -1021,13 +1056,14 @@ function copyText(txt, btn, okLabel, resetLabel, selectEl) {
 // close the small settings menu (phones) when tapping elsewhere
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-a]'); if (!b || b.disabled) return; const a = b.dataset.a;
-  if (accountClick(a, b) || socialClick(a, b)) { SFX.play('click'); return; }
+  if (accountClick(a, b) || socialClick(a, b) || adminClick(a, b)) { SFX.play('click'); return; }
   if (['create', 'join', 'quick', 'local', 'solo', 'lstart', 'sstart', 'leave', 'addp', 'delp', 'copy', 'copycode', 'rejoin', 'start', 'restart', 'sel', 'cancel', 'autoMoney', 'ready', 'lang'].includes(a)) SFX.play(['create', 'join', 'quick', 'local', 'solo'].includes(a) ? 'menu' : 'click');
   switch (a) {
     case 'hmode': ui.hmode = b.dataset.m; lsSet('cf-hmode', ui.hmode); render(); break;
     case 'friendsPlay': ui.roomOpen = !ui.roomOpen; render(); if (ui.roomOpen) setTimeout(() => $('#code').focus(), 30); break;
     case 'howto': { const d = $('#rulesBox'); d.open = true; d.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'}); break; }
-    case 'settings': $('#setModal').hidden = false; render(); break;
+    case 'settings': $('#adminBtn').hidden = !isAdmin(); $('#setModal').hidden = false; render(); break;
+    case 'admin': $('#setModal').hidden = true; ui.screen = 'admin'; render(); break;
     case 'setClose': $('#setModal').hidden = true; break;
     case 'setLang': if (b.dataset.l !== getLang()) { setLang(b.dataset.l); pickNick(); applyStatic(); } render(); break;
     case 'setTheme': setTheme(b.dataset.t); render(); break;
@@ -1035,6 +1071,7 @@ document.addEventListener('click', e => {
     case 'lang': setLang(getLang() === 'en' ? 'tr' : 'en'); pickNick(); applyStatic(); render(); break;
     case 'create': ui.err = ''; ui.quick = 0; createRoom(false); break;
     case 'quick': ui.err = ''; ui.quick = 0; quickPlay(); break;
+    case 'quickagain': leave(); ui.err = ''; ui.quick = 0; quickPlay(); break;
     case 'join': ui.err = ''; ui.quick = 0; joinRoom(); break;
     case 'rejoin': { ui.err = ''; ui.quick = 0; let l = null; try { l = JSON.parse(lsGet('hs-last') || 'null'); } catch (err) {} if (l && l.code) { $('#code').value = l.code; joinRoom(l.code); } break; }
     case 'local': ui.err = ''; ui.screen = 'local'; render(); break;
@@ -1050,6 +1087,14 @@ document.addEventListener('click', e => {
     case 'lstart': startLocalGame(false); break;
     case 'addp': readLocal(); if (ui.names.length < CFG.MAXP) ui.names.push(''); render(); break;
     case 'delp': readLocal(); ui.names.splice(+b.dataset.k, 1); (ui.lav || []).splice(+b.dataset.k, 1); render(); break;
+    case 'report': {
+      const li = b.closest('li'), r = li && li._rep; if (!r) break;
+      askUser(t('reportQ'), t('reportQText', li.querySelector('b').textContent), t('reportYes'), t('cancel')).then(async y => {
+        if (!y) return;
+        try { const res = await reportChat(r); b.remove(); addSys(res && res.action ? t('reportActed') : t('reportSent')); }
+        catch (e) { addSys(t('reportFail')); }
+      });
+      break; }
     case 'leave': {
       const inGame = S && S.ph !== 'over' && S.ph !== 'lobby' && !$('#game').hidden;
       if (!inGame) { leave(); break; }
@@ -1122,12 +1167,12 @@ setSocialGameCheck(() => ui.screen === 'game' && !!shown && shown.ph !== 'lobby'
 ui.hmode = lsGet('cf-hmode') || 'classic'; ui.botLv = lsGet('cf-botlv') || 'normal'; setTheme(document.documentElement.dataset.theme || 'light', false);
 const uiHooks = {
   go: sc => { ui.screen = sc; render(); },
-  render: () => { updateToast(); if (['home', 'auth', 'profile', 'friends', 'leaders'].includes(ui.screen) || (shown && (shown.ph === 'over' || shown.ph === 'lobby'))) render(); },
+  render: () => { updateToast(); if (['home', 'auth', 'profile', 'friends', 'leaders', 'admin'].includes(ui.screen) || (shown && (shown.ph === 'over' || shown.ph === 'lobby'))) render(); },
   AVATARS, avatarLabel, avHTML,
   inRoom: () => !!mode, roomCode: () => code,
   joinRoom: room => { if (mode) return; ui.err = ''; ui.quick = 0; $('#code').value = room; joinRoom(room); }
 };
-initAccountUI(uiHooks); initSocialUI(uiHooks); onInstallChange(() => render());
+initAccountUI(uiHooks); initSocialUI(uiHooks); initAdminUI(uiHooks); onInstallChange(() => render());
 applyStatic();
 setDice(1, 1);
 render();
@@ -1136,6 +1181,17 @@ initAccount().then(() => { applyStatic(); render(); });
 if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]debug=1/.test(location.search)) {
   window.__cf = {state: () => S, endGame: () => { if (!S || !isHost()) return; S.ph = 'over'; S.win = 0; S.end = 'last'; S.fe = null; S.pend = null; if (mode === 'local') sync(); else commit(); }};
 }
+// "N people playing now" on the home screen (hidden while the number is small)
+var ONLINE_MIN = 5, onlineN = 0;   // var: the first render runs before this line
+async function pollOnline() {
+  if (document.hidden || ui.screen !== 'home') return;
+  try { const r = await fetch('/api/online', {cache: 'no-store'}); if (r.ok) onlineN = +(await r.json()).n || 0; } catch (e) {}
+  showOnline();
+}
+function showOnline() { const el = $('#onlineNow'); if (!el) return; el.hidden = !(onlineN >= (ONLINE_MIN || 5)); if (!el.hidden) el.querySelector('span').textContent = t('onlineNow', onlineN); }
+setInterval(pollOnline, 60000); document.addEventListener('visibilitychange', pollOnline); setTimeout(pollOnline, 800);
+// suspended account: tell once, the account was signed out
+onAccount(() => { if (ACC.banned && ui.bannedShown !== ACC.banned) { ui.bannedShown = ACC.banned; const ms = ACC.banned === 'infinity' ? Infinity : Date.parse(ACC.banned); askUser(t('accountBannedT'), t('accountBanned', banDate(ms)), t('ok'), t('close')); } });
 // yes / no question in the page's own style
 function askUser(title, text, yes, no) {
   const m = $('#askModal'); $('#askTitle').textContent = title; $('#askText').textContent = text || ''; $('#askText').hidden = !text;

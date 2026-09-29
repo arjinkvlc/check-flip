@@ -5,19 +5,20 @@
  *
  *  - pages, scripts and styles: network first, cached copy when offline
  *    (so a new release never mixes a new page with old scripts)
- *  - images and the CDN libraries: served from cache, refreshed in the background
+ *  - images, fonts and libraries (/assets, /vendor): served from cache, refreshed in the background
  *  - multiplayer (/ws) and accounts (Supabase) are never cached
  */
 const VERSION = new URL(self.location).searchParams.get('v') || 'dev';
 const CACHE = 'checkflip-' + VERSION;
 const SHELL = [
   '/', '/manifest.webmanifest', '/css/style.css', '/assets/logo.svg',
-  '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/i18n-v13.js', '/js/i18n-v15.js', '/js/i18n-v16.js', '/js/i18n-v17.js', '/js/i18n-v18.js', '/js/i18n-v19.js', '/js/seo-text.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
+  '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/i18n-v13.js', '/js/i18n-v15.js', '/js/i18n-v16.js', '/js/i18n-v17.js', '/js/i18n-v18.js', '/js/i18n-v19.js', '/js/i18n-v110.js', '/js/admin-ui.js', '/js/seo-text.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
   '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js',
-  '/js/pwa.js', '/js/version.js',
+  '/js/pwa.js', '/js/version.js', '/vendor/mqtt-5.10.1.min.js', '/vendor/supabase-js-2.117.2.js', '/vendor/fonts/fonts.css',
+  ...['figtree-latin-400-normal', 'figtree-latin-600-normal', 'figtree-latin-700-normal', 'baloo-2-latin-700-normal', 'baloo-2-latin-800-normal'].map(f => `/vendor/fonts/${f}.woff2`),
   ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic', 'barista', 'sommelier'].map(k => `/assets/avatars/${k}.svg`)
 ];
-const CDN = ['https://cdn.jsdelivr.net/', 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/'];
+const CDN = [];   // v1.10: fonts and libraries are served from our own site (/vendor)
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(new Request(u, {cache: 'reload'})).catch(() => {})))).then(() => self.skipWaiting()));
@@ -44,7 +45,7 @@ self.addEventListener('fetch', e => {
   if (url.origin === self.location.origin) {
     if (url.pathname === '/ws' || url.pathname.startsWith('/cdn-cgi/')) return;
     if (req.mode === 'navigate') { if (url.pathname === '/') e.respondWith(networkFirst(req, '/')); return; }
-    e.respondWith(url.pathname.startsWith('/assets/') ? staleWhileRevalidate(req) : networkFirst(req));
+    e.respondWith(url.pathname.startsWith('/assets/') || url.pathname.startsWith('/vendor/') ? staleWhileRevalidate(req) : networkFirst(req));
     return;
   }
   if (CDN.some(p => req.url.startsWith(p))) e.respondWith(staleWhileRevalidate(req));

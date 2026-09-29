@@ -172,9 +172,11 @@ function next(S) {
   }
 }
 const ownedBy = (S, i) => Object.keys(S.own).filter(k => S.own[k].o === i).map(Number);
+// tonight's dinner venue, drawn at the start of the day so players can plan for it
+const pickDinner = () => { const vs = Object.keys(VENUES).map(Number); return vs[Math.floor(Math.random() * vs.length)]; };
 function feast(S) {
   S.ph = 'feast'; S.pend = null; const w = S.tq[S.ti];
-  const vs = Object.keys(VENUES).map(Number); const v = vs[Math.floor(Math.random() * vs.length)];
+  const v = S.dv != null && VENUES[S.dv] ? S.dv : pickDinner();
   S.fe = {w, ku: 0, ke: 0, al: 0, v, dl: 0, off: null}; if (S.fx) S.fx.venue = v;
   L(S, 'dayEnd', {d: S.day, v: VENUES[v], n: S.pl[w].n});
 }
@@ -230,7 +232,8 @@ function announce(S) {
 }
 function startDay(S) {
   S.day++; S.ph = 'play'; S.fe = null; S.pend = null; S.rd = 0; S.cur = -1; S.dbl = 0;
-  S.ord.forEach(j => hun(S.pl[j], 1)); L(S, 'dayStart', {d: S.day}); next(S);
+  S.dv = pickDinner();
+  S.ord.forEach(j => hun(S.pl[j], 1)); L(S, 'dayStart', {d: S.day}); L(S, 'dinnerAt', {v: VENUES[S.dv]}); next(S);
 }
 function rank(ids, rolls) {
   const r = ids.map(i => { const v = d6() + d6(); rolls[i] = v; return {i, v}; }); r.sort((a, b) => b.v - a.v);
@@ -391,7 +394,7 @@ function sqScore(S, i, from, v) {
     case 'gelir': sc += 20; break; case 'fatura': sc -= 15; break; case 'sans': sc += 4; break; case 'olay': sc += 3; break;
     case 'atis': sc += payToday ? 12 : -8; break; case 'spor': sc += payToday ? -10 : 10; break;
     case 'kemer': sc += Q.c.length < CFG.HAND ? 18 : 0; break; case 'mola': sc -= 10; break; case 'kisa': sc += 3; break; case 'geri': sc -= 3; break;
-    case 'mekan': { const o = S.own[t]; if (!o) sc += Q.m >= CFG.VPRICE + 50 ? 14 : 0; else if (o.o === i) sc += COLLECT[o.lv || 1]; else sc -= RENT[o.lv || 1]; break; }
+    case 'mekan': { const o = S.own[t], din = t === S.dv ? 8 : 0; if (!o) sc += Q.m >= CFG.VPRICE + 50 ? 14 + din : 0; else if (o.o === i) sc += COLLECT[o.lv || 1] + din; else sc -= RENT[o.lv || 1]; break; }
   }
   return sc + Math.random() * 3;
 }

@@ -32,6 +32,8 @@ const MAX_SUBS = 16;
 const RATE_WINDOW = 10000, RATE_MAX = 80; // messages per socket per 10 s
 const MAX_TTL = 12 * 3600;                // retained messages live at most 12 h
 const STATE_SAVE_MS = 30000;              // game state: write to storage at most every 30 s
+const COUNT_HUB = '_count';               // keeps the number of players online (memory only)
+const ROOM_MAX_SOCKETS = 16;              // a table holds at most 6 players (+ a few reconnecting tabs)
 
 const hubOf = topic => typeof topic === 'string' && topic.startsWith(ROOT) ? topic.slice(ROOT.length).split('/')[0] : null;
 const match = (filter, topic) => {
@@ -51,7 +53,7 @@ function originOk(req, env) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname === '/ws') {
       if (req.headers.get('Upgrade') !== 'websocket') return new Response('Expected a WebSocket upgrade', {status: 426});
@@ -60,6 +62,7 @@ export default {
       if (!originOk(req, env)) return new Response('Forbidden', {status: 403});
       return env.HUB.get(env.HUB.idFromName(hub)).fetch(req);
     }
+    if (url.pathname === '/api/online') return online(req, env, ctx);
     if (url.pathname === '/tr/') return Response.redirect(url.origin + '/tr' + url.search, 301);
     if (url.pathname === '/tr') return turkishPage(req, env, url);
     return env.ASSETS.fetch(req);
@@ -68,6 +71,18 @@ export default {
     ctx.waitUntil(keepSupabaseAwake(env));
   }
 };
+
+// Players online right now (people connected to a table). Cached for 30 s so the home screen costs little.
+async function online(req, env, ctx) {
+  const key = new Request(new URL('/api/online', req.url).toString()), cache = caches.default;
+  let res = await cache.match(key);
+  if (!res) {
+    const n = await env.HUB.get(env.HUB.idFromName(COUNT_HUB)).fetch('https://hub/internal/online').then(r => r.json()).catch(() => ({n: 0}));
+    res = new Response(JSON.stringify({n: n.n || 0}), {headers: {'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30'}});
+    ctx.waitUntil(cache.put(key, res.clone()));
+  }
+  return res;
+}
 
 // /tr: the same page with the Turkish title, description and "What is Check Flip?" text already
 // in the HTML, so search engines index a Turkish version without running JavaScript.
@@ -137,16 +152,32 @@ export class Hub extends DurableObject {
 
   async fetch(req) {
     const url = new URL(req.url);
+    // players-online counter (the '_count' object): rooms report their number of connections; the totals
+    // are kept in memory and saved at most every 30 s (one storage write), so they survive the object sleeping
+    if (url.pathname === '/internal/count') {
+      const m = await req.json(); await this.loadCounts();
+      if (m.n > 0) this.counts.set(m.hub, {n: Math.min(m.n, ROOM_MAX_SOCKETS), t: Date.now()}); else this.counts.delete(m.hub);
+      if (!this.countSaveSet) { this.countSaveSet = true; const al = await this.ctx.storage.getAlarm(); if (al == null) await this.ctx.storage.setAlarm(Date.now() + 30000); }
+      return new Response('ok');
+    }
+    if (url.pathname === '/internal/online') {
+      await this.loadCounts();
+      let n = 0; const old = Date.now() - 3 * 3600 * 1000;   // forget rooms not heard from for 3 hours
+      for (const [h, v] of this.counts) { if (v.t < old) this.counts.delete(h); else n += v.n; }
+      return new Response(JSON.stringify({n}));
+    }
     if (url.pathname === '/internal/pub') {         // forwarded from another hub (public table ads)
       const m = await req.json();
       await this.publish(m.topic, m.payload, m.retain, m.ttl);
       return new Response('ok');
     }
     const hub = url.searchParams.get('hub');
+    if (hub !== PUB_HUB && this.ctx.getWebSockets().length >= ROOM_MAX_SOCKETS) return new Response('Room is full', {status: 429});
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({hub, subs: [], will: null, n: 0, t0: Date.now()});
+    if (hub !== PUB_HUB) await this.reportCount(hub);
     return new Response(null, {status: 101, webSocket: client});
   }
 
@@ -172,6 +203,8 @@ export class Hub extends DurableObject {
         }
       }
       ws.serializeAttachment(a);
+      // signed-in player: the server learns who they are (for chat reports) and whether they are banned
+      if (typeof m.tk === 'string' && m.tk.length < 4096 && this.env.SUPABASE_URL) await this.identify(ws, m.tk);
       return;
     }
     if (m.t === 'sub' && Array.isArray(m.topics)) {
@@ -189,18 +222,62 @@ export class Hub extends DurableObject {
     }
     if (m.t === 'pub' && typeof m.topic === 'string' && typeof m.payload === 'string') {
       ws.serializeAttachment(a);
-      if (inHub(m.topic, a.hub)) { await this.publish(m.topic, m.payload, m.retain, m.ttl); return; }
+      if (inHub(m.topic, a.hub)) {
+        if (m.topic === ROOT + a.hub + '/chat') return this.chat(ws, a, m, now);
+        await this.publish(m.topic, m.payload, m.retain, m.ttl); return;
+      }
       // a room may advertise itself in the public-table list
       if (m.topic === ROOT + PUB_HUB + '/' + a.hub) { await this.forward(PUB_HUB, m); return; }
     }
   }
 
-  async webSocketClose(ws) { await this.dropped(ws); }
+  // Asks Supabase (with the player's own token) who they are and whether they are banned.
+  async identify(ws, token) {
+    let st = null;
+    try {
+      const r = await fetch(this.env.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/my_status', {method: 'POST', body: '{}',
+        headers: {apikey: this.env.SUPABASE_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}});
+      if (r.ok) st = await r.json();
+    } catch (e) {}
+    if (!st || !st.uid) return;
+    const ms = v => v == null ? 0 : v === 'infinity' ? 8.64e15 : Date.parse(v) || 0;
+    const a = ws.deserializeAttachment(); if (!a) return;   // read again: other messages may have changed it meanwhile
+    a.uid = st.uid; a.cu = ms(st.chat_until); a.au = ms(st.account_until); a.sc = Date.now();
+    (this.tokens = this.tokens || new Map()).set(ws, token);   // memory only: used to re-check a ban now and then
+    try { ws.serializeAttachment(a); } catch (e) {}
+    try { ws.send(JSON.stringify({t: 'status', chatUntil: a.cu || null, accountUntil: a.au || null})); } catch (e) {}
+    if (a.au > Date.now()) { try { ws.close(4003, 'account banned'); } catch (e) {} }
+  }
+
+  // Chat line: blocked while the sender has a chat ban (ready-made lines still go through); lines from
+  // signed-in players carry who sent them and a signature, so they can be reported (see public.report_chat).
+  async chat(ws, a, m, now) {
+    let c; try { c = JSON.parse(m.payload); } catch (e) { return; }
+    const free = c && typeof c.t === 'string' && !c.q;
+    // a ban given during the game takes effect within a minute
+    const tk = this.tokens && this.tokens.get(ws);
+    if (free && a.uid && tk && now - (a.sc || 0) > 60000) { await this.identify(ws, tk); a = ws.deserializeAttachment() || a; if (ws.readyState !== 1) return; }
+    if (free && a.cu > now) { try { ws.send(JSON.stringify({t: 'chatban', until: a.cu})); } catch (e) {} return; }
+    const meta = {};
+    if (a.uid) {
+      meta.from = a.uid;
+      if (free && this.env.CHAT_SECRET) { meta.ts = now; meta.sig = await this.sign(`${a.hub}|${a.uid}|${now}|${c.t}`); }
+    }
+    await this.publish(m.topic, m.payload, false, 0, meta);
+  }
+  async sign(text) {
+    if (!this.hkey) this.hkey = await crypto.subtle.importKey('raw', new TextEncoder().encode(this.env.CHAT_SECRET), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', this.hkey, new TextEncoder().encode(text));
+    return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async webSocketClose(ws) { if (this.tokens) this.tokens.delete(ws); await this.dropped(ws); }
   async webSocketError(ws) { await this.dropped(ws); }
   async dropped(ws) {
     const a = ws.deserializeAttachment();
     if (a && a.will) { const w = a.will; a.will = null; try { ws.serializeAttachment(a); } catch (e) {} await this.publish(w.topic, w.payload, w.retain, w.ttl); }
     try { ws.close(1000, 'bye'); } catch (e) {}
+    if (a && a.hub && a.hub !== PUB_HUB) await this.reportCount(a.hub, ws);
     // last player gone: take the room off the public-table list right away
     const hub = a && a.hub;
     if (hub && hub !== PUB_HUB && !this.ctx.getWebSockets().some(o => o !== ws && o.readyState === 1)) {
@@ -209,12 +286,18 @@ export class Hub extends DurableObject {
     }
   }
 
+  async reportCount(hub, gone) {
+    const n = this.ctx.getWebSockets().filter(o => o !== gone && o.readyState <= 1).length;
+    if (n === this.lastCount) return; this.lastCount = n;
+    try { await this.env.HUB.get(this.env.HUB.idFromName(COUNT_HUB)).fetch('https://hub/internal/count', {method: 'POST', body: JSON.stringify({hub, n})}); } catch (e) {}
+  }
+
   async forward(hub, m) {
     const stub = this.env.HUB.get(this.env.HUB.idFromName(hub));
     await stub.fetch('https://hub/internal/pub', {method: 'POST', body: JSON.stringify({topic: m.topic, payload: m.payload, retain: !!m.retain, ttl: m.ttl})});
   }
 
-  async publish(topic, payload, retain, ttl) {
+  async publish(topic, payload, retain, ttl, meta) {
     if (retain) {
       await this.load();
       const pol = this.policy(topic);
@@ -228,15 +311,25 @@ export class Hub extends DurableObject {
         else if (pol === 'later') this.dirty.add(topic);
       }
     }
-    const msg = JSON.stringify({t: 'msg', topic, payload});
+    const msg = JSON.stringify(Object.assign({t: 'msg', topic, payload}, meta || {}));
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment();
       if (a && a.subs.some(f => match(f, topic))) { try { ws.send(msg); } catch (e) {} }
     }
   }
 
+  async loadCounts() {
+    if (this.counts) return;
+    const saved = await this.ctx.storage.get('counts');
+    this.counts = new Map(saved ? Object.entries(saved) : []); this.isCount = true;
+  }
+
   // remove expired retained messages; schedule the next clean-up
   async alarm() {
+    if (this.isCount || (await this.ctx.storage.get('counts')) !== undefined) {   // the players-online counter: save the totals
+      if (this.counts) await this.ctx.storage.put('counts', Object.fromEntries(this.counts));
+      this.countSaveSet = false; return;
+    }
     const now = Date.now(); let next = null;
     if (this.mem) for (const [t, v] of this.mem) if (v.e <= now) { this.mem.delete(t); this.dirty.delete(t); }
     const ret = await this.ctx.storage.list({prefix: 'r:'});

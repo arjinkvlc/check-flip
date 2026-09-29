@@ -10,8 +10,8 @@ export const hubUrl = hub => (location.protocol === 'https:' ? 'wss://' : 'ws://
 export const hubAvailable = () => /^https?:$/.test(location.protocol) && typeof WebSocket !== 'undefined';
 
 export class HubClient {
-  constructor(url, will) {
-    this.kind = 'hub'; this.url = url; this.will = will || null;
+  constructor(url, will, token) {
+    this.kind = 'hub'; this.url = url; this.will = will || null; this.token = token || (() => null);
     this.options = {reconnectPeriod: 0}; this.connected = false; this.opened = false; this.ended = false;
     this.subs = new Set(); this.queue = []; this.h = {};
     this._open();
@@ -26,7 +26,7 @@ export class HubClient {
     this.ws = ws;
     ws.onopen = () => {
       this.connected = true; this.opened = true;
-      this._raw({t: 'hello', will: this.will});
+      const tk = this.token(); this._raw(tk ? {t: 'hello', will: this.will, tk} : {t: 'hello', will: this.will});
       if (this.subs.size) this._raw({t: 'sub', topics: [...this.subs]});
       const q = this.queue; this.queue = []; q.forEach(m => this._raw(m));
       clearInterval(this.pinger); this.pinger = setInterval(() => { try { ws.send('ping'); } catch (e) {} }, 25000);
@@ -35,13 +35,17 @@ export class HubClient {
     ws.onmessage = ev => {
       if (ev.data === 'pong') return;
       let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-      if (m && m.t === 'msg') { const p = String(m.payload); this.emit('message', m.topic, {toString: () => p}); }
+      if (m && m.t === 'msg') {
+        const p = String(m.payload), meta = m.from ? {from: m.from, ts: m.ts, sig: m.sig} : null;
+        this.emit('message', m.topic, {toString: () => p}, meta);
+      } else if (m && (m.t === 'status' || m.t === 'chatban')) this.emit('status', m);
     };
     ws.onerror = () => {};
-    ws.onclose = () => {
+    ws.onclose = ev => {
       clearInterval(this.pinger);
       const was = this.connected; this.connected = false;
       if (!this.opened) { this.emit('error', new Error('connect failed')); return; }
+      if (ev && ev.code === 4003) this.ended = true;   // suspended account: don't reconnect
       if (was) { this.emit('offline'); this.emit('close'); }
       if (!this.ended && this.options.reconnectPeriod) setTimeout(() => { if (!this.ended) this._open(); }, this.options.reconnectPeriod);
     };
@@ -92,7 +96,8 @@ export class MultiClient {
 
   add(c) {
     const src = this.conns.length; this.conns.push(c);
-    c.on('message', (tp, buf) => this._in(src, tp, buf.toString()));
+    c.on('message', (tp, buf, meta) => this._in(src, tp, buf.toString(), meta));
+    c.on('status', m => this.emit('status', m));
     c.on('connect', () => this._state());
     const down = () => { this._forget(src); this._state(); };
     c.on('offline', down); c.on('close', down);
@@ -107,7 +112,7 @@ export class MultiClient {
     else if (up) this.emit('connect');
     this.wasUp = up;
   }
-  _in(src, tp, s) {
+  _in(src, tp, s, meta) {
     const pi = tp.lastIndexOf('/pres/');
     if (pi >= 0 && tp.indexOf('/', pi + 6) < 0) {
       const m = this.presBy.get(tp) || new Map(); this.presBy.set(tp, m);
@@ -118,7 +123,7 @@ export class MultiClient {
     if (this.seen.has(key) && now - this.seen.get(key) < 4000) return;
     this.seen.set(key, now);
     if (this.seen.size > 400) for (const [k, t] of this.seen) if (now - t > 4000) this.seen.delete(k);
-    this.emit('message', tp, {toString: () => s});
+    this.emit('message', tp, {toString: () => s}, meta || null);
   }
   _presEmit(tp) {
     const m = this.presBy.get(tp); const v = m && [...m.values()].some(x => x === '1') ? '1' : (m && m.size ? '0' : '');

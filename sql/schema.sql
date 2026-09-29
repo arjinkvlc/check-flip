@@ -299,6 +299,8 @@ begin
   end if;
   insert into public.login_attempts (username_l) values (lower(p_username));
   delete from public.login_attempts where at < now() - interval '1 day';
+  delete from public.metric_events where day < (now() at time zone 'utc')::date - 400;
+  delete from public.chat_reports where created_at < now() - interval '180 days';
   return null;
 end $$;
 
@@ -425,6 +427,7 @@ declare
   v_winners jsonb := p -> 'winners'; v_nw int; v_eff int; v_q text; v_met boolean; v_qdone text := null; v_s jsonb := coalesce(p -> 'stats', '{}'::jsonb);
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
+  perform public.guard_not_banned();
   if v_gid is null or v_gid !~ '^[A-Za-z0-9_-]{6,40}$' then raise exception 'bad_game_id'; end if;
   if v_mode is null or v_mode not in ('online', 'solo') then raise exception 'bad_mode'; end if;
   if v_pid is null or v_pid !~ '^[A-Za-z0-9_-]{1,20}$' then raise exception 'bad_pid'; end if;
@@ -772,6 +775,7 @@ returns text language plpgsql security definer set search_path = '' as $$
 declare v_me uuid := auth.uid(); v_to uuid;
 begin
   if v_me is null then raise exception 'not_authenticated'; end if;
+  perform public.guard_not_banned();
   select id into v_to from public.profiles where lower(username) = lower(p_username);
   if v_to is null then raise exception 'no_such_user'; end if;
   if v_to = v_me then raise exception 'self'; end if;
@@ -867,6 +871,248 @@ begin
   delete from auth.users where id = auth.uid();
 end $$;
 
+-- =====================================================================
+-- v1.10: anonymous game metrics, chat reports and sanctions, admin tools
+-- =====================================================================
+
+-- Admins: add yourself once in the SQL editor:
+--   insert into public.admins (user_id) select id from public.profiles where username = 'YOUR_NAME';
+create table if not exists public.admins (user_id uuid primary key references public.profiles (id) on delete cascade);
+alter table public.admins enable row level security;
+revoke all on public.admins from anon, authenticated;
+create or replace function public.is_admin(p_user uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = '' as $$
+  select p_user is not null and exists (select 1 from public.admins where user_id = p_user) $$;
+
+-- Settings only the database functions read (the chat-signing secret; written by the GitHub Action)
+create table if not exists public.app_settings (key text primary key, value text not null);
+alter table public.app_settings enable row level security;
+revoke all on public.app_settings from anon, authenticated;
+
+-- ---- metrics: a random device id (no personal data), per day ----
+create table if not exists public.metric_events (
+  id         bigint generated always as identity primary key,
+  day        date not null default (now() at time zone 'utc')::date,
+  device     uuid not null,
+  kind       text not null check (kind in ('visit', 'game_start', 'game_end')),
+  mode       text check (mode in ('quick', 'room', 'solo', 'local')),
+  created_at timestamptz not null default now()
+);
+create unique index if not exists metric_events_visit on public.metric_events (day, device) where kind = 'visit';
+create index if not exists metric_events_day on public.metric_events (day, kind);
+create index if not exists metric_events_device on public.metric_events (device, day);
+alter table public.metric_events enable row level security;
+revoke all on public.metric_events from anon, authenticated;
+
+create or replace function public.log_event(p_device uuid, p_kind text, p_mode text default null)
+returns void language plpgsql volatile security definer set search_path = '' as $$
+declare v_day date := (now() at time zone 'utc')::date; v_n int;
+begin
+  if p_device is null or p_kind not in ('visit', 'game_start', 'game_end') then return; end if;
+  if p_mode is not null and p_mode not in ('quick', 'room', 'solo', 'local') then p_mode := null; end if;
+  if p_kind = 'visit' then
+    insert into public.metric_events (day, device, kind) values (v_day, p_device, 'visit') on conflict do nothing;
+    return;
+  end if;
+  select count(*) into v_n from public.metric_events where day = v_day and device = p_device;
+  if v_n >= 200 then return; end if;   -- flood guard
+  insert into public.metric_events (day, device, kind, mode) values (v_day, p_device, p_kind, p_mode);
+end $$;
+
+-- Daily numbers for the admin screen: visitors, new visitors, games, and how many came back 1 and 7 days later
+create or replace function public.admin_metrics(p_days int default 14)
+returns table (day date, visitors int, new_visitors int, players int, games_started int, games_finished int,
+               quick int, room int, solo int, local int, d1 numeric, d7 numeric)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query
+  with days as (select generate_series((now() at time zone 'utc')::date - (least(greatest(p_days, 1), 120) - 1), (now() at time zone 'utc')::date, interval '1 day')::date as d),
+  firsts as (select device, min(e.day) as first_day from public.metric_events e where e.kind = 'visit' group by device)
+  select ds.d,
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'visit'),
+    (select count(*)::int from firsts f where f.first_day = ds.d),
+    (select count(distinct e.device)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start'),
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start'),
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_end'),
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'quick'),
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'room'),
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'solo'),
+    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'local'),
+    (select case when count(*) = 0 or ds.d + 1 > (now() at time zone 'utc')::date then null
+            else round(100.0 * count(*) filter (where exists (select 1 from public.metric_events v where v.device = f.device and v.kind = 'visit' and v.day = ds.d + 1)) / count(*), 1) end
+       from firsts f where f.first_day = ds.d),
+    (select case when count(*) = 0 or ds.d + 7 > (now() at time zone 'utc')::date then null
+            else round(100.0 * count(*) filter (where exists (select 1 from public.metric_events v where v.device = f.device and v.kind = 'visit' and v.day = ds.d + 7)) / count(*), 1) end
+       from firsts f where f.first_day = ds.d)
+  from days ds order by ds.d desc;
+end $$;
+
+-- ---- chat reports and sanctions ----
+create table if not exists public.sanctions (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  kind       text not null check (kind in ('chat', 'account')),
+  until      timestamptz,                -- null = permanent
+  reason     text,
+  auto       boolean not null default false,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  lifted     boolean not null default false
+);
+create index if not exists sanctions_user on public.sanctions (user_id, kind);
+alter table public.sanctions enable row level security;
+revoke all on public.sanctions from anon, authenticated;
+
+create table if not exists public.chat_reports (
+  id          bigint generated always as identity primary key,
+  reported    uuid not null references public.profiles (id) on delete cascade,
+  reporter    uuid not null references public.profiles (id) on delete cascade,
+  room        text not null,
+  message     text not null,
+  said_at     timestamptz not null,
+  status      text not null default 'open' check (status in ('open', 'auto', 'actioned', 'dismissed')),
+  note        text,
+  created_at  timestamptz not null default now(),
+  unique (reporter, reported, said_at)
+);
+create index if not exists chat_reports_status on public.chat_reports (status, created_at desc);
+create index if not exists chat_reports_reported on public.chat_reports (reported, created_at desc);
+alter table public.chat_reports enable row level security;
+revoke all on public.chat_reports from anon, authenticated;
+
+-- end of the active sanction of a kind: null = none, 'infinity' = permanent
+create or replace function public.sanction_until(p_user uuid, p_kind text)
+returns timestamptz language sql stable security definer set search_path = '' as $$
+  select case when bool_or(until is null) then 'infinity'::timestamptz else max(until) end
+    from public.sanctions where user_id = p_user and kind = p_kind and not lifted and (until is null or until > now())
+$$;
+create or replace function public.account_banned(p_user uuid)
+returns boolean language sql stable security definer set search_path = '' as $$ select public.sanction_until(p_user, 'account') is not null $$;
+
+-- what the signed-in player is blocked from (the game server asks this on connect)
+create or replace function public.my_status()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('uid', auth.uid(),
+    'chat_until', public.sanction_until(auth.uid(), 'chat'),
+    'account_until', public.sanction_until(auth.uid(), 'account'),
+    'admin', public.is_admin())
+$$;
+
+-- automatic ladder: chat 1 day → 7 days → 30 days → permanent (+ account 7 days) → account permanent
+create or replace function public.auto_sanction(p_user uuid, p_reason text)
+returns text language plpgsql volatile security definer set search_path = '' as $$
+declare n int; v text;
+begin
+  if public.sanction_until(p_user, 'chat') is not null then return null; end if;   -- already serving one
+  select count(*) into n from public.sanctions where user_id = p_user and not lifted;
+  if n = 0 then insert into public.sanctions (user_id, kind, until, reason, auto) values (p_user, 'chat', now() + interval '1 day', p_reason, true); v := 'chat_1d';
+  elsif n = 1 then insert into public.sanctions (user_id, kind, until, reason, auto) values (p_user, 'chat', now() + interval '7 days', p_reason, true); v := 'chat_7d';
+  elsif n = 2 then insert into public.sanctions (user_id, kind, until, reason, auto) values (p_user, 'chat', now() + interval '30 days', p_reason, true); v := 'chat_30d';
+  elsif n = 3 then
+    insert into public.sanctions (user_id, kind, until, reason, auto) values (p_user, 'chat', null, p_reason, true), (p_user, 'account', now() + interval '7 days', p_reason, true); v := 'chat_perm_account_7d';
+  else insert into public.sanctions (user_id, kind, until, reason, auto) values (p_user, 'account', null, p_reason, true); v := 'account_perm';
+  end if;
+  return v;
+end $$;
+
+-- Report a chat line. The game server signs every chat line it relays (room|sender|time|text) with a secret
+-- only it and this database know, so a report can't be made up; unsigned lines can't be reported.
+-- Automatic action: a line with a blocked word, or 3 different reporters within 24 hours.
+create or replace function public.report_chat(p jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_me uuid := auth.uid(); v_to uuid; v_room text := p ->> 'room'; v_text text := p ->> 'text';
+  v_ts bigint; v_sig text := p ->> 'sig'; v_key text; v_at timestamptz; v_id bigint; v_n int; v_act text := null;
+begin
+  if v_me is null then raise exception 'not_authenticated'; end if;
+  begin v_to := (p ->> 'uid')::uuid; v_ts := (p ->> 'ts')::bigint; exception when others then raise exception 'bad_report'; end;
+  if v_to is null or v_ts is null or v_room is null or v_text is null or v_sig is null or length(v_text) > 400 or v_room !~ '^[A-Z0-9]{5}$' then raise exception 'bad_report'; end if;
+  if v_to = v_me then raise exception 'bad_report'; end if;
+  select value into v_key from public.app_settings where key = 'chat_secret';
+  if v_key is null then raise exception 'reports_off'; end if;
+  if encode(extensions.hmac(v_room || '|' || v_to::text || '|' || v_ts::text || '|' || v_text, v_key, 'sha256'), 'hex') <> v_sig then raise exception 'bad_signature'; end if;
+  v_at := to_timestamp(v_ts / 1000.0);
+  if v_at < now() - interval '24 hours' or v_at > now() + interval '5 minutes' then raise exception 'too_old'; end if;
+  if (select count(*) from public.chat_reports where reporter = v_me and created_at > now() - interval '1 day') >= 30 then raise exception 'too_many'; end if;
+  insert into public.chat_reports (reported, reporter, room, message, said_at) values (v_to, v_me, v_room, v_text, v_at)
+    on conflict do nothing returning id into v_id;
+  if v_id is null then return jsonb_build_object('ok', true, 'duplicate', true); end if;
+  if public.name_blocked(v_text) then
+    v_act := public.auto_sanction(v_to, 'blocked word');
+  else
+    select count(distinct reporter) into v_n from public.chat_reports where reported = v_to and status in ('open', 'auto') and created_at > now() - interval '24 hours';
+    if v_n >= 3 then v_act := public.auto_sanction(v_to, 'reported by ' || v_n || ' players'); end if;
+  end if;
+  if v_act is not null then
+    update public.chat_reports set status = 'auto', note = v_act where reported = v_to and status = 'open';
+  end if;
+  return jsonb_build_object('ok', true, 'action', v_act);
+end $$;
+
+-- ---- admin tools ----
+create or replace function public.admin_reports(p_status text default 'open', p_limit int default 100)
+returns table (id bigint, reported uuid, reported_name text, reporter_name text, room text, message text, said_at timestamptz,
+               status text, note text, created_at timestamptz, reports_24h int, past_sanctions int, chat_until timestamptz, account_until timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query select r.id, r.reported, a.username, b.username, r.room, r.message, r.said_at, r.status, r.note, r.created_at,
+      (select count(*)::int from public.chat_reports x where x.reported = r.reported and x.created_at > now() - interval '24 hours'),
+      (select count(*)::int from public.sanctions s where s.user_id = r.reported and not s.lifted),
+      public.sanction_until(r.reported, 'chat'), public.sanction_until(r.reported, 'account')
+    from public.chat_reports r join public.profiles a on a.id = r.reported join public.profiles b on b.id = r.reporter
+   where p_status = 'all' or r.status = p_status
+   order by r.created_at desc limit least(greatest(p_limit, 1), 500);
+end $$;
+
+create or replace function public.admin_sanctions()
+returns table (id bigint, user_id uuid, username text, kind text, until timestamptz, reason text, auto boolean, created_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query select s.id, s.user_id, p.username, s.kind, s.until, s.reason, s.auto, s.created_at
+    from public.sanctions s join public.profiles p on p.id = s.user_id
+   where not s.lifted and (s.until is null or s.until > now()) order by s.created_at desc limit 300;
+end $$;
+
+-- p_days: 1, 7, 30 or null (permanent); p_user or p_username
+create or replace function public.admin_sanction(p_username text, p_kind text, p_days int, p_report bigint default null, p_reason text default null)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare v_to uuid;
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  if p_kind not in ('chat', 'account') or (p_days is not null and p_days not between 1 and 3650) then raise exception 'bad_sanction'; end if;
+  select id into v_to from public.profiles where lower(username) = lower(p_username);
+  if v_to is null then raise exception 'no_such_user'; end if;
+  insert into public.sanctions (user_id, kind, until, reason, created_by)
+    values (v_to, p_kind, case when p_days is null then null else now() + make_interval(days => p_days) end, coalesce(p_reason, 'admin'), auth.uid());
+  update public.chat_reports set status = 'actioned', note = p_kind || ' ' || coalesce(p_days::text || 'd', 'permanent')
+   where reported = v_to and status in ('open', 'auto') and (p_report is null or id = p_report or status = 'open');
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.admin_lift(p_id bigint)
+returns void language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  update public.sanctions set lifted = true where id = p_id;
+end $$;
+
+create or replace function public.admin_dismiss(p_id bigint)
+returns void language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  update public.chat_reports set status = 'dismissed' where id = p_id;
+end $$;
+
+-- banned accounts can't save results or add friends
+create or replace function public.guard_not_banned()
+returns void language plpgsql stable security definer set search_path = '' as $$
+begin
+  if auth.uid() is not null and public.account_banned(auth.uid()) then raise exception 'account_banned'; end if;
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Function permissions
 -- ---------------------------------------------------------------------
@@ -895,6 +1141,14 @@ grant execute on function public.daily_upkeep() to anon, authenticated;
 revoke execute on function public.change_username(text) from public, anon;
 grant execute on function public.change_username(text) to authenticated;
 grant execute on function public.delete_my_account() to authenticated;
+-- v1.10
+revoke execute on function public.is_admin(uuid), public.log_event(uuid, text, text), public.admin_metrics(int), public.sanction_until(uuid, text),
+  public.account_banned(uuid), public.my_status(), public.auto_sanction(uuid, text), public.report_chat(jsonb), public.admin_reports(text, int),
+  public.admin_sanctions(), public.admin_sanction(text, text, int, bigint, text), public.admin_lift(bigint), public.admin_dismiss(bigint),
+  public.guard_not_banned() from public, anon, authenticated;
+grant execute on function public.log_event(uuid, text, text) to anon, authenticated;
+grant execute on function public.my_status(), public.report_chat(jsonb), public.admin_metrics(int), public.admin_reports(text, int),
+  public.admin_sanctions(), public.admin_sanction(text, text, int, bigint, text), public.admin_lift(bigint), public.admin_dismiss(bigint) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- Backfill: award achievements that are already earned (safe to re-run)

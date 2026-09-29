@@ -17,3 +17,8 @@ export const SUPABASE_KEY = 'sb_publishable_Iqd3ZrtICWhewJjJStMm8Q_Q6E5JiUT';
 // Supabase → Authentication → Sign In / Providers → Email).
 // (keep this value: existing accounts use it; it's from the game's former name)
 export const PLACEHOLDER_EMAIL_DOMAIN = 'players.checkplease.invalid';
+
+// Optional: Cloudflare Turnstile (free CAPTCHA) on log in, sign up and password reset.
+// Put the widget's SITE key here (public), and its SECRET key only in Supabase →
+// Authentication → Attack Protection → Captcha. Empty = no captcha.
+export const TURNSTILE_SITE_KEY = '';

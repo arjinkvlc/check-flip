@@ -31,9 +31,9 @@
 <meta name="twitter:image" content="https://checkflipgame.com/assets/og.png">
 <title>Check Flip – Free Online Board Game to Play with Friends</title>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "VideoGame", "name": "Check Flip", "alternateName": ["Hesap Kimde", "Check Flip Game"], "url": "https://checkflipgame.com/", "image": "https://checkflipgame.com/assets/og.png", "description": "Free multiplayer board game in your browser: roll the dice, draw cards, stay hungry and make your friends pick up the check. 2–6 players, online or against bots, no download.", "genre": ["Board game", "Party game", "Strategy"], "gamePlatform": ["Web browser", "Android", "iOS", "Windows", "macOS"], "applicationCategory": "GameApplication", "operatingSystem": "Any", "playMode": ["MultiPlayer", "SinglePlayer"], "numberOfPlayers": {"@type": "QuantitativeValue", "minValue": 2, "maxValue": 6}, "inLanguage": ["en", "tr"], "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Arjin Kavalcı", "url": "https://github.com/arjinkvlc"}}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<link rel="preload" href="vendor/fonts/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/baloo-2-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="css/style.css">
 <script>
 /* a new service worker took over (new release): reload once so page, scripts and styles are all from the same version */
@@ -65,6 +65,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       </div>
       <div class="seg2" id="homeMode" role="group" data-ia="modeLbl"><button data-a="hmode" data-m="classic"></button><button data-a="hmode" data-m="quick"></button></div>
       <button id="btnQuick" class="bigplay" data-a="quick" disabled><span><b data-i="quickTitle"></b><small data-i="quickSub"></small></span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <p id="onlineNow" class="onlinenow" hidden><i></i><span></span></p>
       <button id="btnRejoin" class="btn" data-a="rejoin" hidden></button>
       <p id="homeErr" class="err" hidden></p>
       <div class="tiles">
@@ -99,13 +100,18 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <ul id="rulesList"></ul>
       <p><button class="linkbtn" data-a="tipsreset" data-i="tipsReset"></button></p>
       <div class="cols" id="cardLists"></div>
-      <div class="seoabout" id="seoAbout" data-ih="seoAbout"><h2>What is Check Flip?</h2><p>Check Flip is a free multiplayer board game you play in the browser, on a phone or a computer, with no download and no sign-up needed. 2 to 6 players move around a board full of restaurants, roll the dice, draw Chance and Event cards and try to stay hungry, because at the end of every day one player picks up the check for the whole table. Buy restaurants, earn commission, make deals to pass the check on, and be the last one at the table.</p><p>Play online with friends using a room code, join a quick game with other players, play against bots (easy, normal or hard) or take turns on one device. Classic, Quick (10 days) and 2 vs 2 team modes. With a free account you earn XP, unlock avatars, dice and boards, climb the monthly season leaderboard and win medals. In English and Turkish.</p></div>
+      <div class="seoabout" id="seoAbout" data-ih="seoAbout"><h2>What is Check Flip?</h2><p>Check Flip is a free multiplayer board game you play in the browser, on a phone or a computer, with no download and no sign-up needed. 2 to 6 players move around a board full of restaurants, roll the dice, draw Chance and Event cards and try to stay hungry, because at the end of every day one player picks up the check for the whole table. Buy restaurants, earn commission, make deals to pass the check on, and be the last one at the table.</p><p>Play online with friends using a room code, join a quick game with other players, play against bots (easy, normal or hard) or take turns on one device. Classic, Quick (10 days) and 2 vs 2 team modes. With a free account you earn XP, unlock avatars, dice and boards, climb the monthly season leaderboard and win medals. In English and Turkish.</p><p>More: <a href="/online-board-game-with-friends">playing online with friends</a> · <a href="/monopoly-alternative-online">a Monopoly-like game online</a></p></div>
     </details>
     <footer class="credit" style="grid-column:1/-1"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a><span class="ver" id="verTag"></span></footer>
   </section>
 
   <section id="auth" class="lobby" hidden>
     <div class="box authbox" id="authBox"></div>
+    <div class="tswrap" id="tsWrap" hidden></div>
+  </section>
+
+  <section id="admin" class="profile" hidden>
+    <div id="adminBox"></div>
   </section>
 
   <section id="profile" class="profile" hidden>
@@ -201,6 +207,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <div id="board" class="board">
         <div id="center" class="center">
           <div class="c-day" id="cDay"></div>
+          <div class="c-din" id="cDin" hidden></div>
           <div class="dice" id="dice"><div class="die"></div><div class="die"></div></div>
           <div class="c-who" id="cWho"></div>
           <div class="c-sub" id="cSub"></div>
@@ -223,6 +230,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <div class="chathead"><h3 data-i="chat"></h3><button class="btn small ghost chatclose" data-a="chatclose" data-ia="closeChat">✕</button></div>
       <ul class="chatlist" id="chatList"><li class="chatempty"></li></ul>
       <div class="quickchat" id="quickChat" role="group" data-ia="quickAria"></div>
+      <p class="chatlock note" id="chatLock" hidden></p>
       <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn primary" type="submit" data-i="send"></button></form>
     </section>
   </section>
@@ -242,10 +250,11 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
   <div class="setrow"><span data-i="setTheme"></span><div class="seg2" role="group"><button data-a="setTheme" data-t="light" data-i="themeLight"></button><button data-a="setTheme" data-t="dark" data-i="themeDark"></button></div></div>
   <div class="setrow"><span data-i="setMusic"></span><button id="musicBtn" class="switch" data-a="music" role="switch"><i></i></button></div>
   <div class="setrow"><span data-i="setSound"></span><button id="sndBtn" class="switch" data-a="snd" role="switch"><i></i></button></div>
+  <button class="btn small" id="adminBtn" data-a="admin" data-i="adminTitle" hidden></button>
 </div></div>
 <div class="modal" id="modal" hidden><div class="modalcard" id="modalCard"></div></div>
-<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="vendor/mqtt-5.10.1.min.js"></script>
+<script src="vendor/supabase-js-2.117.2.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

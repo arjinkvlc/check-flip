@@ -5,6 +5,10 @@
 # Needs one repository secret: SUPABASE_DB_URL = the "Session pooler" connection string from
 # Supabase (Connect button), with your database password filled in. It never appears in the code
 # or the logs. Pull requests from forks don't get secrets, so they can't touch the database.
+#
+# Optional secret CHAT_SECRET (v1.10): the same random value as the Worker's CHAT_SECRET. It lets the
+# database check that a reported chat line was really relayed by the game server. Stored in
+# public.app_settings, readable only by the database functions.
 name: Apply database schema
 
 on:
@@ -31,6 +35,7 @@ jobs:
       - name: Apply sql/schema.sql
         env:
           RAW_URL: ${{ secrets.SUPABASE_DB_URL }}
+          CHAT_SECRET: ${{ secrets.CHAT_SECRET }}
           PGSSLMODE: require
           PGCONNECT_TIMEOUT: '20'
         run: |
@@ -47,3 +52,12 @@ jobs:
           fi
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f sql/schema.sql
           echo "Schema applied."
+          if [ -n "$CHAT_SECRET" ]; then
+            echo "::add-mask::$CHAT_SECRET"
+            # (psql fills :'s' only in scripts it reads, not in -c)
+            echo "insert into public.app_settings (key, value) values ('chat_secret', :'s') on conflict (key) do update set value = excluded.value;" \
+              | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -v s="$CHAT_SECRET" -f -
+            echo "Chat secret stored."
+          else
+            echo "CHAT_SECRET not set: chat reports stay off."
+          fi

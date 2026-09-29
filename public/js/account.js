@@ -104,7 +104,10 @@ export const ACC = {
   recovery: false,    // opened from a password-reset link
   daily: null,        // {quest, done, resets_in}
   social: null,       // {friends, incoming, outgoing, invites}
-  medals: []          // season medals [{season, place}]
+  medals: [],         // season medals [{season, place}]
+  token: null,        // current access token (the game server uses it to know who is chatting)
+  status: null,       // {chat_until, account_until, admin} from public.my_status
+  banned: null        // set when the account is suspended: the end date ('infinity' = permanent)
 };
 let sb = null;
 const listeners = new Set();
@@ -189,14 +192,15 @@ export async function initAccount() {
   ACC.enabled = true;
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY') ACC.recovery = true;
-    const u = session ? session.user : null;
+    const u = session ? session.user : null; ACC.token = session ? session.access_token : null;
     const changed = (u && u.id) !== (ACC.user && ACC.user.id);
     ACC.user = u;
     if (!u) { ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; ACC.daily = null; ACC.social = null; emit(); return; }
     // don't await Supabase calls inside this callback (supabase-js deadlock note)
     if (changed || !ACC.profile) setTimeout(() => refreshProfile().catch(() => {}), 0); else emit();
   });
-  try { const {data} = await sb.auth.getSession(); ACC.user = data && data.session ? data.session.user : null; } catch (e) {}
+  try { const {data} = await sb.auth.getSession(); ACC.user = data && data.session ? data.session.user : null; ACC.token = data && data.session ? data.session.access_token : null; } catch (e) {}
+  logVisit();
   if (ACC.user) { try { await refreshProfile(); } catch (e) {} }
   ACC.ready = true; emit();
 }
@@ -216,6 +220,10 @@ export async function refreshProfile() {
   ACC.recent = r.data || [];
   ACC.medals = (md && !md.error && md.data) || [];
   try { const d = await sb.rpc('my_daily'); if (!d.error) ACC.daily = d.data; } catch (e) {}
+  try { const st = await sb.rpc('my_status'); if (!st.error) ACC.status = st.data; } catch (e) {}
+  if (ACC.status && ACC.status.account_until) {   // suspended account: sign out, keep the date to show
+    ACC.banned = ACC.status.account_until; await signOut(); return;
+  }
   emit();
 }
 
@@ -235,7 +243,7 @@ export async function usernameAvailable(name) {
   return !!data;
 }
 
-export async function signUp(username, password, email) {
+export async function signUp(username, password, email, captchaToken) {
   if (!sb) throw fail('disabled');
   username = String(username || '').trim(); email = String(email || '').trim().toLowerCase();
   if (!USERNAME_RE.test(username)) throw Object.assign(new Error('aErrName'), {key: 'aErrName'});
@@ -245,7 +253,7 @@ export async function signUp(username, password, email) {
   if (!(await usernameAvailable(username))) throw Object.assign(new Error('aErrNameTaken'), {key: 'aErrNameTaken'});
   const rnd = Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(16).padStart(2, '0')).join('');
   const addr = email || `${username.toLowerCase()}.${rnd}@${PLACEHOLDER_EMAIL_DOMAIN}`;
-  const {data, error} = await sb.auth.signUp({email: addr, password, options: {data: {username}, emailRedirectTo: location.origin + '/'}});
+  const {data, error} = await sb.auth.signUp({email: addr, password, options: {data: {username}, emailRedirectTo: location.origin + '/', captchaToken: captchaToken || undefined}});
   if (error) throw fail(error);
   if (!data.session) {
     // "Confirm email" is ON in Supabase: the account exists but can't log in yet
@@ -255,7 +263,7 @@ export async function signUp(username, password, email) {
 }
 
 // Log in with a username or an e-mail address
-export async function signIn(id, password) {
+export async function signIn(id, password, captchaToken) {
   if (!sb) throw fail('disabled');
   id = String(id || '').trim();
   let email = id;
@@ -266,15 +274,15 @@ export async function signIn(id, password) {
     if (!data) throw Object.assign(new Error('aErrLogin'), {key: 'aErrLogin'});
     email = data;
   }
-  const {error} = await sb.auth.signInWithPassword({email, password});
+  const {error} = await sb.auth.signInWithPassword({email, password, options: captchaToken ? {captchaToken} : undefined});
   if (error) throw fail(error);
 }
 
-export async function sendReset(email) {
+export async function sendReset(email, captchaToken) {
   if (!sb) throw fail('disabled');
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) throw Object.assign(new Error('aErrEmailInvalid'), {key: 'aErrEmailInvalid'});
-  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/'});
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/', captchaToken: captchaToken || undefined});
   if (error) throw fail(error);
 }
 
@@ -322,7 +330,7 @@ export async function changeUsername(name) {
 export async function signOut() {
   if (!sb) return;
   try { await sb.auth.signOut(); } catch (e) {}
-  ACC.user = null; ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; ACC.daily = null; ACC.social = null; emit();
+  ACC.user = null; ACC.profile = null; ACC.ach = new Set(); ACC.recent = []; ACC.daily = null; ACC.social = null; ACC.status = null; ACC.token = null; emit();
 }
 
 // Permanently deletes the signed-in account and all of its data
@@ -402,3 +410,31 @@ export async function pollSocial() {
 setInterval(() => { if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - socialAt >= (inGame() ? 90000 : 45000)) pollSocial(); }, 5000);
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - socialAt > 45000) pollSocial(); });
 onAccount(() => { if (loggedIn() && !ACC.social) pollSocial(); });
+
+
+/* ---------------- v1.10: metrics, chat reports, admin ---------------- */
+// A random id for this browser (no personal data): counts visitors, games, and who comes back the next day / week.
+function deviceId() {
+  try {
+    let d = localStorage.getItem('cf-dev');
+    if (!/^[0-9a-f-]{36}$/.test(d || '')) { d = crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); localStorage.setItem('cf-dev', d); }
+    return d;
+  } catch (e) { return null; }
+}
+export function logEvent(kind, mode) {
+  const dev = deviceId(); if (!sb || !dev) return;
+  sb.rpc('log_event', {p_device: dev, p_kind: kind, p_mode: mode || null}).then(() => {}, () => {});
+}
+function logVisit() {
+  const day = new Date().toISOString().slice(0, 10);
+  try { if (localStorage.getItem('cf-visit') === day) return; localStorage.setItem('cf-visit', day); } catch (e) {}
+  logEvent('visit');
+}
+export const isAdmin = () => !!(ACC.status && ACC.status.admin);
+export const reportChat = r => call('report_chat', {p: r});
+export const adminMetrics = days => call('admin_metrics', {p_days: days || 14});
+export const adminReports = status => call('admin_reports', {p_status: status || 'open', p_limit: 100});
+export const adminSanctions = () => call('admin_sanctions');
+export const adminSanction = (username, kind, days, report) => call('admin_sanction', {p_username: username, p_kind: kind, p_days: days, p_report: report || null, p_reason: null});
+export const adminLift = id => call('admin_lift', {p_id: id});
+export const adminDismiss = id => call('admin_dismiss', {p_id: id});

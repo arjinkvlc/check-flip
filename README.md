@@ -33,7 +33,7 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
   - Buy one for ¤40.
   - Landing on someone else's restaurant costs a visit fee (¤5 / ¤8 / ¤12). You may then offer to buy it for more; if the owner accepts, it changes hands.
   - Landing on your own lets you cash the register (★ +¤15, ★★ +¤20, ★★★ +¤25) or upgrade it.
-  - Dinner is served at one of the 4 restaurants **at random**. If it has an owner, they take a commission from the check: ★ 25%, ★★ 35%, ★★★ 50%.
+  - At the start of each day one of the 4 restaurants is drawn for **tonight's dinner** and shown on the board. If it has an owner, they take a commission from the check: ★ 25%, ★★ 35%, ★★★ 50%.
 - **Negotiation:** The payer gets one offer: "I'll give you $X, you pay the check."
 - **Cards:**
   - Chance and Event decks.
@@ -168,6 +168,8 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── i18n-v15.js     # texts added in v1.5 (private hands, dice, filter)
 │       ├── i18n-v16.js     # texts added in v1.6 (bots, chat, awards, seasons)
 │       ├── i18n-v17.js     # texts added in v1.7 (settings, username, seasons, friends)
+│       ├── i18n-v110.js    # texts added in v1.10 (dinner venue, new game, chat reports, admin)
+│       ├── admin-ui.js     # admin screen: numbers, chat reports, bans
 │       ├── i18n-v19.js     # texts added in v1.9 (leave question, money after paying, ranked games)
 │       ├── i18n-v18.js     # texts added in v1.8 (page title and description per language)
 │       ├── seo-text.js     # search engine texts (title, description, "What is Check Flip?"), also used by the Worker for /tr
@@ -178,6 +180,8 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 ├── sql/schema.sql          # Supabase database: tables, security rules, functions
 ├── tests/simulate.mjs      # engine simulation (hundreds of bot games)
 ├── tests/belt-deal.mjs     # Tighten the Belt + passing the check on
+├── public/vendor/          # fonts and libraries served from the site itself (Fontsource fonts, mqtt.js, supabase-js)
+├── tools/seo-pages/        # builds the search landing pages (public/*.html, public/tr/*.html)
 ├── tools/coin-font/        # builds the coin sign (a one-glyph colour font, embedded in style.css)
 ├── tools/avatars/          # generator for the avatar illustrations (Python, no dependencies)
 ├── tools/email-templates/  # password-reset e-mail for Supabase
@@ -232,7 +236,15 @@ Never put the **secret / service_role key** or the database password anywhere in
 - **Two languages for search:** `/` is the English page and `/tr` the Turkish one (the Worker serves the same page with Turkish title, description and text in the HTML). Both are linked with `hreflang` and listed in the sitemap. After a release, use **URL Inspection → Request indexing** for both addresses.
 - **Cloudflare Web Analytics:** Cloudflare → **Analytics & Logs → Web Analytics → Add a site** → `checkflipgame.com` → automatic setup. Cookieless, so no consent banner is needed; it's listed in the privacy notice.
 
-### 4. Moving away from an old host (optional)
+### 4. Safety: rate limit, bots, captcha, chat reports (recommended)
+
+- **Rate limit for game connections** (Cloudflare free plan has one rule): Cloudflare → your domain → **Security → WAF → Rate limiting rules → Create rule**. *If* URI Path equals `/ws`, *when rate exceeds* 20 requests per 10 seconds, *with the same* IP, *then* Block for 10 seconds. Scripts opening thousands of connections can then no longer use up the daily quota.
+- **Bot Fight Mode:** Cloudflare → **Security → Bots → Bot Fight Mode: On**.
+- **Captcha on log in / sign up / password reset (Turnstile, free):** Cloudflare → **Turnstile → Add widget** (hostname `checkflipgame.com`, mode *Managed*). Put the **site key** into `TURNSTILE_SITE_KEY` in `public/js/config.js` and deploy. Then in Supabase → **Authentication → Attack Protection → Enable Captcha protection**, provider *Turnstile*, paste the **secret key**. (Deploy the site key first: once Supabase requires a captcha, logins without one fail.)
+- **Chat reports:** make a long random value (for example in PowerShell: `[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')`) and save the same value twice: as a Worker secret named `CHAT_SECRET` (Cloudflare → Workers → check-flip → **Settings → Variables and Secrets → Add → Secret**) and as a GitHub repository secret named `CHAT_SECRET`. Then run the *Apply database schema* workflow once (Actions → Run workflow). Without it the game works, but the report button doesn't appear.
+- **Admin:** in the Supabase SQL editor run `insert into public.admins (user_id) select id from public.profiles where username = 'YOUR_NAME';`. The **Admin** button then appears in Settings: daily numbers, reports and bans.
+
+### 5. Moving away from an old host (optional)
 
 To keep old links working, deploy the two files in `tools/netlify-redirect/` to the old Netlify site (drag the folder onto the site's *Deploys* page). Every old link then redirects to `checkflipgame.com`.
 
@@ -268,11 +280,13 @@ Run it after changing balance values (the constants at the top of `public/js/eng
   - Friends, requests and invites are only reachable through functions: invites go to friends only (max 20 per 10 minutes, expire after 10 minutes), requests are rate-limited, and daily quest XP is granted once per UTC day by the server.
   - `set_equipped` refuses cosmetics that aren't unlocked. `login_email` allows username login without revealing e-mails and is throttled. `delete_my_account` deletes the caller's account and all its data.
 - The relay only lets a connection publish and subscribe inside its own room, limits message size and rate, and only accepts browser connections from the game's own domain (plus `ALLOWED_ORIGINS`).
+- Chat: the relay learns who a signed-in player is from their own session token (it asks Supabase `my_status`) and signs every typed line (`room|sender|time|text`, HMAC with `CHAT_SECRET`). `report_chat` only accepts lines with a valid signature, so reports can't be made up. A line with a blocked word, or 3 different reporters in 24 hours, gives an automatic ban: chat 1 day → 7 days → 30 days → permanent (+ account 7 days) → account permanent. Other reports wait for an admin. Chat bans are enforced by the relay (re-checked at least every minute), account bans by the relay and the database functions. At public tables typed chat is for signed-in players only.
+- Game rooms accept at most 16 connections.
 - Anti-cheat is "trust + limits": the rules run in the host's browser, so a determined cheater with two accounts could fake a game; the limits keep the effect small.
 
 ## Privacy
 
-`public/privacy.html` is the privacy notice (KVKK and GDPR, English and Turkish). Sign-up requires accepting it, and players can delete their account in *Profile & looks → Stats*. No tracking or advertising cookies are used; only local storage needed for the game (language, nickname, session). If ads are added later, a consent banner (CMP) is required for visitors from the EU/UK.
+`public/privacy.html` is the privacy notice (KVKK and GDPR, English and Turkish). Sign-up requires accepting it, and players can delete their account in *Profile & looks → Stats*. No tracking or advertising cookies are used; only local storage needed for the game (language, nickname, session) and a random id for anonymous game statistics (visits, games started and finished, return after 1 and 7 days; not linked to accounts). If ads are added later, a consent banner (CMP) is required for visitors from the EU/UK.
 
 ## Adding a language
 
@@ -283,6 +297,19 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.10.0
+- Tonight's dinner restaurant is drawn at the start of each day and shown on the board, so buying and upgrading can be planned
+- End of the game: **Start a new game** of the same kind (Quick play → another public table, a room → the same room, bots or one device → same players and settings) and **Back to menu**
+- "N people playing right now" on the home screen (hidden while small)
+- Chat reports: a report button on messages from signed-in players; automatic bans for blocked words or 3 reports, admin review for the rest; chat bans and account suspensions
+- At public tables, typed chat is for signed-in players; ready-made lines work for everyone
+- Admin screen (Settings → Admin): daily visitors, new visitors, games by kind, return after 1 and 7 days, reports and bans
+- Anonymous game statistics (a random id per browser; no personal data)
+- Optional Turnstile captcha on log in, sign up and password reset
+- Fonts and libraries are served from the site itself: faster first load, no requests to Google Fonts or jsDelivr (these are blocked or slow in some countries)
+- Search pages: "online board game to play with friends" and "Monopoly-like game online", in English and Turkish
+- Rooms accept at most 16 connections
 
 ### 1.9.0
 - Game coin: money is shown with the game's own gold coin (fork and spoon) instead of ₺ / $

@@ -9,6 +9,7 @@ import {
 } from './account.js';
 import {t, getLang} from './i18n.js';
 import {nameBlocked} from './filter.js';
+import {TURNSTILE_SITE_KEY} from './config.js';
 import './i18n-account.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -136,7 +137,24 @@ export function renderAuth(el) {
   el.innerHTML = tabs + (AU.err ? `<p class="err" role="alert">${esc(AU.err)}</p>` : '') + (AU.msg ? `<p class="okmsg" role="status">${esc(AU.msg)}</p>` : '') + f +
     `<button class="btn ghost small" data-a="authGuest">${esc(AU.tab === 'reset' ? t('pBack') : t('aAsGuest'))}</button>`;
   if (!ACC.enabled) el.innerHTML = `<p class="err">${esc(t('aUnavailable'))}</p><button class="btn ghost" data-a="authGuest">${esc(t('aAsGuest'))}</button>`;
+  mountCaptcha(AU.tab);
 }
+
+/* Cloudflare Turnstile (optional, see config.js): one widget kept outside the form so re-renders don't reset it */
+let tsId = null, tsToken = null, tsLoading = false;
+const captchaOn = () => !!TURNSTILE_SITE_KEY && ACC.enabled;
+const CAPTCHA_TABS = ['login', 'signup', 'forgot'];
+function mountCaptcha(tab) {
+  const w = document.getElementById('tsWrap'); if (!w) return;
+  const need = captchaOn() && CAPTCHA_TABS.includes(tab);
+  w.hidden = !need; if (!need) return;
+  if (!window.turnstile) {
+    if (!tsLoading) { tsLoading = true; const s = document.createElement('script'); s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; s.async = true; s.onload = () => mountCaptcha(AU.tab); document.head.appendChild(s); }
+    return;
+  }
+  if (tsId == null) tsId = window.turnstile.render(w, {sitekey: TURNSTILE_SITE_KEY, theme: 'auto', language: getLang(), callback: tk => { tsToken = tk; }, 'expired-callback': () => { tsToken = null; }, 'error-callback': () => { tsToken = null; }});
+}
+function captchaReset() { tsToken = null; if (tsId != null && window.turnstile) { try { window.turnstile.reset(tsId); } catch (e) {} } }
 
 const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
 async function runForm(kind) {
@@ -146,11 +164,14 @@ async function runForm(kind) {
   const pw = val('auPw'), npw = val('auNewPw');
   // the two password boxes must match (sign-up and reset)
   if ((kind === 'signup' && pw !== val('auPw2')) || (kind === 'reset' && npw !== val('auNewPw2'))) { AU.err = t('aErrPwMatch'); rerenderAuth(keep); return; }
+  const cap = tsToken;
+  if (captchaOn() && CAPTCHA_TABS.includes(kind) && !cap) { AU.err = t('aCaptchaNeeded'); rerenderAuth(keep); return; }
   AU.busy = true; AU.err = ''; AU.msg = ''; rerenderAuth(keep);
+  if (CAPTCHA_TABS.includes(kind)) captchaReset();   // a token works once
   try {
-    if (kind === 'login') { await signIn(keep.auId, pw); done('welcome'); return; }
-    if (kind === 'signup') { await signUp(keep.auName, pw, keep.auEmail); done('welcome'); return; }
-    if (kind === 'forgot') { await sendReset(keep.auFEmail); AU.msg = t('aLinkSent'); }
+    if (kind === 'login') { await signIn(keep.auId, pw, cap); done('welcome'); return; }
+    if (kind === 'signup') { await signUp(keep.auName, pw, keep.auEmail, cap); done('welcome'); return; }
+    if (kind === 'forgot') { await sendReset(keep.auFEmail, cap); AU.msg = t('aLinkSent'); }
     if (kind === 'reset') { await setNewPassword(npw); done('pw'); return; }
   } catch (e) { AU.err = errText(e); if (e && e.key === 'aErrLinkExpired' && kind === 'reset') AU.tab = 'forgot'; }
   AU.busy = false; rerenderAuth(keep);
