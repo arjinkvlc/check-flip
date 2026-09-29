@@ -64,8 +64,8 @@ function setAvatar(S, id, key) {
 function newState() { return {v: 7, cfg: {start: null, days: 0, mode: 'classic'}, rm: {}, pub: 0, rdy: {}, ep: 0, rev: 0, tk: 0, ph: 'lobby', host: null, pl: [], ord: [], tq: [], ti: 0, cur: -1, rd: 0, dbl: 0, bn: 0, day: 0, dA: [], dB: [], pend: null, fe: null, dice: null, own: {}, ev: 0, fx: null, log: [], seq: {}, win: null, end: null}; }
 // st: per-game counters for achievements and daily quests
 //   d: checks passed on with a deal, b: Tighten the Belt used, i: paid a big check and stayed, t: owned all restaurants at ★★★,
-//   by: restaurants bought, up: upgrades, cu: cards played, pd: checks paid
-const newStats = () => ({d: 0, b: 0, i: 0, t: 0, by: 0, up: 0, cu: 0, pd: 0});
+//   by: restaurants bought, up: upgrades, cu: cards played, pd: checks paid, pm: money paid for checks, mh: highest hunger
+const newStats = () => ({d: 0, b: 0, i: 0, t: 0, by: 0, up: 0, cu: 0, pd: 0, pm: 0, mh: 0});
 function addPlayer(S, id, n, extra) { S.pl.push(Object.assign({id, n, p: 0, m: 200, h: 0, x: 1, c: [], a: 1, s: 0, av: null, bot: 0, tm: null, st: newStats()}, extra || {})); }
 const stat = (Q, k, v) => { if (!Q.st) Q.st = newStats(); Q.st[k] = v == null ? (Q.st[k] || 0) + 1 : v; };
 const tycoonCheck = (S, i) => { if (Object.keys(VENUES).every(p => S.own[p] && S.own[p].o === i && (S.own[p].lv || 1) === 3)) stat(S.pl[i], 't', 1); };
@@ -74,7 +74,7 @@ function L(S, k, p, quiet) { const e = {k, p: p || {}}; S.log.push(e); if (S.log
 const tt = (k, p) => ({k, p: p || {}});
 const mover = S => S.ord[S.cur];
 const pay = (Q, a) => { const v = Math.min(Q.m, a); Q.m -= v; return v; };
-const hun = (Q, d) => { Q.h = clamp(Q.h + d, 0, CFG.HMAX); };
+const hun = (Q, d) => { Q.h = clamp(Q.h + d, 0, CFG.HMAX); if (Q.st && Q.h > (Q.st.mh || 0)) Q.st.mh = Q.h; };
 // opponents still at the table (teammates are not rivals)
 const rivals = (S, i) => S.ord.filter(j => j !== i && !(isTeams(S) && S.pl[j].tm === S.pl[i].tm));
 const mateOf = (S, i) => { if (!isTeams(S)) return null; const k = S.ord.find(j => j !== i && S.pl[j].tm === S.pl[i].tm); return k == null ? null : k; };
@@ -195,7 +195,7 @@ function payFeast(S) {
   const f = S.fe, w = f.w, W = S.pl[w], b = bill(S), out = []; let paid = 0;
   if (b.al) { b.lines.forEach(l => { if (cover(S, l.j, l.v)) paid += l.v; else { S.pl[l.j].m = 0; out.push(l.j); } }); L(S, 'dutch'); }
   else if (!cover(S, w, b.tot)) { W.m = 0; out.push(w); }
-  else { paid = b.tot; stat(W, 'pd'); if (b.tot >= IRON) stat(W, 'i', 1); L(S, 'paid', {n: W.n, m: b.tot, v: b.ven != null ? VENUES[b.ven] : null}); }
+  else { paid = b.tot; stat(W, 'pd'); stat(W, 'pm', (W.st && W.st.pm || 0) + b.tot); if (b.tot >= IRON) stat(W, 'i', 1); L(S, 'paid', {n: W.n, m: b.tot, v: b.ven != null ? VENUES[b.ven] : null}); }
   if (b.ven != null && paid > 0) {
     const o = S.own[b.ven], O = S.pl[o.o];
     if (O.a && !out.includes(o.o)) { const c = Math.round(paid * b.rate); O.m += c; L(S, 'commission', {n: O.n, v: VENUES[b.ven], r: Math.round(b.rate * 100), m: c}); }
@@ -387,7 +387,32 @@ function sqScore(S, i, from, v) {
   }
   return sc + Math.random() * 3;
 }
-function botDecide(S, i) {
+// Bot difficulty: 'easy' often makes a random choice, 'normal' sometimes, 'hard' never.
+const BOT_NOISE = {easy: .75, normal: .45, hard: 0};
+function botDecide(S, i, lv) {
+  const best = botBest(S, i); const q = S.pl[i], noise = BOT_NOISE[lv || q.bd || 'hard'] || 0;
+  if (!best || !noise || Math.random() >= noise) return best;
+  return botRandom(S, i) || best;
+}
+// a legal but careless choice
+function botRandom(S, i) {
+  const Q = S.pl[i], P = S.pend, pick = a => a[Math.floor(Math.random() * a.length)], coin = () => Math.random() < .5 ? 1 : 0;
+  if (S.ph === 'feast') { if (S.fe.off) return S.fe.off.to === i ? {t: 'dealr', ok: canTake(S, i, S.fe.off.amt) ? coin() : 0} : null; return S.fe.w === i ? {t: 'pay'} : null; }
+  if (S.ph !== 'play') return null;
+  if (!P) return mover(S) === i ? {t: 'roll'} : null;
+  if (P.i !== i) return null;
+  switch (P.k) {
+    case 'move': return {t: 'mv', v: pick(P.o)};
+    case 'tgt': { const r = rivals(S, i); return r.length ? {t: 'tgt', to: pick(r)} : null; }
+    case 'buy': return {t: 'buy', yes: coin()};
+    case 'offer': return {t: 'offer', amt: 0};
+    case 'ow': return {t: 'owr', ok: coin()};
+    case 'home': { const lv = (S.own[P.p] && S.own[P.p].lv) || 1; return {t: 'home', up: lv < 3 && Q.m >= UPC[lv] ? coin() : 0}; }
+    case 'swap': return {t: 'swap', drop: Math.random() < .34 ? 'new' : Math.floor(Math.random() * Q.c.length)};
+  }
+  return null;
+}
+function botBest(S, i) {
   const Q = S.pl[i], P = S.pend; const rich = rivals(S, i).sort((a, b) => S.pl[b].m - S.pl[a].m);
   if (S.ph === 'feast') {
     const f = S.fe;
@@ -434,5 +459,5 @@ export {
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, avTaken, setAvatar,
   newState, addPlayer, L, mover, pay, hun, rivals, fwd, back, give, draw, worth, land, card, doRoll, after, next,
   ownedBy, feast, bill, canTake, elim, payFeast, startDay, rank, startGame, useCard, actInner, act, actor, autoPick, checkStart,
-  sqScore, botDecide, botSide, standings, winners, gameId
+  sqScore, botDecide, botRandom, botSide, standings, winners, gameId, BOT_NOISE
 };

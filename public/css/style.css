@@ -968,3 +968,49 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 @keyframes sway{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(-2deg) translateY(-4px)}}
 @keyframes trophy{0%{transform:scale(.3) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
 .swapbox .choices{grid-template-columns:1fr}.swapbox .btn.choice{flex-direction:column;align-items:flex-start;gap:2px}.swapbox .btn.choice b{font-size:16px}
+
+/* ================= v1.6 ================= */
+/* season medals: gold / silver / bronze with the season number */
+.medals{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.medal{position:relative;flex:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;
+  font-family:var(--display);font-weight:800;font-size:14px;line-height:1;color:#3b2800;
+  background:radial-gradient(circle at 32% 28%,#fff6cf,#f2c14e 45%,#b8860b);box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 2px 0 rgba(0,0,0,.25)}
+.medal.m2{color:#26313d;background:radial-gradient(circle at 32% 28%,#ffffff,#c9d2de 45%,#7d8796)}
+.medal.m3{color:#3a1e06;background:radial-gradient(circle at 32% 28%,#ffe2c4,#d9965b 45%,#8c5424)}
+.medal i{position:absolute;inset:4px;border-radius:50%;border:1.5px dashed rgba(0,0,0,.25)}
+.medal b{position:relative}
+.medal.live{width:28px;height:28px;font-size:12px;opacity:.95}
+.medal.live::after{content:"";position:absolute;right:-2px;top:-2px;width:9px;height:9px;border-radius:50%;background:var(--green);border:2px solid var(--paper)}
+.lblist li .medal{margin-left:2px}
+.profhero .medals .medal{width:40px;height:40px;font-size:16px}
+/* end-of-game awards */
+.awards h3{margin:4px 0 6px}
+.awards ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.awards li{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.awi{font-size:22px;line-height:1}
+.awt{display:grid;line-height:1.25}.awt small{color:var(--muted);font-size:12.5px}
+/* quick chat */
+.quickchat{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.quickchat::-webkit-scrollbar{display:none}
+.qchip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 11px;font-size:13px;font-weight:600;white-space:nowrap}
+.qchip:hover{border-color:var(--ink)}
+/* mute */
+.chatlist li{position:relative}
+.mutebtn{margin-left:auto;align-self:center;border:0;background:none;color:var(--muted);padding:2px;border-radius:6px;opacity:0;display:inline-flex}
+.mutebtn svg.ic{width:16px;height:16px}
+.chatlist li:hover .mutebtn,.mutebtn:focus-visible{opacity:1}
+@media (hover:none){.mutebtn{opacity:.55}}
+.chatlist li.sys{color:var(--muted);font-size:13px;font-style:italic;gap:8px}
+/* sharing */
+.sharerow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.btn.wa{display:inline-flex;align-items:center;gap:6px;background:#25d366;border-color:#1da851;color:#0b3d1e;text-decoration:none}
+.btn.wa svg.ic{width:16px;height:16px}
+/* shapes (colour-blind friendly) */
+.shp{display:none}
+body.shapes .dot,body.shapes .tok{position:relative}
+body.shapes .shp{display:grid;place-items:center;position:absolute;right:-5px;bottom:-5px;width:15px;height:15px;border-radius:50%;background:#fff;color:#131a26;border:1.5px solid #131a26;font-size:9px;line-height:1;font-style:normal;z-index:2}
+body.shapes .tok .shp{width:max(12px,2.6cqi);height:max(12px,2.6cqi);font-size:max(8px,1.7cqi);right:-3px;bottom:-3px}
+body.shapes .tok.avt{overflow:visible}
+body.shapes .tok.avt .avimg{border-radius:50%}
+#shapeBtn.on{color:var(--eyebrow);background:var(--chipbg)}
+#botLvSel{flex:0 0 auto;width:auto;padding:8px 10px}

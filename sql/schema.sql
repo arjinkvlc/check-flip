@@ -572,36 +572,92 @@ returns jsonb language sql stable security definer set search_path = '' as $$
 $$;
 
 -- ---------------------------------------------------------------------
--- Leaderboards: 'weekly' = XP earned this week (Monday 00:00 UTC), 'level' = all-time XP
 -- ---------------------------------------------------------------------
-drop function if exists public.leaderboard(text, int);
-create or replace function public.leaderboard(p_kind text, p_limit int default 50)
-returns table (pos bigint, username text, level int, xp int, week_xp int, week_wins int, wins int, games int, equipped jsonb, me boolean)
-language sql stable security definer set search_path = '' as $$
+-- Seasons: one calendar month (UTC) each; season 1 = September 2026.
+-- The top 3 of a season (most verified online wins, then season XP) get a medal.
+-- ---------------------------------------------------------------------
+create table if not exists public.season_medals (
+  season     integer not null,
+  place      integer not null check (place between 1 and 3),
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  wins       integer not null default 0,
+  xp         integer not null default 0,
+  awarded_at timestamptz not null default now(),
+  primary key (season, place)
+);
+create index if not exists season_medals_user_idx on public.season_medals (user_id);
+alter table public.season_medals enable row level security;
+drop policy if exists season_medals_read on public.season_medals;
+create policy season_medals_read on public.season_medals for select using (true);
+grant select on public.season_medals to anon, authenticated;
+revoke insert, update, delete on public.season_medals from anon, authenticated;
+
+create or replace function public.season_of(p_t timestamptz)
+returns integer language sql immutable set search_path = '' as $$
+  select (extract(year from p_t at time zone 'utc')::int - 2026) * 12 + extract(month from p_t at time zone 'utc')::int - 8;
+$$;
+create or replace function public.season_start(p_season integer)
+returns timestamptz language sql immutable set search_path = '' as $$
+  select make_timestamptz(2026, 9, 1, 0, 0, 0, 'UTC') + make_interval(months => p_season - 1);
+$$;
+
+-- season standings (wins, XP from games + quests) for one season
+create or replace function public.season_table(p_season integer)
+returns table (user_id uuid, swins int, sxp int) language sql stable security definer set search_path = '' as $$
   with w as (
-    select r.user_id, sum(r.xp)::int as wxp,
-           (count(*) filter (where r.won and r.verified and r.mode = 'online'))::int as wwins
+    select r.user_id, sum(r.xp)::int as gxp,
+           (count(*) filter (where r.won and r.verified and r.mode = 'online'))::int as ww
       from public.game_results r
-     where r.created_at >= (date_trunc('week', now() at time zone 'utc') at time zone 'utc')
+     where r.created_at >= public.season_start(p_season) and r.created_at < public.season_start(p_season + 1)
      group by r.user_id
   ), q as (
     select c.user_id, count(*)::int * 30 as qxp from public.quest_claims c
-     where c.day >= date_trunc('week', now() at time zone 'utc')::date
+     where c.day >= (public.season_start(p_season) at time zone 'utc')::date and c.day < (public.season_start(p_season + 1) at time zone 'utc')::date
      group by c.user_id
-  ), t as (
-    select p.id, p.username, p.xp, p.wins, p.games, p.equipped,
-           coalesce(w.wxp, 0) + coalesce(q.qxp, 0) as wk, coalesce(w.wwins, 0) as ww
-      from public.profiles p left join w on w.user_id = p.id left join q on q.user_id = p.id
-  ), ranked as (
-    select row_number() over (order by case when p_kind = 'weekly' then t.ww else 0 end desc,
-                                       case when p_kind = 'weekly' then t.wk else t.xp end desc, t.xp desc, t.username) as pos, t.*
-      from t where p_kind <> 'weekly' or t.wk > 0
   )
-  select r.pos, r.username, public.level_of(r.xp), r.xp, r.wk, r.ww, r.wins, r.games, r.equipped, r.id = auth.uid()
-    from ranked r
-   where r.pos <= least(greatest(coalesce(p_limit, 50), 1), 100) or r.id = auth.uid()
-   order by r.pos;
+  select coalesce(w.user_id, q.user_id), coalesce(w.ww, 0), coalesce(w.gxp, 0) + coalesce(q.qxp, 0)
+    from w full join q on q.user_id = w.user_id;
 $$;
+
+-- hand out medals for every finished season that doesn't have them yet (idempotent; called lazily)
+create or replace function public.close_seasons()
+returns void language plpgsql security definer set search_path = '' as $$
+declare s int; v_now int := public.season_of(now());
+begin
+  for s in 1 .. v_now - 1 loop
+    if exists (select 1 from public.season_medals m where m.season = s) then continue; end if;
+    insert into public.season_medals (season, place, user_id, wins, xp)
+    select s, x.pos, x.user_id, x.swins, x.sxp from (
+      select t.user_id, t.swins, t.sxp, row_number() over (order by t.swins desc, t.sxp desc, p.username) as pos
+        from public.season_table(s) t join public.profiles p on p.id = t.user_id
+       where t.swins > 0
+    ) x where x.pos <= 3
+    on conflict do nothing;
+  end loop;
+end $$;
+
+-- Leaderboards: 'season' = this month's wins (then season XP), 'level' = all-time XP ('weekly' = old name of 'season')
+drop function if exists public.leaderboard(text, int);
+create or replace function public.leaderboard(p_kind text, p_limit int default 50)
+returns table (pos bigint, username text, level int, xp int, week_xp int, week_wins int, wins int, games int, equipped jsonb, me boolean, season int)
+language plpgsql volatile security definer set search_path = '' as $$
+declare v_season int := public.season_of(now()); v_s boolean := p_kind in ('season', 'weekly');
+begin
+  perform public.close_seasons();
+  return query
+  with t as (
+    select p.id, p.username, p.xp, p.wins, p.games, p.equipped, coalesce(st.sxp, 0) as sx, coalesce(st.swins, 0) as sw
+      from public.profiles p left join public.season_table(v_season) st on st.user_id = p.id
+  ), ranked as (
+    select row_number() over (order by case when v_s then t.sw else 0 end desc,
+                                       case when v_s then t.sx else t.xp end desc, t.xp desc, t.username) as rpos, t.*
+      from t where not v_s or t.sx > 0 or t.sw > 0
+  )
+  select r.rpos, r.username, public.level_of(r.xp), r.xp, r.sx, r.sw, r.wins, r.games, r.equipped, r.id = auth.uid(), v_season
+    from ranked r
+   where r.rpos <= least(greatest(coalesce(p_limit, 50), 1), 100) or r.id = auth.uid()
+   order by r.rpos;
+end $$;
 
 -- ---------------------------------------------------------------------
 -- Public profile card (what friends and other players can see)
@@ -617,6 +673,7 @@ begin
     'bot_games', p.bot_games, 'stats', p.stats, 'equipped', p.equipped, 'created_at', p.created_at,
     'online', coalesce(p.last_seen > now() - interval '2 minutes', false),
     'achievements', coalesce((select jsonb_agg(a.key order by a.unlocked_at) from public.achievements a where a.user_id = p.id), '[]'::jsonb),
+    'medals', coalesce((select jsonb_agg(jsonb_build_object('season', m.season, 'place', m.place) order by m.season desc) from public.season_medals m where m.user_id = p.id), '[]'::jsonb),
     'me', p.id = v_me,
     'friend', exists (select 1 from public.friends f where f.user_id = v_me and f.friend_id = p.id),
     'requested', exists (select 1 from public.friend_requests r where r.from_id = v_me and r.to_id = p.id),
@@ -747,6 +804,8 @@ revoke execute on function public.my_daily(), public.social(), public.friend_add
 grant execute on function public.my_daily(), public.social(), public.friend_add(text), public.friend_respond(text, boolean),
   public.friend_remove(text), public.invite_friend(text, text), public.invite_dismiss(bigint) to authenticated;
 grant execute on function public.daily_quest(date), public.leaderboard(text, int), public.public_profile(text) to anon, authenticated;
+grant execute on function public.close_seasons(), public.season_of(timestamptz), public.season_start(integer) to anon, authenticated;
+revoke execute on function public.season_table(integer) from public, anon, authenticated;
 grant execute on function public.delete_my_account() to authenticated;
 
 -- ---------------------------------------------------------------------

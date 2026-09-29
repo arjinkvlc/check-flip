@@ -47,6 +47,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
     <div class="tgls" id="tgls"><button id="langBtn" class="iconbtn langbtn" data-a="lang">TR</button>
     <button id="musicBtn" class="iconbtn" data-a="music" data-ia="music"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
     <button id="sndBtn" class="iconbtn" data-a="snd" data-ia="sound"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="w" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="x" d="M22 9l-6 6M16 9l6 6"/></svg></button>
+    <button id="shapeBtn" class="iconbtn" data-a="shapes" data-ia="shapesAria"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="3.5"/><path d="M17 3.5l3.8 6.5h-7.6z"/><rect x="3.5" y="14" width="7" height="7" rx="1"/><path d="M17 13.5l3.5 3.5-3.5 3.5-3.5-3.5z"/></svg></button>
     <button id="themeBtn" class="iconbtn" data-a="theme" data-ia="themeAria"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="moon" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg></button></div>
     <div id="acctChip" class="acctchip" hidden></div>
     <button id="logoutBtn" class="iconbtn logoutbtn" data-a="logout" data-ia="aLogout" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
@@ -138,6 +139,8 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <p class="note" data-i="soloNote"></p>
       <label data-i="modeLbl"></label>
       <div class="seg3" id="soloMode"><button data-a="soloMode" data-m="classic"></button><button data-a="soloMode" data-m="quick"></button><button data-a="soloMode" data-m="teams"></button></div>
+      <label data-i="botLvLbl"></label>
+      <div class="seg3" id="soloDiff"><button data-a="soloDiff" data-l="easy"></button><button data-a="soloDiff" data-l="normal"></button><button data-a="soloDiff" data-l="hard"></button></div>
       <label data-i="tableSize"></label>
       <div class="seg3" id="soloCount"><button data-a="soloN" data-n="2"></button><button data-a="soloN" data-n="3"></button><button data-a="soloN" data-n="4"></button></div>
       <label data-i="yourAvatar"></label>
@@ -158,7 +161,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
     <div class="box codebox">
       <label data-i="roomCode"></label>
       <div class="coderow"><div class="big" id="lobbyCode"></div><button class="btn small" data-a="copycode" id="copyCodeBtn" data-i="copy"></button></div>
-      <div><button class="btn small ghost" data-a="copy" data-i="copyInvite"></button></div>
+      <div class="sharerow"><button class="btn small ghost" data-a="copy" data-i="copyInvite"></button><a id="waBtn" class="btn small wa" href="#" target="_blank" rel="noopener noreferrer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 8.5c0 3 2.5 6.5 6 6.5l1.2-1.4-2-1-1 .8c-1-.4-2.2-1.6-2.6-2.6l.8-1-1-2L9 8.5z"/></svg>WhatsApp</a><button class="btn small ghost" data-a="nshare" id="nshareBtn" data-i="shareLink" hidden></button></div>
       <p class="note" id="inviteTxt" style="word-break:break-all;user-select:all"></p>
       <p class="note" data-i="noLateJoin"></p>
     </div>
@@ -216,6 +219,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
   <section class="box chatbox" id="chatbox" hidden>
       <div class="chathead"><h3 data-i="chat"></h3><button class="btn small ghost chatclose" data-a="chatclose" data-ia="closeChat">✕</button></div>
       <ul class="chatlist" id="chatList"><li class="chatempty"></li></ul>
+      <div class="quickchat" id="quickChat" role="group" data-ia="quickAria"></div>
       <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn primary" type="submit" data-i="send"></button></form>
     </section>
   </section>

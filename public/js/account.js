@@ -98,7 +98,8 @@ export const ACC = {
   recent: [],         // last game results
   recovery: false,    // opened from a password-reset link
   daily: null,        // {quest, done, resets_in}
-  social: null        // {friends, incoming, outgoing, invites}
+  social: null,       // {friends, incoming, outgoing, invites}
+  medals: []          // season medals [{season, place}]
 };
 let sb = null;
 const listeners = new Set();
@@ -198,15 +199,17 @@ export async function initAccount() {
 export async function refreshProfile() {
   if (!sb || !ACC.user) return;
   const uid = ACC.user.id;
-  const [p, a, r] = await Promise.all([
+  const [p, a, r, md] = await Promise.all([
     sb.from('profiles').select('*').eq('id', uid).maybeSingle(),
     sb.from('achievements').select('key,unlocked_at').eq('user_id', uid),
-    sb.from('game_results').select('game_id,mode,players,place,won,days,counted,verified,xp,xp_full,created_at').eq('user_id', uid).order('created_at', {ascending: false}).limit(8)
+    sb.from('game_results').select('game_id,mode,players,place,won,days,counted,verified,xp,xp_full,created_at').eq('user_id', uid).order('created_at', {ascending: false}).limit(8),
+    sb.from('season_medals').select('season,place').eq('user_id', uid).order('season', {ascending: false})
   ]);
   if (p.error) throw fail(p.error);
   ACC.profile = p.data || null;
   ACC.ach = new Set((a.data || []).map(x => x.key));
   ACC.recent = r.data || [];
+  ACC.medals = (md && !md.error && md.data) || [];
   try { const d = await sb.rpc('my_daily'); if (!d.error) ACC.daily = d.data; } catch (e) {}
   emit();
 }
@@ -335,7 +338,7 @@ export const QUESTS = ['play_online', 'win_any', 'deal', 'buy2', 'upgrade', 'car
 // kind: 'weekly' | 'level'
 export async function leaderboard(kind) {
   if (!sb) throw fail('disabled');
-  const {data, error} = await sb.rpc('leaderboard', {p_kind: kind, p_limit: 50});
+  const {data, error} = await sb.rpc('leaderboard', {p_kind: kind === 'weekly' ? 'season' : kind, p_limit: 50});
   if (error) throw fail(error);
   return data || [];
 }

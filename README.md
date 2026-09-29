@@ -60,7 +60,7 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 - **Social (with an account):**
   - **Friends:** add by username, accept requests, see profile cards (level, wins, win rate, achievements).
   - **Invites:** invite friends to your private room with one tap; they get a *Join* pop-up, no code needed.
-  - **Leaderboards:** this week's online wins (resets Monday 00:00 UTC) and all-time level.
+  - **Leaderboards and seasons:** each season is one calendar month (UTC; season 1 = September 2026). The season board ranks online wins (ties by XP); when a season ends, its top 3 get a gold / silver / bronze medal with the season number on their profile. Medals are handed out by the database the first time the board is opened in the new month. There is also an all-time level board.
   - **Daily quest:** one small goal per day for everyone (+30 XP).
 - **Share your result:** a result card image for WhatsApp, Instagram etc. (or a download on desktop).
 - **First-game guide:** short tips appear once, at the moment they matter; they can be hidden or shown again.
@@ -161,6 +161,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── i18n-v11.js     # texts added in v1.1
 │       ├── i18n-v13.js     # texts added in v1.3 (home screen, theme)
 │       ├── i18n-v15.js     # texts added in v1.5 (private hands, dice, filter)
+│       ├── i18n-v16.js     # texts added in v1.6 (bots, chat, awards, seasons)
 │       ├── filter.js       # word filter for names and chat (same lists as public.name_blocked in SQL)
 │       └── version.js      # version number (shown in the footer)
 ├── worker/index.js         # Cloudflare Worker: static site, room relay (Durable Object), cron
@@ -269,6 +270,15 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.6.0
+- Seasons: the weekly board became a monthly season board; the top 3 of each season get a gold / silver / bronze medal (with the season number) on their profile, and the current top 3 show a live medal on the board
+- Bot levels: Easy / Normal / Hard for single player and for bots added to a room
+- A player who drops off during an online game is played by a bot until they're back
+- Quick chat messages (shown in each player's language), mute a player (hides their chat and reactions), the host can remove a player from the lobby
+- End-of-game awards: biggest spender, hungriest, deal maker, belt master, property tycoon, card shark, renovator
+- WhatsApp and share buttons for the room link
+- Shapes on tokens and player dots for colour-blind players (toggle in the header)
 
 ### 1.5.1
 - GitHub Action that applies `sql/schema.sql` to Supabase automatically when it changes (needs the `SUPABASE_DB_URL` secret)

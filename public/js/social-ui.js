@@ -6,7 +6,7 @@ import {
   ACC, ACHS, titleCls, loggedIn, level, levelOf, xpFor, MAX_LEVEL, safeItem, leaderboard, publicProfile,
   friendAdd, friendRespond, friendRemove, inviteFriend, inviteDismiss, pollSocial, USERNAME_RE
 } from './account.js';
-import {frCls} from './account-ui.js';
+import {frCls, medalHTML, medalsRow, seasonNow, seasonDaysLeft} from './account-ui.js';
 import {t, getLang} from './i18n.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -33,15 +33,16 @@ export function renderLeaders(el) {
   const kind = SU.lbKind, rows = SU.lb[kind];
   if (!rows && !SU.lbErr) loadBoard(kind);
   const val = r => kind === 'weekly' ? t('lbWeekWins', r.week_wins) : t('lbXp', r.xp);
+  const sn = rows && rows.length && rows[0].season ? rows[0].season : seasonNow();
   const list = rows ? (rows.length ? `<ol class="lblist">${rows.map(r => `<li class="${r.me ? 'me' : ''}">
       <span class="place p${r.pos}">${r.pos}</span>${face(r.equipped, r.username)}
       <span class="lbname">${nameBtn(r.username)}<small class="ptitle${titleCls(safeItem('title', (r.equipped || {}).title))}">${esc(titleOf(r.equipped))}</small></span>
-      <span class="lvtag">${esc(t('aLv', r.level))}</span><span class="lbval">${esc(val(r))}</span></li>`).join('')}</ol>`
+      <span class="lvtag">${esc(t('aLv', r.level))}</span><span class="lbval">${esc(val(r))}</span>${kind === 'weekly' && r.pos <= 3 && r.week_wins > 0 ? medalHTML(sn, r.pos, true) : ''}</li>`).join('')}</ol>`
       : `<p class="note">${esc(t('lbEmpty'))}</p>`) : `<p class="note">${esc(SU.lbErr || t('aLoading'))}</p>`;
   el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="scrtitle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><div><h1>${esc(t('lbTitle'))}</h1>
-      <p class="note">${esc(kind === 'weekly' ? t('lbWeeklyNote') : t('lbLevelNote'))}</p></div></div>
-    <div class="segtabs"><button class="stab${kind === 'weekly' ? ' on' : ''}" data-a="lbTab" data-t="weekly">${esc(t('lbWeekly'))}</button>
+      <p class="note">${esc(kind === 'weekly' ? t('lbSeasonNote', sn, seasonDaysLeft()) : t('lbLevelNote'))}</p></div></div>
+    <div class="segtabs"><button class="stab${kind === 'weekly' ? ' on' : ''}" data-a="lbTab" data-t="weekly">${esc(t('lbSeason', sn))}</button>
       <button class="stab${kind === 'level' ? ' on' : ''}" data-a="lbTab" data-t="level">${esc(t('lbLevel'))}</button></div>
     <div class="box">${list}${!loggedIn() && ACC.enabled ? `<p class="note">${esc(t('lbGuest'))}</p>` : ''}</div>`;
 }
@@ -93,7 +94,7 @@ export async function openProfile(username) {
   c.innerHTML = `<button class="btn small ghost mclose" data-a="modalClose" aria-label="${esc(t('close'))}">✕</button>
     <div class="profhead">${face(eq, p.username, true)}<div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span>
       ${p.online ? `<span class="tag ok">${esc(t('frOnline'))}</span>` : ''}</div><span class="ptitle${titleCls(safeItem('title', eq.title))}">${esc(titleOf(eq))}</span>
-      <div class="xpbar"><i style="width:${lv >= MAX_LEVEL ? 100 : ((p.xp - a) / (b - a) * 100).toFixed(1)}%"></i></div></div></div>
+      <div class="xpbar"><i style="width:${lv >= MAX_LEVEL ? 100 : ((p.xp - a) / (b - a) * 100).toFixed(1)}%"></i></div>${medalsRow(p.medals)}</div></div>
     <div class="stats">${cell('pWins', p.wins)}${cell('pGames', p.games)}${cell('pWinRate', rate + '%')}${cell('pBotGames', p.bot_games)}${cell('pDeals', st.deals || 0)}${cell('pMember', new Date(p.created_at).toLocaleDateString(getLang()))}</div>
     <h3>${esc(t('pTabAch'))} · ${p.achievements.length}/${ACHS.length}</h3>
     <div class="achgrid">${ACHS.map(x => `<span class="ach${p.achievements.includes(x.key) ? ' got' : ''}" title="${esc(t('achName', x.key) + ': ' + t('achDesc', x.key))}">${x.icon}<small>${esc(t('achName', x.key))}</small></span>`).join('')}</div>

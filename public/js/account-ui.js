@@ -52,6 +52,14 @@ const avatarGlyph = () => { const e = equipped(); return e.avatar && H.AVATARS[e
 const itemName = (kind, key) => t('itemName', kind, key);
 const lockText = c => c.ach ? t('pLockedAch', t('achName', c.ach)) : t('pLockedLv', c.lv);
 
+/* ---------------- seasons ---------------- */
+// season = calendar month (UTC); season 1 = September 2026
+export const seasonNow = (d = new Date()) => (d.getUTCFullYear() - 2026) * 12 + d.getUTCMonth() + 1 - 8;
+export const seasonDaysLeft = (d = new Date()) => Math.max(1, Math.ceil((Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - d.getTime()) / 864e5));
+// gold / silver / bronze medal with the season number inside
+export const medalHTML = (season, place, live) => `<span class="medal m${place}${live ? ' live' : ''}" title="${esc(t(live ? 'medalLive' : 'medalTitle', season, place))}" aria-label="${esc(t(live ? 'medalLive' : 'medalTitle', season, place))}"><i></i><b>${season}</b></span>`;
+export const medalsRow = list => (list && list.length) ? `<div class="medals">${list.map(m => medalHTML(m.season, m.place)).join('')}</div>` : '';
+
 /* ---------------- home panel ---------------- */
 export function renderAcctPanel(el, nickWrap) {
   if (!ACC.enabled) { el.hidden = true; nickWrap.hidden = false; return; }
@@ -227,7 +235,7 @@ export function renderProfile(el) {
   el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="profhero"><span class="pfav big${frCls(e.frame)}">${avatarGlyph()}</span>
       <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span></div><span class="ptitle${titleCls(e.title)}">${esc(itemName('title', e.title))}</span>
-      <div class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small></div></div>
+      <div class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small>${medalsRow(ACC.medals)}</div></div>
     <div class="segtabs" role="tablist">${TABS.map(k => `<button class="stab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-a="profTab" data-t="${k}">${esc(t(TAB_LABEL[k]))}</button>`).join('')}</div>
     <div class="box">${TAB_NOTE[tab] ? `<p class="note">${esc(t(TAB_NOTE[tab]))}</p>` : ''}${AU.err ? `<p class="err">${esc(AU.err)}</p>` : ''}${body}</div>`;
 }

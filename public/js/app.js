@@ -15,6 +15,7 @@ import {HubClient, MultiClient, hubUrl, hubAvailable} from './net.js';
 import './i18n-v11.js';
 import './i18n-v13.js';
 import './i18n-v15.js';
+import './i18n-v16.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
 import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
@@ -43,7 +44,7 @@ let S = null, mode = null, code = null, me = {pid: null, nm: ''}, mq = null, los
 let lostAt = 0, fbBusy = false, fbDone = false;
 let myN = 0, sentAt = 0, present = new Set(), lastHb = 0, joinedAt = 0;
 const pres = new Map();
-const ui = {screen: 'home', names: ['', ''], sel: null, err: '', quick: 0, joinMsg: ''};
+const ui = {muted: new Set(), screen: 'home', names: ['', ''], sel: null, err: '', quick: 0, joinMsg: ''};
 // 'hub' = the game's own relay (Cloudflare Worker); public MQTT brokers are the fallback
 const BROKERS = ['hub', 'wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
 // local testing only: ?brokers=ws://127.0.0.1:8883&mqttv=4 swaps the public backup brokers for a local one
@@ -120,10 +121,10 @@ function wire(c0) {
 function onMsg(sub, m) {
   if (sub === 'state') { if (!m || typeof m !== 'object' || !Array.isArray(m.pl)) return; if (S && !newer(m, S)) return; S = m; if (S.host !== me.pid) lastHb = Date.now(); afterState(); return; }
   if (sub === 'in') { if (isHost()) hostHandle(m); return; }
-  if (sub === 'chat') { if (!m || typeof m.t !== 'string' || typeof m.pid !== 'string' || m.pid === me.pid) return; addChat(m.pid, m.n, m.t, false); return; }
-  if (sub === 'react') { if (!m || !EMOJIS.includes(m.e) || m.pid === me.pid || !shown) return; const i = shown.pl.findIndex(q => q.id === m.pid); if (i >= 0) showReact(i, m.e); return; }
+  if (sub === 'chat') { if (!m || typeof m.pid !== 'string' || m.pid === me.pid || ui.muted.has(m.pid)) return; const qk = QUICK.includes(m.q) ? m.q : null; if (!qk && typeof m.t !== 'string') return; addChat(m.pid, m.n, qk ? t('qc_' + qk) : m.t, false); return; }
+  if (sub === 'react') { if (!m || !EMOJIS.includes(m.e) || m.pid === me.pid || !shown || ui.muted.has(m.pid)) return; const i = shown.pl.findIndex(q => q.id === m.pid); if (i >= 0) showReact(i, m.e); return; }
   if (sub === 'hb') { if (m && S && m.pid === S.host) lastHb = Date.now(); return; }
-  if (sub === 'dm/' + me.pid) { if (m && m.k === 'deny') failJoin(t(m.m === 'full' ? 'eFull' : m.m === 'started' ? 'eStarted' : 'eJoin'), true); return; }
+  if (sub === 'dm/' + me.pid) { if (m && m.k === 'deny') { if (m.m === 'kicked') { ui.quick = 0; failJoin(t('eKicked'), false); } else failJoin(t(m.m === 'full' ? 'eFull' : m.m === 'started' ? 'eStarted' : 'eJoin'), true); } return; }
   if (sub.startsWith('pres/')) {
     const pid = sub.slice(5); pres.set(pid, m === 1); refreshPresent();
     if (isHost() && S && S.ph === 'lobby' && m !== 1 && pid !== S.host && S.pl.some(q => q.id === pid)) {
@@ -158,6 +159,7 @@ function hostHandle(m) {
   if (m.k === 'hello') {
     if (!S.pl.some(q => q.id === pid)) {
       const deny = r => mq.publish(T('dm/' + pid), JSON.stringify({k: 'deny', m: r}), {qos: 1});
+      if (S.ban && S.ban[pid]) return deny('kicked');
       if (S.ph !== 'lobby') return deny('started');
       if (S.pl.length >= (S.pub ? CFG.PUBMAX : CFG.MAXP)) return deny('full');
       const rn = clean(m.nm), pool = nickList(); const nm = uniqName(S, rn && !nameBlocked(rn) ? rn : pool[Math.floor(Math.random() * pool.length)], pool); addPlayer(S, pid, nm, {pf: cleanCard(m.pf)}); if (typeof m.av === 'string') setAvatar(S, pid, m.av);
@@ -351,6 +353,9 @@ async function pump() {
 }
 /* ---- bots (single player) ---- */
 let botTimer = null;
+const BOT_LVS = ['easy', 'normal', 'hard'];
+const botLv = () => BOT_LVS.includes(ui.botLv) ? ui.botLv : 'normal';
+const botTagHTML = q => `<span class="tag">${esc(t('botTag'))}${q.bd ? ' · ' + esc(t('bot_' + q.bd)) : ''}</span>`;
 const BOT_WAIT = 2700;   // ms a bot "thinks" before each move (slow enough to follow)
 // Bots are played by whoever runs the rules: the local device, or the host of an online room.
 const runsBots = () => (mode === 'local' && solo) || (mode === 'online' && isHost() && !!mq);
@@ -359,7 +364,7 @@ function botTick() {
   if (!runsBots() || !S || animating || botTimer) return; if (S.ph !== 'play' && S.ph !== 'feast') return;
   for (const j of S.ord) {
     if (!S.pl[j].bot) continue; const sa = botSide(S, j);
-    if (sa && Math.random() < .6) { botTimer = setTimeout(() => { botTimer = null; if (runsBots() && !animating && S && act(S, S.pl[j].id, sa)) botDone(); botTick(); }, BOT_WAIT); return; }
+    if (sa && Math.random() < ({easy: .15, normal: .4}[S.pl[j].bd] || .6)) { botTimer = setTimeout(() => { botTimer = null; if (runsBots() && !animating && S && act(S, S.pl[j].id, sa)) botDone(); botTick(); }, BOT_WAIT); return; }
   }
   const A = actor(S); if (A < 0 || !S.pl[A].bot) return;
   botTimer = setTimeout(() => {
@@ -374,7 +379,12 @@ function addBot() {
   const pool = shuffle(nickList().filter(n => !used.has(n)));
   const avs = shuffle(Object.keys(AVATARS).filter(k => !S.pl.some(q => q.av === k)));
   const id = 'bot' + rid(6), nm = uniqName(S, pool[0] || 'Bot', nickList());
-  addPlayer(S, id, nm, {bot: 1, av: avs[0] || null}); L(S, 'joined', {n: nm}); commit();
+  addPlayer(S, id, nm, {bot: 1, bd: botLv(), av: avs[0] || null}); L(S, 'joined', {n: nm}); commit();
+}
+function kickPlayer(id) {
+  if (!S || !isHost() || S.ph !== 'lobby' || id === me.pid) return; const q = S.pl.find(x => x.id === id && !x.bot); if (!q) return;
+  S.ban = S.ban || {}; S.ban[id] = 1; S.pl = S.pl.filter(x => x !== q); delete S.rdy[id]; L(S, 'kicked', {n: q.n});
+  mq.publish(T('dm/' + id), JSON.stringify({k: 'deny', m: 'kicked'}), {qos: 1}); commit();
 }
 function removeBot(id) {
   if (!S || !isHost() || S.ph !== 'lobby') return; const q = S.pl.find(x => x.id === id && x.bot); if (!q) return;
@@ -509,8 +519,15 @@ function trackTurn() {
   }
 }
 function autoAct(why) {
-  if (!S || animating) return; const A = actor(S); if (A < 0) return; const pid = S.pl[A].id; const a2 = autoPick(S); if (!a2) return;
-  if (act(S, pid, a2)) { L(S, why === 'off' ? 'offline' : 'timeout', {n: S.pl[A].n}, 1); if (mode === 'local') sync(); else commit(); }
+  if (!S || animating) return; const A = actor(S); if (A < 0) return; const q = S.pl[A], pid = q.id;
+  // a player who dropped off is played by a (normal) bot until they're back; a timeout just passes
+  let a2 = why === 'off' ? botDecide(S, A, 'normal') || autoPick(S) : autoPick(S); if (!a2) return;
+  let ok = act(S, pid, a2); if (!ok && why === 'off') { a2 = autoPick(S); ok = !!a2 && act(S, pid, a2); }
+  if (ok) {
+    if (why === 'off') { if (!q.ai) { S.pl[A].ai = 1; L(S, 'botTook', {n: q.n}); } }
+    else L(S, 'timeout', {n: q.n}, 1);
+    if (mode === 'local') sync(); else commit();
+  }
 }
 setInterval(() => {
   if (ui.screen !== 'game' || !shown) return; trackTurn();
@@ -518,6 +535,7 @@ setInterval(() => {
   document.querySelectorAll('.timer,.ctimer').forEach(el => { el.hidden = !on; el.classList.toggle('warn', frac < .5 && frac >= .2); el.classList.toggle('crit', frac < .2); const i = el.querySelector('i'); if (i) i.style.width = (frac * 100).toFixed(1) + '%'; });
   const sec = Math.ceil(left / 1000); const ts = $('#tsec'); if (ts) ts.textContent = on ? t('sec', sec) : '';
   if (on && sec <= 5 && sec > 0 && sec !== lastTickSec) { lastTickSec = sec; const A = actor(shown); if (hot() || mine(shown, A)) SFX.play('tick'); }
+  if (isHost() && mode === 'online' && S && !animating && S.pl.some(q => q.ai && here(q))) { S.pl.forEach(q => { if (q.ai && here(q)) { q.ai = 0; L(S, 'botLeft', {n: q.n}); } }); commit(); }
   if (on && isHost()) {
     const A = actor(shown), off = mode === 'online' && A >= 0 && !here(shown.pl[A]);
     if (off && Date.now() - turnAt > 3500) autoAct('off'); else if (Date.now() - turnAt > lim + (mode === 'online' ? 1500 : 0)) autoAct();
@@ -592,13 +610,27 @@ function setTheme(th, save = true) {
   const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = th === 'dark' ? '#0f141d' : '#eef0f4';
 }
 function clearChat() { unread = 0; const l = $('#chatList'); if (l) l.innerHTML = `<li class="chatempty">${esc(t('chatEmpty'))}</li>`; updChat(); }
+// ready-made chat lines (sent as a key, shown in each player's own language)
+const QUICK = ['treat', 'gg', 'nice', 'luck', 'close', 'belt', 'hungry', 'again'];
+function sendQuick(k) {
+  if (!QUICK.includes(k) || !mq || mode !== 'online' || Date.now() - lastChat < 800) return; lastChat = Date.now();
+  addChat(me.pid, me.nm, t('qc_' + k), true); mq.publish(T('chat'), JSON.stringify({pid: me.pid, n: me.nm, q: k, t: t('qc_' + k), ts: Date.now()}), {qos: 1});
+}
+function renderQuick() { const el = $('#quickChat'); if (el && el.dataset.lang !== getLang()) { el.dataset.lang = getLang(); el.innerHTML = QUICK.map(k => `<button type="button" class="qchip" data-a="quick1" data-k="${k}">${esc(t('qc_' + k))}</button>`).join(''); } }
+function mutePlayer(pid, on) {
+  if (on) ui.muted.add(pid); else ui.muted.delete(pid);
+  document.querySelectorAll(`#chatList li[data-pid="${CSS.escape(pid)}"]`).forEach(li => li.hidden = on);
+  const V = shown || S; const q = V && V.pl.find(x => x.id === pid);
+  if (on) { const ul = $('#chatList'); const li = document.createElement('li'); li.className = 'sys'; li.innerHTML = `<span>${esc(t('mutedMsg', q ? q.n : '?'))}</span><button class="linkbtn" data-a="unmute" data-pid="${esc(pid)}">${esc(t('unmute'))}</button>`; ul.appendChild(li); ul.scrollTop = ul.scrollHeight; }
+  render();
+}
 function addChat(pid, nm, text, own) {
   const V = shown || S; const i = V ? V.pl.findIndex(q => q.id === pid) : -1; const name = i >= 0 ? V.pl[i].n : (clean(nm) || '?');
   const tt = censor(String(text).replace(/[\u0000-\u001f\u007f​-‏‪-‮⁠-⁯]/g, ' ').trim().slice(0, 200)); if (!tt) return;
   const ul = $('#chatList'); const em = ul.querySelector('.chatempty'); if (em) em.remove();
-  const li = document.createElement('li'); if (own) li.className = 'own';
+  const li = document.createElement('li'); if (own) li.className = 'own'; li.dataset.pid = pid;
   const bu = own ? (loggedIn() ? equipped().bubble : null) : (i >= 0 && V.pl[i].pf ? V.pl[i].pf.bu : null);
-  li.innerHTML = `<span class="dot" style="--c:${i >= 0 ? colOf(i) : '#888'}"></span><b>${esc(name)}</b><span class="ct${bbCls(bu)}">${esc(tt)}</span>`;
+  li.innerHTML = `<span class="dot" style="--c:${i >= 0 ? colOf(i) : '#888'}"></span><b>${esc(name)}</b><span class="ct${bbCls(bu)}">${esc(tt)}</span>${own ? '' : `<button class="mutebtn" data-a="mute" data-pid="${esc(pid)}" aria-label="${esc(t('muteAria', name))}" title="${esc(t('muteAria', name))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg></button>`}`;
   const atBottom = ul.scrollHeight - ul.scrollTop - ul.clientHeight < 40; ul.appendChild(li); while (ul.children.length > 80) ul.firstChild.remove();
   if (atBottom || own) ul.scrollTop = ul.scrollHeight;
   if (!own && !chatOpen()) { unread++; SFX.play('pop'); } updChat();
@@ -608,6 +640,7 @@ function updChat() {
   box.hidden = !on; if (!on) document.body.classList.remove('showchat');
   if (chatOpen()) unread = 0;
   fab.hidden = true; $('#chatHdr').hidden = !on;
+  if (on) renderQuick();
   $('#sideTabs').hidden = !on; document.body.classList.toggle('chaton', on); if (!on) document.body.classList.remove('tablog');
   document.querySelectorAll('.stab').forEach(x => x.classList.toggle('on', (x.dataset.t === 'log') === document.body.classList.contains('tablog')));
   for (const id of ['#chatBadge', '#chatBadge2', '#chatBadge3']) { const bd = $(id); bd.hidden = !unread; bd.textContent = unread > 9 ? '9+' : String(unread); }
@@ -634,7 +667,9 @@ function sendReact(e) {
 const colOf = i => COLORS[i % COLORS.length];
 const teamTag = tm => `<span class="tag team t${tm}">${esc(t(tm ? 'teamB' : 'teamA'))}</span>`;
 let AVM = [], FRM = [];
-const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${avHTML(AVM[i])}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}"></span>`;
+const SHAPES = ['●', '▲', '■', '◆', '★', '✚'];
+const shp = i => `<b class="shp" aria-hidden="true">${SHAPES[i % SHAPES.length]}</b>`;
+const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${avHTML(AVM[i])}${shp(i)}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}">${shp(i)}</span>`;
 const setAVM = V => { AVM = V && V.pl ? V.pl.map(q => q.av) : []; FRM = V && V.pl ? V.pl.map(q => q.pf && q.pf.fr) : []; };
 // level + title shown next to a logged-in player's name
 const pfTag = q => q && q.pf ? `<span class="lvtag">${esc(t('lvTag', q.pf.lv))}</span>` : '';
@@ -664,7 +699,7 @@ function render(prev, forceV) {
   $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('off', !SFX.on); $('#sndBtn').setAttribute('aria-pressed', String(SFX.on)); $('#gameCredit').hidden = true;
   $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').setAttribute('aria-pressed', String(Music.on)); $('#musicBtn').title = t('music');
   $('#langBtn').textContent = getLang() === 'en' ? 'TR' : 'EN'; $('#langBtn').setAttribute('aria-label', t('langAria'));
-  $('#themeBtn').title = t('themeAria'); renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
+  $('#themeBtn').title = t('themeAria'); { const sh = document.body.classList.contains('shapes'); $('#shapeBtn').classList.toggle('on', sh); $('#shapeBtn').setAttribute('aria-pressed', String(sh)); $('#shapeBtn').title = t('shapesAria'); } renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
   Music.scene(ui.screen === 'game' && shown && shown.ph !== 'lobby' ? 'game' : 'menu');
   if (ui.screen === 'home') { show('home'); renderHome(); return; }
   updateToast();
@@ -695,6 +730,7 @@ function renderHome() {
 function renderSolo() {
   ui.soloMode = ui.soloMode || 'classic'; if (ui.soloMode === 'teams') ui.soloN = 4;
   document.querySelectorAll('#soloMode button').forEach(b => b.classList.toggle('on', b.dataset.m === ui.soloMode));
+  document.querySelectorAll('#soloDiff button').forEach(b => { b.classList.toggle('on', b.dataset.l === botLv()); b.innerHTML = `${esc(t('bot_' + b.dataset.l))}<small>${esc(t('botNote_' + b.dataset.l))}</small>`; });
   ui.soloN = ui.soloN || 3; document.querySelectorAll('#soloCount button').forEach(b => { b.classList.toggle('on', +b.dataset.n === ui.soloN); b.disabled = ui.soloMode === 'teams' && +b.dataset.n !== 4; });
   $('#soloDays').disabled = ui.soloMode === 'quick'; if (ui.soloMode === 'quick') $('#soloDays').value = '10';
   $('#soloAv').innerHTML = avGrid({}, ui.soloAv || null, 'sav'); const el = $('#soloMoney'); el.placeholder = M(autoMoney(ui.soloN)); $('#soloMoneyNote').textContent = el.value ? '' : t('autoMoney', autoMoney(ui.soloN));
@@ -724,6 +760,7 @@ function renderLobby(V) {
   setAVM(V);
   { const tb = {}; V.pl.forEach((q, i) => { if (q.av && q.id !== me.pid) tb[q.av] = i; }); const mp = V.pl.find(q => q.id === me.pid); $('#lobbyAv').innerHTML = avGrid(tb, mp && mp.av, 'av'); }
   $('#lobbyCode').textContent = code || ''; $('#inviteTxt').textContent = code ? inviteLink() : '';
+  if (code) { $('#waBtn').href = 'https://wa.me/?text=' + encodeURIComponent(t('waText', code) + '\n' + inviteLink()); $('#nshareBtn').hidden = !navigator.share; }
   const pub = !!V.pub, host = isHost();
   $('#cfgBox').hidden = pub; $('#pubBox').hidden = !pub;
   if (!pub) {
@@ -740,11 +777,11 @@ function renderLobby(V) {
     $('#pubNote').textContent = t('pubNote', V.pl.length, CFG.PUBMAX);
   }
   const max = pub ? CFG.PUBMAX : CFG.MAXP;
-  $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn${q.pf ? ' link' : ''}"${q.pf ? ` data-a="viewp" data-u="${esc(q.pf.u)}"` : ''}>${esc(q.n)}</span>${pfTitle(q)}</span>${isTeams(V) && i < 4 ? teamTag(i % 2) : ''}${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${q.bot ? `<span class="tag">${esc(t('botTag'))}</span>${host && !pub ? `<button class="btn small ghost rmbot" data-a="rmbot" data-id="${esc(q.id)}" aria-label="${esc(t('removeBot'))}">✕</button>` : ''}` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
+  $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn${q.pf ? ' link' : ''}"${q.pf ? ` data-a="viewp" data-u="${esc(q.pf.u)}"` : ''}>${esc(q.n)}</span>${pfTitle(q)}</span>${isTeams(V) && i < 4 ? teamTag(i % 2) : ''}${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${q.bot ? `${botTagHTML(q)}${host && !pub ? `<button class="btn small ghost rmbot" data-a="rmbot" data-id="${esc(q.id)}" aria-label="${esc(t('removeBot'))}">✕</button>` : ''}` : host && q.id !== me.pid && mode === 'online' ? `<button class="btn small ghost rmbot" data-a="kick" data-id="${esc(q.id)}" aria-label="${esc(t('kickAria', q.n))}" title="${esc(t('kickAria', q.n))}">✕</button>` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
     (V.pl.length < max ? `<li class="note" style="justify-content:center">${esc(t('seatsFree', max - V.pl.length))}</li>` : '');
   renderInviteBox($('#inviteBox'), code, mode === 'online' && !pub);
   $('#lobbyAct').innerHTML = pub ? '' : host
-    ? `${V.pl.length < max ? `<div class="botrow"><button class="btn" data-a="addbot">${esc(t('addBot'))}</button><p class="note">${esc(t('addBotNote'))}</p></div>` : ''}<button class="btn primary big" data-a="start" ${V.pl.length < 2 || (isTeams(V) && V.pl.length !== 4) ? 'disabled' : ''}>${esc(t('startGame'))}</button>${V.pl.length < 2 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('need2'))}</p>` : isTeams(V) && V.pl.length !== 4 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('teamsNeed4'))}</p>` : ''}`
+    ? `${V.pl.length < max ? `<div class="botrow"><div class="row"><button class="btn" data-a="addbot">${esc(t('addBot'))}</button><select id="botLvSel" aria-label="${esc(t('botLvAria'))}">${BOT_LVS.map(l => `<option value="${l}"${l === botLv() ? ' selected' : ''}>${esc(t('bot_' + l))}</option>`).join('')}</select></div><p class="note">${esc(t('addBotNote'))}</p></div>` : ''}<button class="btn primary big" data-a="start" ${V.pl.length < 2 || (isTeams(V) && V.pl.length !== 4) ? 'disabled' : ''}>${esc(t('startGame'))}</button>${V.pl.length < 2 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('need2'))}</p>` : isTeams(V) && V.pl.length !== 4 ? `<p class="note" style="text-align:center;margin-top:8px">${esc(t('teamsNeed4'))}</p>` : ''}`
     : `<p class="note" style="text-align:center">${esc(t('waitHost'))}</p>`;
 }
 
@@ -755,7 +792,7 @@ function drawTokens(V) {
   cells.forEach((el, p) => {
     const ids = at[p].slice().sort((x, y) => (x === A) - (y === A));
     el.querySelector('.toks').innerHTML = ids.map(i => { const av = V.pl[i].av && AVATARS[V.pl[i].av] ? avHTML(V.pl[i].av) : '';
-      return `<span class="tok${av ? ' avt' : ''}${frCls(FRM[i])}${i === A ? ' act' : ''}${i === mi ? ' me' : ''}" data-i="${i}" style="--c:${colOf(i)};${i === 2 && !av ? 'color:#16202b' : ''}" title="${esc(V.pl[i].n)}">${av || esc((V.pl[i].n || '?')[0].toUpperCase())}</span>`; }).join('');
+      return `<span class="tok${av ? ' avt' : ''}${frCls(FRM[i])}${i === A ? ' act' : ''}${i === mi ? ' me' : ''}" data-i="${i}" style="--c:${colOf(i)};${i === 2 && !av ? 'color:#16202b' : ''}" title="${esc(V.pl[i].n)}">${av || esc((V.pl[i].n || '?')[0].toUpperCase())}${shp(i)}</span>`; }).join('');
     const here = A >= 0 && ids.includes(A); el.classList.toggle('here', here); if (here) el.style.setProperty('--hcol', colOf(A));
   });
 }
@@ -775,6 +812,18 @@ function billQueue(V) {
   return `<div class="billq"><span class="bql">${esc(t('billQueue'))}</span>${items.join('<span class="sep">›</span>')}</div>`;
 }
 
+// fun end-of-game awards from the per-game counters
+const AWARDS = [['pm', 'aw_pm', '🧾'], ['mh', 'aw_mh', '😋'], ['d', 'aw_d', '🤝'], ['b', 'aw_b', '🪢'], ['by', 'aw_by', '🏪'], ['cu', 'aw_cu', '🃏'], ['up', 'aw_up', '⭐']];
+function awardsHTML(V) {
+  const out = [];
+  for (const [k, key, ic] of AWARDS) {
+    const val = j => +((V.pl[j].st || {})[k]) || 0; const all = V.pl.map((_, j) => j), best = Math.max(0, ...all.map(val));
+    if (!best) continue; const who = all.filter(j => val(j) === best); if (who.length > 2) continue;
+    out.push(`<li><span class="awi">${ic}</span><span class="awt"><b>${esc(t(key))}</b><small>${who.map(j => esc(V.pl[j].n)).join(' & ')} · ${esc(t(key + '_v', best))}</small></span></li>`);
+    if (out.length >= 4) break;
+  }
+  return out.length ? `<div class="awards"><h3>${esc(t('awardsHd'))}</h3><ul>${out.join('')}</ul></div>` : '';
+}
 function winText(V) {
   if (V.win == null) return t('noWinner');
   if (isTeams(V)) { const w = winners(V).map(i => V.pl[i].n); return t('teamWins', w[0], w[1] || ''); }
@@ -814,7 +863,7 @@ function renderGame(V, prev) {
     const ws = new Set(winners(V)), days = V.end === 'days';
     const rows = standings(V).map((j, k) => `<li class="${ws.has(j) ? 'w' : ''}${V.pl[j].a ? '' : ' out'}"><span class="place p${k + 1}">${k + 1}</span>${dot(j)}<span class="sn">${nm(j)}</span><span class="sv">${V.pl[j].a || days ? M(days ? worth(V, j) : V.pl[j].m) : esc(t('outShort'))}</span></li>`).join('');
     h = `<div class="overhead"><svg class="ic trophy" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><div><small>${esc(t('over'))}</small><div class="win">${esc(winText(V))}</div></div></div>
-      <ol class="standings">${rows}</ol>
+      <ol class="standings">${rows}</ol>${awardsHTML(V)}
       <p class="note">${esc(days ? t('resultNote', V.cfg.days) : t('lastStanding', V.day))}</p>
       ${ui.result && ui.result.gid === V.gid ? resultHTML(ui.result) : ''}
       ${rematchHTML(V)}
@@ -913,7 +962,7 @@ function renderGame(V, prev) {
       return ok ? `<button class="${cls}" data-a="${any ? 'sel' : 'use'}" data-i="${i}" data-c="${c}" title="${tl}">${esc(cardName(c))}</button>` : `<span class="${cls}" title="${tl}">${esc(cardName(c))}</span>`; }).join('');
     const vs = ownedBy(V, i).map(p => `<span class="card venue" title="${esc(t('value', V.own[p].pr, pct(COMS[V.own[p].lv || 1])))}">${esc(vfull(p))} ${'★'.repeat(V.own[p].lv || 1)}</span>`).join('');
     const fl = k => o && o[k] !== q[k] ? ' flash' : '';
-    const tags = [isTeams(V) && q.tm != null ? teamTag(q.tm) : '', i === mi && !hot() ? `<span class="tag">${esc(t('you'))}</span>` : '', q.bot ? `<span class="tag">${esc(t('botTag'))}</span>` : '', V.tq[V.ti] === i && V.ph !== 'over' ? `<span class="tag bill">${esc(t('payTodayTag'))}</span>` : '', q.s ? `<span class="tag">${esc(t('waitsTag'))}</span>` : '',
+    const tags = [isTeams(V) && q.tm != null ? teamTag(q.tm) : '', i === mi && !hot() ? `<span class="tag">${esc(t('you'))}</span>` : '', q.bot ? botTagHTML(q) : q.ai && mode === 'online' && !here(q) ? `<span class="tag">${esc(t('botPlaysTag'))}</span>` : '', V.tq[V.ti] === i && V.ph !== 'over' ? `<span class="tag bill">${esc(t('payTodayTag'))}</span>` : '', q.s ? `<span class="tag">${esc(t('waitsTag'))}</span>` : '',
       mode === 'online' && !here(q) ? `<span class="tag off">${esc(t('offTag'))}</span>` : ''].join('');
     const rx = reacts[i] && reacts[i].until > Date.now() ? `<span class="rxb">${reacts[i].e}</span>` : '';
     return `<li class="${i === A && V.ph !== 'over' ? 'turn' : ''}${q.a ? '' : ' out'}" style="--c:${colOf(i)}">${rx}
@@ -934,7 +983,7 @@ function startLocalGame(isSolo) {
     const nm = myName(); me = {pid: 'L0', nm};
     addPlayer(S, 'L0', nm, {av: ui.soloAv || null, pf: publicCard()});
     const pool = shuffle(nickList().filter(x => x !== nm)); const avs = shuffle(Object.keys(AVATARS).filter(k => k !== ui.soloAv));
-    for (let k = 1; k < (ui.soloN || 3); k++) addPlayer(S, 'B' + k, uniqName(S, pool[k], nickList()), {bot: 1, av: avs[k]});
+    for (let k = 1; k < (ui.soloN || 3); k++) addPlayer(S, 'B' + k, uniqName(S, pool[k], nickList()), {bot: 1, bd: botLv(), av: avs[k]});
     S.cfg.start = cfgNum($('#soloMoney').value); S.cfg.days = +$('#soloDays').value || 0; S.cfg.mode = ui.soloMode || 'classic';
   } else {
     readLocal(); me = {pid: 'L0', nm: ''};
@@ -983,7 +1032,14 @@ document.addEventListener('click', e => {
     case 'copycode': copyText(code || '', b, t('copied'), t('copy'), $('#lobbyCode')); break;
     case 'copy': copyText(inviteLink(), b, t('inviteCopied'), null, $('#inviteTxt')); break;
     case 'ready': setReady(!(S && S.rdy[me.pid])); break;
-    case 'addbot': addBot(); break;
+    case 'addbot': { const sel = $('#botLvSel'); if (sel) { ui.botLv = sel.value; lsSet('cf-botlv', ui.botLv); } addBot(); break; }
+    case 'kick': { const q = S && S.pl.find(x => x.id === b.dataset.id); if (q && confirm(t('kickQ', q.n))) kickPlayer(b.dataset.id); break; }
+    case 'soloDiff': ui.botLv = b.dataset.l; lsSet('cf-botlv', ui.botLv); render(); break;
+    case 'quick1': sendQuick(b.dataset.k); break;
+    case 'nshare': navigator.share && navigator.share({title: 'Check Flip', text: t('waText', code), url: inviteLink()}).catch(() => {}); break;
+    case 'mute': mutePlayer(b.dataset.pid, true); break;
+    case 'unmute': mutePlayer(b.dataset.pid, false); b.closest('li') && b.closest('li').remove(); break;
+    case 'shapes': { const on = !document.body.classList.contains('shapes'); document.body.classList.toggle('shapes', on); lsSet('cf-shapes', on ? '1' : '0'); render(); break; }
     case 'rmbot': removeBot(b.dataset.id); break;
     case 'start': send({t: 'start'}, myIdx(S)); break;
     case 'roll': send({t: 'roll'}, actor(S)); break;
@@ -1037,7 +1093,7 @@ pickNick();
 $('#nm').value = lsGet('hs-nm') || '';
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
 { const qs = new URLSearchParams(location.search); const qp = qs.get('room') || qs.get('oda'); if (qp) { $('#code').value = qp.toUpperCase().slice(0, 5); ui.roomOpen = true; } }
-ui.hmode = lsGet('cf-hmode') || 'classic'; setTheme(document.documentElement.dataset.theme || 'light', false);
+ui.hmode = lsGet('cf-hmode') || 'classic'; ui.botLv = lsGet('cf-botlv') || 'normal'; document.body.classList.toggle('shapes', lsGet('cf-shapes') === '1'); setTheme(document.documentElement.dataset.theme || 'light', false);
 const uiHooks = {
   go: sc => { ui.screen = sc; render(); },
   render: () => { updateToast(); if (['home', 'auth', 'profile', 'friends', 'leaders'].includes(ui.screen) || (shown && (shown.ph === 'over' || shown.ph === 'lobby'))) render(); },
