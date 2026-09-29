@@ -44,7 +44,11 @@ export const ACHS = [
   {key: 'speed_eater', icon: '⚡', goal: 5, get: p => st(p, 'quick_wins')},
   {key: 'social', icon: '💬', goal: 5, get: () => (ACC.social && ACC.social.friends || []).length},
   {key: 'quester', icon: '🎯', goal: 10, get: () => +(ACC.daily && ACC.daily.total) || 0},
-  {key: 'devoted', icon: '📅', goal: 30, get: () => +(ACC.daily && ACC.daily.total) || 0}
+  {key: 'devoted', icon: '📅', goal: 30, get: () => +(ACC.daily && ACC.daily.total) || 0},
+  // v1.9: single-game feats, ranked games only
+  {key: 'full_house', icon: '🏘️', goal: 1, get: p => st(p, 'full4')},
+  {key: 'lap_legend', icon: '🔁', goal: 1, get: p => st(p, 'laps10')},
+  {key: 'deep_pockets', icon: '💰', goal: 1, get: p => st(p, 'rich')}
 ];
 function st(p, k) { return +(p.stats && p.stats[k]) || 0; }
 
@@ -82,7 +86,8 @@ const TITLE_STYLE = {
   belt_master: 'red', big_spender: 'red', marathon: 'red',
   realtor: 'yellow', renovator: 'yellow', card_shark: 'yellow', deal_maker: 'yellow', survivor: 'yellow', devoted: 'yellow',
   gourmet: 'gold', head_chef: 'gold', executive_chef: 'gold',
-  iron_stomach: 'neon', tycoon: 'royal', speed_eater: 'fire'
+  iron_stomach: 'neon', tycoon: 'royal', speed_eater: 'fire',
+  full_house: 'yellow', lap_legend: 'red', deep_pockets: 'gold'
 };
 export const titleCls = key => ' tt-' + (TITLE_STYLE[key] || 'plain');
 const known = (kind, key) => CATALOG[kind] && CATALOG[kind].some(c => c.key === key);

@@ -18,6 +18,7 @@ import './i18n-v15.js';
 import './i18n-v16.js';
 import './i18n-v17.js';
 import './i18n-v18.js';
+import './i18n-v19.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
 import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
@@ -332,7 +333,10 @@ function maybeSubmit(V) {
     winners: winners(V).map(i => V.pl[i].id), won: winners(V).includes(mi), gmode: modeOf(V),
     days: V.day, duration: Math.max(0, Math.round((Date.now() - (V.t0 || Date.now())) / 1000)),
     stats: {deals: st.d || 0, belt: st.b || 0, iron: !!st.i, tycoon: !!st.t, bonus: Math.min(20, q.a ? V.day : (q.od || 0)),
-      bought: st.by || 0, upgrades: st.up || 0, cards: st.cu || 0, paid: st.pd || 0, survived: q.a ? V.day : (q.od || 0)}
+      bought: st.by || 0, upgrades: st.up || 0, cards: st.cu || 0, paid: st.pd || 0, survived: q.a ? V.day : (q.od || 0),
+      laps: st.lp || 0, top_money: st.mx || 0, top_venues: st.mv || 0},
+    // ranked: a public quick-play table with at least 3 people and no bots; only these count for the single-game feats
+    ranked: !isSolo && !!V.pub && V.pl.length >= 3
   };
   ui.result = {gid, st: 'saving', solo: isSolo};
   const done = r => { ui.result = r; if (!animating && shown && shown.ph === 'over') render(); };
@@ -560,6 +564,12 @@ function rc(p) { if (p <= 10) return [11, 11 - p]; if (p <= 20) return [11 - (p 
     el.innerHTML = `<span class="no">${p}</span>${cellIcon(p) ? `<span class="ic" aria-hidden="true">${cellIcon(p)}</span><span class="lb"></span>` : ''}${k === 'mekan' ? '<span class="own"></span>' : ''}<div class="toks"></div>`;
     b.appendChild(el); cells.push(el);
   }
+})();
+// home screen picture: the same board around the table (icons only)
+(function buildHomeBoard() {
+  const ring = $('#hRing'); if (!ring) return;
+  ring.innerHTML = BOARD.map((k, p) => { const [r, c] = rc(p); const ic = cellIcon(p);
+    return `<i class="hc k-${k}" style="grid-row:${r};grid-column:${c}">${ic ? `<span>${ic}</span>` : ''}</i>`; }).join('');
 })();
 function labelBoard() {
   cells.forEach((el, p) => { el.title = `${p} · ${cellName(p)}: ${cellDesc(p)}`; const lb = el.querySelector('.lb'); if (lb) lb.textContent = cellName(p); });
@@ -918,11 +928,15 @@ function renderGame(V, prev) {
     let r = `<div class="receipt"><div class="hd">${esc(t('receiptHd', V.day))}</div><div class="ln"><span>${esc(t('payer'))}</span><span>${esc(W.n)}</span></div><div class="ln"><span>${esc(t('venueLbl'))}</span><span>${esc(vfull(f.v))}</span></div><div class="ln"><span>${esc(t('ownerLbl'))}</span><span>${b.ven != null ? nm(V.own[b.ven].o) + ' · ' + pct(b.rate) + '%' : esc(t('noOwner'))}</span></div><hr>`;
     r += b.lines.map(l => `<div class="ln"><span>${nm(l.j)}${l.j === f.w ? esc(t('own')) : ''}</span><span>${l.h}×${l.x}×${M(b.u)} = ${M(l.v)}${l.ku ? '*' : ''}</span></div>`).join('') || `<div class="ln"><span>${esc(t('nobodyAtTable'))}</span><span>${M(0)}</span></div>`;
     r += '<hr>';
-    if (b.al) r += `<div class="ln fx"><span>${esc(t('dutch'))}</span><span>${esc(t('dutchLine'))}</span></div>`;
+    const back = b.ven != null && V.own[b.ven].o === f.w ? b.rate : 0;   // the payer's own venue gives commission back
+    const owes = b.al ? ((b.lines.find(l => l.j === f.w) || {}).v || 0) : b.tot, left = W.m - owes + (owes <= W.m ? Math.round((b.al ? b.lines.reduce((s, l) => s + (V.pl[l.j].m >= l.v ? l.v : 0), 0) : owes) * back) : 0);
+    const leftLn = `<div class="ln left${left < 0 ? ' neg' : ''}"><span>${esc(t('afterPay'))}</span><span>${left < 0 ? esc(t('shortBy', M(-left))) : M(left)}</span></div>`;
+    if (b.al) r += `<div class="ln fx"><span>${esc(t('dutch'))}</span><span>${esc(t('dutchLine'))}</span></div><div class="ln"><span>${esc(t('inHand'))}</span><span>${M(W.m)}</span></div>` + leftLn;
     else {
       if (f.ku) r += `<div class="ln"><span>${esc(t('subtotal'))}</span><span>${M(b.sum)}</span></div><div class="ln fx"><span>${esc(t('coupon'))}</span><span>−${M(b.sum - b.tot)}</span></div>`;
       r += `<div class="ln tot"><span>${esc(t('total'))}</span><span>${M(b.tot)}</span></div><div class="ln"><span>${esc(t('inHand'))}</span><span>${M(W.m)}</span></div>`;
       if (b.ven != null) r += `<div class="ln fx"><span>${esc(t('commissionTo', V.pl[V.own[b.ven].o].n))}</span><span>+${M(Math.round(b.tot * b.rate))}</span></div>`;
+      r += leftLn;
     }
     if (f.ke) r += `<div class="ln fx"><span>${esc(t('belt'))}</span><span>${esc(t('notEating', W.n))}</span></div>`;
     r += '</div>';
@@ -937,7 +951,7 @@ function renderGame(V, prev) {
         h += r;
         const fc = W.c.filter(c => HOLD[c] === 'feast');
         if (fc.length) h += `<div class="targets">${fc.map(c => `<button class="btn small" data-a="use" data-i="${f.w}" data-c="${c}" ${dis} title="${esc(cardDesc(c))}">${esc(t('useCard', cardName(c)))}</button>`).join('')}</div>`;
-        if (!f.dl && !f.ku && !f.ke && !f.al && rivals(V, f.w).length) h += `<details class="dealopen" id="dealBox"><summary>${esc(t('dealOpen'))} <em>${esc(t('oneShot'))}</em></summary>
+        if (!f.dl && !f.al && rivals(V, f.w).length) h += `<details class="dealopen" id="dealBox"><summary>${esc(t('dealOpen'))} <em>${esc(t('oneShot'))}</em></summary>
           <div class="row"><select id="dealTo" aria-label="${esc(t('toWhomAria'))}">${rivals(V, f.w).map(j => `<option value="${j}">${nm(j)} · ${M(V.pl[j].m)}</option>`).join('')}</select><input id="dealAmt" type="number" min="0" max="${W.m}" step="5" value="${Math.min(W.m, Math.max(0, Math.round(b.tot / 2 / 5) * 5))}" inputmode="numeric" aria-label="${esc(t('offerAria'))}"></div>
           <button class="btn" data-a="deal" ${dis}>${esc(t('dealSend'))}</button><p class="note">${esc(t('dealNote'))}</p></details>`;
         else if (f.dl) h += `<p class="note">${esc(t('dealUsed'))}</p>`;
@@ -1036,7 +1050,11 @@ document.addEventListener('click', e => {
     case 'lstart': startLocalGame(false); break;
     case 'addp': readLocal(); if (ui.names.length < CFG.MAXP) ui.names.push(''); render(); break;
     case 'delp': readLocal(); ui.names.splice(+b.dataset.k, 1); (ui.lav || []).splice(+b.dataset.k, 1); render(); break;
-    case 'leave': leave(); break;
+    case 'leave': {
+      const inGame = S && S.ph !== 'over' && S.ph !== 'lobby' && !$('#game').hidden;
+      if (!inGame) { leave(); break; }
+      askUser(t('leaveQ'), t(mode === 'online' ? 'leaveQOnline' : 'leaveQLocal'), t('leaveYes'), t('stay')).then(y => { if (y) leave(); });
+      break; }
     case 'copycode': copyText(code || '', b, t('copied'), t('copy'), $('#lobbyCode')); break;
     case 'copy': copyText(inviteLink(), b, t('inviteCopied'), null, $('#inviteTxt')); break;
     case 'ready': setReady(!(S && S.rdy[me.pid])); break;
@@ -1118,6 +1136,19 @@ initAccount().then(() => { applyStatic(); render(); });
 if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]debug=1/.test(location.search)) {
   window.__cf = {state: () => S, endGame: () => { if (!S || !isHost()) return; S.ph = 'over'; S.win = 0; S.end = 'last'; S.fe = null; S.pend = null; if (mode === 'local') sync(); else commit(); }};
 }
+// yes / no question in the page's own style
+function askUser(title, text, yes, no) {
+  const m = $('#askModal'); $('#askTitle').textContent = title; $('#askText').textContent = text || ''; $('#askText').hidden = !text;
+  $('#askYes').textContent = yes; $('#askNo').textContent = no; m.hidden = false; setTimeout(() => $('#askNo').focus(), 30);
+  return new Promise(res => {
+    const done = v => { m.hidden = true; m.onclick = null; document.removeEventListener('keydown', key, true); res(v); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    document.addEventListener('keydown', key, true);
+    m.onclick = e => { if (e.target === m || e.target.id === 'askNo') done(false); else if (e.target.id === 'askYes') done(true); };
+  });
+}
+// leaving the page in the middle of an online game asks the browser to confirm
+addEventListener('beforeunload', e => { if (mode === 'online' && S && S.ph !== 'over' && S.ph !== 'lobby' && !$('#game').hidden) { e.preventDefault(); e.returnValue = ''; } });
 // settings panel: close on the backdrop or Escape
 document.addEventListener('click', e => { if (e.target && e.target.id === 'setModal') $('#setModal').hidden = true; });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#setModal').hidden) $('#setModal').hidden = true; });

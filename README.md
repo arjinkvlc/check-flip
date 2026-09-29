@@ -23,15 +23,16 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 
 ### Rules
 
-- **Starting money** depends on the player count: 2 players $100, 3 players $150, 4+ players $200. The host can change it. Everyone starts with 0 hunger, and turn order is decided by a dice roll.
+- **Money** is the game's own coin (¤, a gold coin with a fork and spoon).
+- **Starting money** depends on the player count: 2 players ¤100, 3 players ¤150, 4+ players ¤200. The host can change it. Everyone starts with 0 hunger, and turn order is decided by a dice roll.
 - **One day:** Everyone makes 2 moves. After rolling, you choose to move the sum of both dice or just one of them. Doubles roll again.
 - Every day starts with **+1 hunger** for everyone (max 10).
-- **Full lap:** +$40, +2 hunger, multiplier +1. **Halfway:** +$20, +1 hunger.
-- **The check:** The next player in line pays `hunger × multiplier × $5` for everyone at the table, themselves included. Everyone who eats goes back to 0 hunger.
+- **Full lap:** +¤40, +2 hunger, multiplier +1. **Halfway:** +¤20, +1 hunger.
+- **The check:** The next player in line pays `hunger × multiplier × ¤5` for everyone at the table, themselves included. Everyone who eats goes back to 0 hunger.
 - **Restaurants** (🍕 Pizzeria, 🍣 Sushi Bar, 🍔 Burger Joint, 🌮 Taqueria):
-  - Buy one for $40.
-  - Landing on someone else's restaurant costs a visit fee ($5 / $8 / $12). You may then offer to buy it for more; if the owner accepts, it changes hands.
-  - Landing on your own lets you cash the register (★ +$15, ★★ +$20, ★★★ +$25) or upgrade it.
+  - Buy one for ¤40.
+  - Landing on someone else's restaurant costs a visit fee (¤5 / ¤8 / ¤12). You may then offer to buy it for more; if the owner accepts, it changes hands.
+  - Landing on your own lets you cash the register (★ +¤15, ★★ +¤20, ★★★ +¤25) or upgrade it.
   - Dinner is served at one of the 4 restaurants **at random**. If it has an owner, they take a commission from the check: ★ 25%, ★★ 35%, ★★★ 50%.
 - **Negotiation:** The payer gets one offer: "I'll give you $X, you pay the check."
 - **Cards:**
@@ -54,7 +55,7 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 - **Accounts and progression (optional):**
   - Sign up with a username and password. The e-mail is optional and only used for password resets. Guests can still play everything.
   - XP and levels (1–99). Level 10 takes about 530 XP, level 50 about 15,600 XP.
-  - 24 achievements, each unlocking a title and most a cosmetic (see below).
+  - 27 achievements, each unlocking a title and most a cosmetic (see below).
   - **Profile & looks** screen with tabs: Avatar, Frames, Boards, Chat bubbles, Titles, Achievements, Stats.
   - Avatar frames and titles are shown to everyone at the table; chat bubbles to everyone in the room; board styles only to you.
 - **Social (with an account):**
@@ -92,8 +93,8 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 | 👑 Head Chef | Reach level 50 | Title |
 | 🤝 Negotiator | Pass the check on with a deal 10 times | Title, *Neon* frame |
 | 🪢 Belt Master | Use Tighten the Belt 20 times | Title |
-| 🦾 Iron Stomach | Pay a check of $300+ and stay at the table | Title, *Ocean* board |
-| 🏙️ Tycoon | Own all 4 restaurants at ★★★ in one game | Title, *Royal* frame |
+| 🦾 Iron Stomach | Pay a check of ¤300+ and stay at the table | Title, *Ocean* board |
+| 🏙️ Tycoon | Own all 4 restaurants at ★★★ in one ranked game | Title, *Royal* frame |
 | 🍳 Line Cook | Reach level 25 | Title, *Ember* frame |
 | 🎩 Executive Chef | Reach level 75 | Title, *Crown* frame |
 | 🏃 Marathoner | Play 200 online games | Title, *Sommelier* avatar |
@@ -108,8 +109,11 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 | 💬 Social Butterfly | Have 5 friends | Title, *Mint* chat bubble |
 | 🎯 Quester | Complete 10 daily quests | Title, *Barista* avatar |
 | 📅 Regular Guest | Complete 30 daily quests | Title, *Lavender* board |
+| 🏘️ Full House | Own all 4 restaurants at the same time in one ranked game | Title |
+| 🔁 Lap Legend | Complete 10 full laps in one ranked game | Title |
+| 💰 Deep Pockets | Have ¤1000 at once in one ranked game | Title |
 
-Game-based counters (restaurants, cards, checks, deals, days, mode wins) only grow from online games confirmed by another player; games with bots never count.
+Game-based counters (restaurants, cards, checks, deals, days, mode wins) only grow from online games confirmed by another player; games with bots never count. **Single-game feats** (Tycoon, Full House, Lap Legend, Deep Pockets) count only in **ranked games**: Quick play tables with 3 or more people and no bots. Every player of the game reports whether it was ranked and the reports must match, so friends can't farm them in a private room.
 
 **Level unlocks:** avatars Italian chef (5), Döner master (10), Noodle chef (15), Pastry chef (25) · frames Bronze (5), Silver (15), Gold (30), Diamond (50) · boards Navy felt and Sweet hearts (start), Oak (3), Feast (6), Terracotta (10), Marble (15), Sunset (20), Midnight (25), Chalkboard menu (30), Neon diner (35) · chat bubbles Receipt (4), Comic (8), Neon (25).
 
@@ -164,6 +168,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── i18n-v15.js     # texts added in v1.5 (private hands, dice, filter)
 │       ├── i18n-v16.js     # texts added in v1.6 (bots, chat, awards, seasons)
 │       ├── i18n-v17.js     # texts added in v1.7 (settings, username, seasons, friends)
+│       ├── i18n-v19.js     # texts added in v1.9 (leave question, money after paying, ranked games)
 │       ├── i18n-v18.js     # texts added in v1.8 (page title and description per language)
 │       ├── seo-text.js     # search engine texts (title, description, "What is Check Flip?"), also used by the Worker for /tr
 │       ├── filter.js       # word filter for names and chat (same lists as public.name_blocked in SQL)
@@ -172,6 +177,8 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 ├── wrangler.jsonc          # Worker configuration
 ├── sql/schema.sql          # Supabase database: tables, security rules, functions
 ├── tests/simulate.mjs      # engine simulation (hundreds of bot games)
+├── tests/belt-deal.mjs     # Tighten the Belt + passing the check on
+├── tools/coin-font/        # builds the coin sign (a one-glyph colour font, embedded in style.css)
 ├── tools/avatars/          # generator for the avatar illustrations (Python, no dependencies)
 ├── tools/email-templates/  # password-reset e-mail for Supabase
 └── tools/netlify-redirect/ # optional: redirect an old Netlify address to the new domain
@@ -276,6 +283,18 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.9.0
+- Game coin: money is shown with the game's own gold coin (fork and spoon) instead of ₺ / $
+- The check shows how much you'll have left after paying (or how much you're short)
+- You can still offer to pass the check on after using Tighten the Belt or the Discount coupon; the card's effect stays (the belt user still doesn't eat, the coupon still counts)
+- "Leave the game?" question before leaving a running game; the browser also asks before closing the tab during an online game
+- Computers: the game fits one screen; events and chat scroll inside their own box instead of growing the page
+- Removed the events button next to Settings on computers (the events are already on screen)
+- The header shows just "Check Flip" (the long search title stays in the browser tab)
+- Framed avatars no longer overlap player names; frames look the same in the player list and your profile chip
+- Home screen picture is now a little game board around the table
+- New achievements for ranked games (Quick play, 3+ people, no bots): Full House (all 4 restaurants at once), Lap Legend (10 laps), Deep Pockets (¤1000 at once); Tycoon now counts only in ranked games too
 
 ### 1.8.0
 - Search: title and description that say what the game is ("free online board game to play with friends"), structured data (VideoGame), a hidden main heading and a "What is Check Flip?" section in How to play

@@ -34,7 +34,7 @@ const en = {
   shareTable: 'Final table', shareOut: 'out', shareText: url => `I just played Check Flip: dice, cards and who picks up the check. Play free: ${url}`,
   // guide
   tipOk: 'Got it', tipOff: 'Hide tips', tipsReset: '💡 Show the first-game tips again', tipsOn: '✓ Tips are back on',
-  tip_hunger: 'Every day everyone gets <b>+1 hunger</b>. At the end of the day the next player in the <b>check order</b> (bottom of this panel) pays for everyone: <b>hunger × multiplier × $5</b> each. Stay hungry when others pay, eat light when it’s your turn to pay.',
+  tip_hunger: 'Every day everyone gets <b>+1 hunger</b>. At the end of the day the next player in the <b>check order</b> (bottom of this panel) pays for everyone: <b>hunger × multiplier × ¤5</b> each. Stay hungry when others pay, eat light when it’s your turn to pay.',
   tip_roll: 'Your turn: <b>roll the dice</b>. Then you choose to move the sum or just one of the dice.',
   tip_move: 'Pick a move: the <b>highlighted squares</b> show where each choice lands. 💰 gives money, 🥨 lowers hunger, 🏋️ raises it.',
   tip_buy: 'A restaurant for sale! Owners get a <b>visit fee</b> when others land here and a <b>commission</b> when dinner is served here.',
@@ -82,7 +82,7 @@ const tr = {
   sharePlace: (p, n) => `${n} kişide ${p}. oldum`, shareOver: 'Oyun bitti', shareSub: (d, n) => `${d}. gün · ${n} oyuncu`,
   shareTable: 'Son durum', shareOut: 'elendi', shareText: url => `Check Flip oynadım: zar, kart ve hesabı kim ödeyecek? Ücretsiz oyna: ${url}`,
   tipOk: 'Anladım', tipOff: 'İpuçlarını gizle', tipsReset: '💡 İlk oyun ipuçlarını tekrar göster', tipsOn: '✓ İpuçları tekrar açık',
-  tip_hunger: 'Her gün herkesin açlığı <b>+1</b> artar. Gün sonunda <b>hesap sırasındaki</b> kişi (bu panelin altında) herkese ısmarlar: kişi başı <b>açlık × çarpan × ₺5</b>. Başkası öderken aç kal, sıra sana gelince az ye.',
+  tip_hunger: 'Her gün herkesin açlığı <b>+1</b> artar. Gün sonunda <b>hesap sırasındaki</b> kişi (bu panelin altında) herkese ısmarlar: kişi başı <b>açlık × çarpan × ¤5</b>. Başkası öderken aç kal, sıra sana gelince az ye.',
   tip_roll: 'Sıra sende: <b>zar at</b>. Sonra iki zarın toplamı kadar mı, yoksa tek zar kadar mı ilerleyeceğini seçersin.',
   tip_move: 'Hamleni seç: <b>işaretli kareler</b> her seçeneğin nereye götürdüğünü gösterir. 💰 para verir, 🥨 açlığı düşürür, 🏋️ artırır.',
   tip_buy: 'Satılık restoran! Sahibi, başkaları buraya gelince <b>geçiş ücreti</b>, akşam yemeği burada yenince <b>komisyon</b> alır.',

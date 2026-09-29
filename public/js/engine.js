@@ -92,7 +92,7 @@ function fwd(S, i, n) {
   const Q = S.pl[i];
   for (let k = 0; k < n; k++) {
     Q.p = (Q.p + 1) % N; step(S, Q.p);
-    if (Q.p === 0) { Q.m += CFG.LAP_M; hun(Q, CFG.LAP_H); Q.x++; L(S, 'lap', {n: Q.n, m: CFG.LAP_M, h: CFG.LAP_H, x: Q.x}); }
+    if (Q.p === 0) { Q.m += CFG.LAP_M; hun(Q, CFG.LAP_H); Q.x++; stat(Q, 'lp'); L(S, 'lap', {n: Q.n, m: CFG.LAP_M, h: CFG.LAP_H, x: Q.x}); }
     else if (Q.p === HALF) { Q.m += CFG.HALF_M; hun(Q, CFG.HALF_H); L(S, 'half', {n: Q.n, m: CFG.HALF_M, h: CFG.HALF_H}); }
   }
 }
@@ -178,10 +178,12 @@ function feast(S) {
   S.fe = {w, ku: 0, ke: 0, al: 0, v, dl: 0, off: null}; if (S.fx) S.fx.venue = v;
   L(S, 'dayEnd', {d: S.day, v: VENUES[v], n: S.pl[w].n});
 }
+const beltUser = S => S.fe && S.fe.ke ? (S.fe.kw != null ? S.fe.kw : S.fe.w) : -1;
 function bill(S, wo) {
   const f = S.fe, alt = wo != null && wo !== f.w, w = alt ? wo : f.w, ven = f.v != null && S.own[f.v] ? f.v : null, u = CFG.UNIT, rate = ven != null ? COMS[S.own[ven].lv || 1] : 0;
-  const ke = alt ? 0 : f.ke, ku = alt ? 0 : f.ku;
-  const eat = S.ord.filter(j => j !== w || !ke).map(j => { const q = S.pl[j]; return {j, h: q.h, x: q.x, v: q.h * q.x * u}; });
+  // card effects stay with the table when the check is passed on: the belt user still doesn't eat, the coupon still counts
+  const kw = beltUser(S), ku = f.ku;
+  const eat = S.ord.filter(j => j !== kw).map(j => { const q = S.pl[j]; return {j, h: q.h, x: q.x, v: q.h * q.x * u}; });
   if (f.al && !alt) return {al: 1, u, ven, rate, lines: eat.map(l => l.j === w && ku ? Object.assign({}, l, {v: Math.round(l.v * .75), ku: 1}) : l)};
   const sum = eat.reduce((s, l) => s + l.v, 0);
   return {al: 0, u, ven, rate, lines: eat, sum, tot: ku ? Math.round(sum * .75) : sum};
@@ -200,8 +202,9 @@ function payFeast(S) {
     const o = S.own[b.ven], O = S.pl[o.o];
     if (O.a && !out.includes(o.o)) { const c = Math.round(paid * b.rate); O.m += c; L(S, 'commission', {n: O.n, v: VENUES[b.ven], r: Math.round(b.rate * 100), m: c}); }
   }
-  S.ord.forEach(j => { if (j !== w || !f.ke) S.pl[j].h = 0; });
-  if (f.ke) L(S, 'belt', {n: W.n});
+  const kw = beltUser(S);
+  S.ord.forEach(j => { if (j !== kw) S.pl[j].h = 0; });
+  if (kw >= 0) L(S, 'belt', {n: S.pl[kw].n});
   const tOut = out.includes(w);
   out.forEach(j => { L(S, 'out', {n: S.pl[j].n}); elim(S, j); });
   if (isTeams(S) ? new Set(S.ord.map(j => S.pl[j].tm)).size <= 1 : S.ord.length <= 1) {
@@ -252,9 +255,9 @@ function useCard(S, i, c, to) {
   }
   if (S.ph !== 'feast' || S.fe.w !== i || S.fe.off) return false; const f = S.fe;
   if (c === 'A10') { if (f.ku) return false; f.ku = 1; }
-  else if (c === 'K') { if (f.ke) return false; f.ke = 1; }
+  else if (c === 'K') { if (f.ke) return false; f.ke = 1; f.kw = f.w; }
   else if (c === 'B11') { if (f.al) return false; f.al = 1; }
-  else if (c === 'B10') { const n = S.tq.length; if (n < 2) return false; const a = S.ti, b = (S.ti + 1) % n; [S.tq[a], S.tq[b]] = [S.tq[b], S.tq[a]]; f.w = S.tq[a]; f.ku = 0; f.ke = 0; f.al = 0; }
+  else if (c === 'B10') { const n = S.tq.length; if (n < 2) return false; const a = S.ti, b = (S.ti + 1) % n; [S.tq[a], S.tq[b]] = [S.tq[b], S.tq[a]]; f.w = S.tq[a]; f.ku = 0; f.ke = 0; f.kw = null; f.al = 0; }
   if (c === 'K') stat(Q, 'b');
   stat(Q, 'cu');
   Q.c.splice(k, 1); L(S, 'cardUse', {n: Q.n, c, t: c === 'B10' ? S.pl[f.w].n : null}); return true;
@@ -316,7 +319,7 @@ function actInner(S, i, pid, a) {
       after(S); return true;
     }
     case 'deal': {
-      const f = S.fe; if (S.ph !== 'feast' || f.w !== i || f.off || f.dl || f.ku || f.ke || f.al) return false; const to = +a.to, amt = Math.round(+a.amt || 0);
+      const f = S.fe; if (S.ph !== 'feast' || f.w !== i || f.off || f.dl || f.al) return false; const to = +a.to, amt = Math.round(+a.amt || 0);
       if (!rivals(S, i).includes(to) || amt < 0 || amt > S.pl[i].m) return false;
       f.dl = 1; f.off = {to, amt}; fx.head = tt('deal'); fx.title = tt('dealQuote', {m: amt}); fx.sub = tt('arrow', {a: S.pl[i].n, b: S.pl[to].n});
       L(S, 'dealOffer', {n: S.pl[i].n, t: S.pl[to].n, m: amt}, 1); return true;
@@ -333,6 +336,11 @@ function actInner(S, i, pid, a) {
   }
   return false;
 }
+// highest money and most restaurants each player had at one time (for achievements)
+function peaks(S) {
+  S.pl.forEach((q, j) => { if (!q.a) return; const n = Object.values(S.own).filter(o => o.o === j).length;
+    if (q.m > ((q.st && q.st.mx) || 0)) stat(q, 'mx', q.m); if (n > ((q.st && q.st.mv) || 0)) stat(q, 'mv', n); });
+}
 function act(S, pid, a) {
   const i = S.pl.findIndex(q => q.id === pid); if (i < 0 || !a) return false;
   const snap = JSON.stringify(S);
@@ -340,7 +348,7 @@ function act(S, pid, a) {
   const ok = actInner(S, i, pid, a);
   if (!ok) { Object.assign(S, JSON.parse(snap)); return false; }
   if (a.t !== 'use') S.tk = (S.tk || 0) + 1;
-  S.fx.open = 0; return true;
+  peaks(S); S.fx.open = 0; return true;
 }
 // Final standings (player indices, winner first): survivors by net worth, then eliminated players, last out first.
 function standings(S) {
@@ -426,7 +434,7 @@ function botBest(S, i) {
       if (c === 'B10' && b.tot > Q.m * .5 && S.tq.length > 1) return {t: 'use', c};
       if (c === 'B8') { const t = S.ord.filter(j => j !== i).sort((a, z) => S.pl[z].h * S.pl[z].x - S.pl[a].h * S.pl[a].x)[0]; if (t != null && S.pl[t].h >= 2) return {t: 'use', c, to: t}; }
     }
-    if (!f.dl && !f.ku && !f.ke && !f.al && b.tot >= Math.max(25, Q.m * .35)) {
+    if (!f.dl && !f.al && b.tot >= Math.max(25, Q.m * .35)) {
       const amt = Math.min(Q.m, Math.round(b.tot * .45 / 5) * 5); const to = rich.find(j => canTake(S, j, amt));
       if (to != null && amt > 0) return {t: 'deal', to, amt};
     }

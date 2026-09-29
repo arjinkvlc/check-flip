@@ -44,7 +44,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
 <body>
 <div class="app">
   <header class="top">
-    <div class="logo"><img class="logo-svg" src="assets/logo.svg" alt="" aria-hidden="true"><span data-i="title">Check Flip</span></div>
+    <div class="logo"><img class="logo-svg" src="assets/logo.svg" alt="" aria-hidden="true"><span>Check Flip</span></div>
     <span id="roomChip" class="chip" hidden></span>
     <div class="spacer"></div>
     <button id="logBtn" class="iconbtn logbtn" data-a="log" data-ia="showLog" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></button>
@@ -82,6 +82,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <p id="netNote" class="note"></p>
     </div>
     <aside class="hfelt" aria-hidden="true">
+      <div class="hring" id="hRing"></div>
       <div class="hrec"><b data-i="recHd"></b><hr><span><i data-i="rec1"></i><i>45</i></span><span><i data-i="rec2"></i><i>210</i></span><span><i data-i="rec3"></i><i>95</i></span><hr><span class="tot"><i data-i="recTot"></i><i>350</i></span><em>?</em></div>
       <img class="hav a1" src="assets/avatars/foodie.svg" alt=""><img class="hav a2" src="assets/avatars/grandma.svg" alt=""><img class="hav a3" src="assets/avatars/barista.svg" alt=""><img class="hav a4" src="assets/avatars/waiter.svg" alt="">
     </aside>
@@ -230,6 +231,10 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<div class="modal" id="askModal" hidden><div class="modalcard askcard" role="alertdialog" aria-labelledby="askTitle" aria-describedby="askText">
+  <h2 id="askTitle" class="h2"></h2><p id="askText" class="note"></p>
+  <div class="row"><button class="btn ghost" id="askNo"></button><button class="btn primary" id="askYes"></button></div>
+</div></div>
 <div class="modal" id="setModal" hidden><div class="modalcard setcard" role="dialog" aria-labelledby="setTitle">
   <button class="btn small ghost mclose" data-a="setClose" data-ia="close">✕</button>
   <h2 id="setTitle" class="h2" data-i="settingsTitle"></h2>

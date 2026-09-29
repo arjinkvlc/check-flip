@@ -213,7 +213,7 @@ export function renderProfile(el) {
         ${on ? `<span class="tag ok">${esc(t('pEquipped'))}</span>` : ok ? `<button class="btn small" data-a="equip" data-kind="${tab}" data-key="${c.key}" ${AU.busy ? 'disabled' : ''}>${esc(t('pEquip'))}</button>` : `<small class="lock">${esc(lockText(c))}</small>`}</div>`;
     }).join('')}</div>`;
   } else if (tab === 'ach') {
-    body = `<p class="botnote">${esc(t('pBotNote'))}</p><ul class="achlist">${ACHS.map(a => {
+    body = `<p class="botnote">${esc(t('pBotNote'))} ${esc(t('pRankedNote'))}</p><ul class="achlist">${ACHS.map(a => {
       const have = ACC.ach.has(a.key), cur = Math.min(a.goal, a.get(p) || 0);
       const rewards = ['avatar', 'frame', 'board', 'bubble'].flatMap(k => CATALOG[k].filter(c => c.ach === a.key).map(c => k === 'avatar' ? H.avatarLabel(c.key) : itemName(k, c.key)));
       rewards.push(itemName('title', a.key));

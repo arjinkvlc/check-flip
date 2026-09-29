@@ -193,6 +193,9 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('title',  'social',    1, 'social',      22),
   ('title',  'quester',   1, 'quester',     23),
   ('title',  'devoted',   1, 'devoted',     24),
+  ('title',  'full_house',1, 'full_house',  25),
+  ('title',  'lap_legend',1, 'lap_legend',  26),
+  ('title',  'deep_pockets',1,'deep_pockets',27),
   ('dice',   'classic',   1, null,           0),
   ('dice',   'redwhite',  3, null,           1),
   ('dice',   'bone',      8, null,           2),
@@ -336,7 +339,11 @@ begin
     case when p.games >= 200 then 'marathon' end,
     case when fn >= 5  then 'social' end,
     case when qn >= 10 then 'quester' end,
-    case when qn >= 30 then 'devoted' end
+    case when qn >= 30 then 'devoted' end,
+    -- v1.9: single-game feats, counted only in ranked games (public quick-play tables, 3+ people, no bots)
+    case when coalesce((st ->> 'full4')::int, 0)  >= 1 then 'full_house' end,
+    case when coalesce((st ->> 'laps10')::int, 0) >= 1 then 'lap_legend' end,
+    case when coalesce((st ->> 'rich')::int, 0)   >= 1 then 'deep_pockets' end
   ] loop
     if k is not null then
       insert into public.achievements (user_id, key) values (p_user, k) on conflict do nothing;
@@ -381,7 +388,10 @@ begin
       'paid',     coalesce((stats ->> 'paid')::int, 0)     + coalesce((r.stats ->> 'paid')::int, 0),
       'best_days', greatest(coalesce((stats ->> 'best_days')::int, 0), coalesce((r.stats ->> 'survived')::int, 0)),
       'team_wins',  coalesce((stats ->> 'team_wins')::int, 0)  + case when r.won and coalesce((r.stats ->> 'teams')::int, 0) = 1 then 1 else 0 end,
-      'quick_wins', coalesce((stats ->> 'quick_wins')::int, 0) + case when r.won and coalesce((r.stats ->> 'quick')::int, 0) = 1 then 1 else 0 end)
+      'quick_wins', coalesce((stats ->> 'quick_wins')::int, 0) + case when r.won and coalesce((r.stats ->> 'quick')::int, 0) = 1 then 1 else 0 end,
+      'full4',  coalesce((stats ->> 'full4')::int, 0)  + coalesce((r.stats ->> 'full4')::int, 0),
+      'laps10', coalesce((stats ->> 'laps10')::int, 0) + coalesce((r.stats ->> 'laps10')::int, 0),
+      'rich',   coalesce((stats ->> 'rich')::int, 0)   + coalesce((r.stats ->> 'rich')::int, 0))
   where id = p_user;
   update public.game_results set verified = true, xp = xp_full where game_id = p_game and user_id = p_user;
   perform public.check_achievements(p_user);
@@ -391,7 +401,8 @@ end $$;
 -- submit_result: called by each signed-in player at the end of a game
 -- p = {game_id, mode:'online'|'solo', pid, order:[seat ids, winners first],
 --      winners:[seat ids] (optional; 2 in team games), won, days, duration,
---      stats:{deals, belt, tycoon, iron, bonus, bought, upgrades, cards, paid, survived}}
+--      stats:{deals, belt, tycoon, iron, bonus, bought, upgrades, cards, paid, survived, laps, top_money, top_venues},
+--      ranked}
 -- Place and player count are derived from `order`; the digest of the final
 -- standings is computed here, so players can't pick their own.
 -- ---------------------------------------------------------------------
@@ -410,6 +421,7 @@ declare
   v_digest text;
   v_stats jsonb; v_counted boolean; v_full int; v_now int := 0;
   v_recent int; v_verified boolean := false; v_before int; v_after int; v_new text[] := '{}'; o record;
+  v_ranked boolean := false;
   v_winners jsonb := p -> 'winners'; v_nw int; v_eff int; v_q text; v_met boolean; v_qdone text := null; v_s jsonb := coalesce(p -> 'stats', '{}'::jsonb);
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
@@ -431,7 +443,10 @@ begin
   end loop;
   v_won := v_won and v_winners ? v_pid;
   v_eff := case when v_won then 1 else v_place end;
-  v_digest := md5(v_gid || '|' || v_order::text || '|' || v_winners::text || '|' || v_days);
+  -- ranked: public quick-play table with 3+ people (bot games come in as 'solo'); every player of the game must report it
+  -- (it's part of the digest), so one changed client can't turn a private room into a ranked game
+  v_ranked := v_mode = 'online' and v_players >= 3 and coalesce((p ->> 'ranked')::boolean, false);
+  v_digest := md5(v_gid || '|' || v_order::text || '|' || v_winners::text || '|' || v_days || case when v_ranked then '|ranked' else '' end);
 
   perform pg_advisory_xact_lock(hashtext(v_gid));
   select xp into v_before from public.profiles where id = v_uid;
@@ -441,7 +456,10 @@ begin
   v_stats := jsonb_build_object(
     'deals',  least(greatest(coalesce((p -> 'stats' ->> 'deals')::int, 0), 0), 6),
     'belt',   least(greatest(coalesce((p -> 'stats' ->> 'belt')::int, 0), 0), 6),
-    'tycoon', case when coalesce((p -> 'stats' ->> 'tycoon')::boolean, false) then 1 else 0 end,
+    'tycoon', case when v_ranked and coalesce((p -> 'stats' ->> 'tycoon')::boolean, false) then 1 else 0 end,
+    'full4',  case when v_ranked and coalesce((p -> 'stats' ->> 'top_venues')::int, 0) >= 4 then 1 else 0 end,
+    'laps10', case when v_ranked and coalesce((p -> 'stats' ->> 'laps')::int, 0) >= 10 then 1 else 0 end,
+    'rich',   case when v_ranked and coalesce((p -> 'stats' ->> 'top_money')::int, 0) >= 1000 then 1 else 0 end,
     'iron',   case when coalesce((p -> 'stats' ->> 'iron')::boolean, false) then 1 else 0 end,
     'bought',   least(greatest(coalesce((p -> 'stats' ->> 'bought')::int, 0), 0), 4),
     'upgrades', least(greatest(coalesce((p -> 'stats' ->> 'upgrades')::int, 0), 0), 8),
