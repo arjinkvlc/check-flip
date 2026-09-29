@@ -799,7 +799,7 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
   body.ingame .acctchip{display:none}
   body.ingame .top{min-height:40px}
 }
-@media (max-width:420px){.top .langbtn{display:none}.logo span{display:none}}
+@media (max-width:420px){body.ingame .logo span{display:none}}
 @media (max-width:759px){.acctguest.scard{flex-wrap:wrap;width:100%;padding:10px 12px}.acctguest.scard>span{flex:1 1 100%}.acctguest.scard .btn{flex:1}.hstrip .acct{width:100%}}
 
 @media (max-width:759px){.chipbtn.me{height:48px;padding:0 5px;border-radius:999px}}
@@ -921,22 +921,23 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 .swapbox .btn.choice.ghost{border-color:var(--line)}
 
 /* dice skins: the dice take the look of the player who rolls */
-.die{background:var(--dbg,#fff);border-color:var(--dbd,#131a26);box-shadow:0 .8cqi 0 var(--dsh,#0b0f16)}
+.die{background:var(--dbg,#fff);border-color:var(--dbd,#131a26);box-shadow:0 var(--dy,.8cqi) 0 var(--dsh,#0b0f16)}
 .die span.pip{background:var(--dpip,#131a26);box-shadow:var(--dpipfx,none)}
-.dice.dbl .die{border-color:var(--dbd,#131a26);box-shadow:0 .8cqi 0 var(--dsh,#0b0f16),0 0 0 max(3px,.6cqi) var(--tomato)}
+.dice.dbl .die{border-color:var(--dbd,#131a26);box-shadow:0 var(--dy,.8cqi) 0 var(--dsh,#0b0f16),0 0 0 max(3px,.6cqi) var(--tomato)}
 .dice.dbl .pip{background:var(--dpip,#131a26)}
 .dice[data-skin="redwhite"]{--dbg:#d62b2b;--dbd:#7d1212;--dsh:#5c0d0d;--dpip:#fff}
 .dice[data-skin="bone"]{--dbg:radial-gradient(circle at 30% 25%,#fbf4e2,#e6d7b3 70%,#d6c294);--dbd:#8a6f45;--dsh:#6b5231;--dpip:#5a3b1c}
 .dice[data-skin="gingham"]{--dbg:#fff linear-gradient(90deg,rgba(214,43,43,.28) 50%,transparent 0) 0 0/33.3% 33.3%,#fff;--dbd:#b3261e;--dsh:#7d1212;--dpip:#131a26;--dpipfx:0 0 0 2px #fff}
 .dice[data-skin="gingham"] .die{background:linear-gradient(rgba(214,43,43,.28) 50%,transparent 0) 0 0/100% 33.4%,linear-gradient(90deg,rgba(214,43,43,.28) 50%,transparent 0) 0 0/33.4% 100%,#fff}
 .dice[data-skin="neon"]{--dbg:#11111f;--dbd:#00e5ff;--dsh:#ff3cac;--dpip:#ff3cac;--dpipfx:0 0 6px #ff3cac,0 0 12px rgba(255,60,172,.6)}
-.dice[data-skin="neon"] .die{box-shadow:0 .8cqi 0 #7a1d57,0 0 14px rgba(0,229,255,.55)}
+.dice[data-skin="neon"] .die{box-shadow:0 var(--dy,.8cqi) 0 #7a1d57,0 0 14px rgba(0,229,255,.55)}
 .dice[data-skin="marble"]{--dbg:linear-gradient(125deg,transparent 42%,rgba(90,100,120,.25) 44%,transparent 47%),linear-gradient(35deg,transparent 62%,rgba(90,100,120,.18) 63%,transparent 65%),#f4f5f8;--dbd:#6c7584;--dsh:#4a5261;--dpip:#26313d}
 .dice[data-skin="gold"]{--dbg:linear-gradient(135deg,#8a6212,#f7d774 35%,#fff3c4 50%,#e0b43c 65%,#8a6212);--dbd:#6f4c12;--dsh:#4a320a;--dpip:#3b2800}
 .dice[data-skin="chelsea"]{--dbg:radial-gradient(circle at 30% 25%,#1a63c8,#034694 55%,#022f66);--dbd:#d4af37;--dsh:#011d42;--dpip:radial-gradient(circle at 35% 30%,#fff3b0,#d4af37 55%,#9c7a1c);--dpipfx:0 0 4px rgba(212,175,55,.8)}
-.dice[data-skin="chelsea"] .die{border-width:max(3px,.6cqi)}
+.dice[data-skin="chelsea"] .die{border-width:var(--dbw,max(3px,.6cqi))}
 .dprev{display:flex;gap:8px}
-.dprev .die{width:44px;aspect-ratio:1;border-width:2.5px;box-shadow:0 3px 0 var(--dsh,#0b0f16);padding:12%}
+.dprev{--dy:3px;--dbw:3px}
+.dprev .die{width:44px;aspect-ratio:1;border-width:2.5px;padding:12%}
 
 /* motion */
 @media (prefers-reduced-motion:no-preference){
@@ -1014,3 +1015,32 @@ body.shapes .tok.avt{overflow:visible}
 body.shapes .tok.avt .avimg{border-radius:50%}
 #shapeBtn.on{color:var(--eyebrow);background:var(--chipbg)}
 #botLvSel{flex:0 0 auto;width:auto;padding:8px 10px}
+
+/* ================= v1.7 ================= */
+.fmlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.fmlist li{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--card)}
+.fmlist li>small{grid-column:1/-1}
+.fmres{font-family:var(--display);font-weight:800;font-size:16px;padding:2px 10px;border-radius:999px;background:var(--chipbg);white-space:nowrap}
+.fmres.won{background:#f2c14e;color:#3b2800}
+.fmwho{display:flex;flex-wrap:wrap;gap:4px 12px}
+.fmwho small{color:var(--muted)}
+.seasonend{display:grid;justify-items:center;gap:8px;text-align:center;padding:10px 4px 4px}
+.seasonend .medal{width:84px;height:84px;font-size:32px;animation:trophy .7s cubic-bezier(.2,1.4,.4,1) both}
+.seasonend h2{margin:4px 0 0;font-family:var(--display);font-size:28px}
+.seasonend .sebig{margin:0;font-family:var(--display);font-weight:800;font-size:22px;color:var(--eyebrow)}
+.seasonpos{font-family:var(--display);font-weight:800;font-size:44px}
+/* settings panel */
+.setcard{width:min(420px,100%);gap:14px}
+.setcard .h2{margin:0 36px 4px 0}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;border-top:1px solid var(--line);padding-top:12px;font-weight:700}
+.setrow .seg2{align-self:auto}
+.switch{position:relative;flex:none;width:54px;height:32px;border-radius:999px;border:0;background:var(--line);padding:0;transition:background-color .2s}
+.switch i{position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.switch.on{background:var(--green)}
+.switch.on i{transform:translateX(22px)}
+
+/* ---------- v1.8: "What is Check Flip?" text in the How to play box ---------- */
+.seoabout{margin-top:18px;padding-top:14px;max-width:880px;border-top:1px dashed var(--line);color:var(--muted);font-size:13.5px;line-height:1.55}
+.seoabout h2{font-size:15px;margin:0 0 6px;color:var(--ink)}
+.seoabout p{margin:0 0 8px}
+.seoabout p:last-child{margin-bottom:0}

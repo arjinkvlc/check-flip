@@ -240,7 +240,7 @@ export async function signUp(username, password, email) {
   if (!(await usernameAvailable(username))) throw Object.assign(new Error('aErrNameTaken'), {key: 'aErrNameTaken'});
   const rnd = Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(16).padStart(2, '0')).join('');
   const addr = email || `${username.toLowerCase()}.${rnd}@${PLACEHOLDER_EMAIL_DOMAIN}`;
-  const {data, error} = await sb.auth.signUp({email: addr, password, options: {data: {username}, emailRedirectTo: location.origin + location.pathname}});
+  const {data, error} = await sb.auth.signUp({email: addr, password, options: {data: {username}, emailRedirectTo: location.origin + '/'}});
   if (error) throw fail(error);
   if (!data.session) {
     // "Confirm email" is ON in Supabase: the account exists but can't log in yet
@@ -269,7 +269,7 @@ export async function sendReset(email) {
   if (!sb) throw fail('disabled');
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) throw Object.assign(new Error('aErrEmailInvalid'), {key: 'aErrEmailInvalid'});
-  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/'});
   if (error) throw fail(error);
 }
 
@@ -288,11 +288,30 @@ export async function updateEmail(email) {
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.endsWith('@' + PLACEHOLDER_EMAIL_DOMAIN)) throw Object.assign(new Error('aErrEmailInvalid'), {key: 'aErrEmailInvalid'});
   if (ACC.user && ACC.user.email === email) return 'done';
-  const {data, error} = await sb.auth.updateUser({email}, {emailRedirectTo: location.origin + location.pathname});
+  const {data, error} = await sb.auth.updateUser({email}, {emailRedirectTo: location.origin + '/'});
   if (error) throw fail(error);
   if (data && data.user) ACC.user = data.user;
   emit();
   return ACC.user && ACC.user.email === email ? 'done' : 'confirm';
+}
+
+// Change the username (server allows it once every 7 days). Returns the date of the next allowed change.
+export async function changeUsername(name) {
+  if (!sb || !loggedIn()) throw fail('not_authenticated');
+  name = String(name || '').trim();
+  if (!USERNAME_RE.test(name)) throw Object.assign(new Error('aErrName'), {key: 'aErrName'});
+  if (nameBlocked(name)) throw Object.assign(new Error('aErrNameBlocked'), {key: 'aErrNameBlocked'});
+  const {data, error} = await sb.rpc('change_username', {p_new: name});
+  if (error) {
+    const m = String(error.message || '');
+    const w = m.match(/username_wait (\S+)/); if (w) throw Object.assign(new Error('aErrNameWait'), {key: 'aErrNameWait', at: w[1]});
+    if (m.includes('username_taken') || m.includes('duplicate key')) throw Object.assign(new Error('aErrNameTaken'), {key: 'aErrNameTaken'});
+    if (m.includes('username_blocked')) throw Object.assign(new Error('aErrNameBlocked'), {key: 'aErrNameBlocked'});
+    if (m.includes('username_invalid')) throw Object.assign(new Error('aErrName'), {key: 'aErrName'});
+    throw fail(error);
+  }
+  await refreshProfile();
+  return data;
 }
 
 export async function signOut() {
@@ -360,15 +379,21 @@ export const friendRemove = name => call('friend_remove', {p_username: name}).th
 export const inviteFriend = (name, room) => call('invite_friend', {p_username: name, p_room: room});
 export const inviteDismiss = id => call('invite_dismiss', {p_id: id}).then(pollSocial);
 
-// friends, requests and invites; also keeps me "online" for friends. Polled every 20 s while logged in.
-let lastSocial = '';
+export const mySeason = n => call('my_season', {p_season: n});
+export const friendMatches = () => call('friend_matches', {p_limit: 10});
+// friends, requests and invites; also keeps me "online" for friends (online = seen in the last 2 minutes).
+// Polled every 45 s on the menus, every 90 s during a game, never while the tab is hidden.
+let lastSocial = '', socialAt = 0, inGame = () => false;
+export const setSocialGameCheck = fn => { inGame = fn; };
 export async function pollSocial() {
   if (!sb || !loggedIn()) return;
+  socialAt = Date.now();
   try {
     const data = await call('social');
     const key = JSON.stringify(data);
     if (key !== lastSocial) { lastSocial = key; ACC.social = data; emit(); }
   } catch (e) {}
 }
-setInterval(() => { if (typeof document !== 'undefined' && document.visibilityState === 'visible') pollSocial(); }, 20000);
+setInterval(() => { if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - socialAt >= (inGame() ? 90000 : 45000)) pollSocial(); }, 5000);
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - socialAt > 45000) pollSocial(); });
 onAccount(() => { if (loggedIn() && !ACC.social) pollSocial(); });

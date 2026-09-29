@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Check Flip Roll the dice, draw cards, stay hungry and make your rivals pick up the check. A free 2–6 player browser game.">
+<meta name="description" content="Free multiplayer board game in your browser: roll the dice, draw cards, stay hungry and make your friends pick up the check. 2–6 players, online or against bots, no download.">
 <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 <link rel="canonical" href="https://checkflipgame.com/">
+<link rel="alternate" hreflang="en" href="https://checkflipgame.com/">
+<link rel="alternate" hreflang="tr" href="https://checkflipgame.com/tr">
+<link rel="alternate" hreflang="x-default" href="https://checkflipgame.com/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <meta name="theme-color" content="#1e3a4c">
@@ -13,18 +16,21 @@
 <meta name="apple-mobile-web-app-title" content="Check Flip">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Check Flip">
-<meta property="og:title" content="Check Flip · Flip the check. Make them pay.">
-<meta property="og:description" content="A free multiplayer board game about dice, cards and who picks up the check. Play with friends in your browser, no download.">
+<meta property="og:title" content="Check Flip – Free Online Board Game to Play with Friends">
+<meta property="og:description" content="Free multiplayer board game in your browser: roll the dice, draw cards, stay hungry and make your friends pick up the check. 2–6 players, online or against bots, no download.">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="tr_TR">
 <meta property="og:url" content="https://checkflipgame.com/">
 <meta property="og:image" content="https://checkflipgame.com/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Check Flip board game">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Check Flip · Flip the check. Make them pay.">
-<meta name="twitter:description" content="A free multiplayer board game about dice, cards and who picks up the check.">
+<meta name="twitter:title" content="Check Flip – Free Online Board Game to Play with Friends">
+<meta name="twitter:description" content="Free multiplayer board game in your browser: roll the dice, draw cards, stay hungry and make your friends pick up the check. 2–6 players, online or against bots, no download.">
 <meta name="twitter:image" content="https://checkflipgame.com/assets/og.png">
-<title>Check Flip</title>
+<title>Check Flip – Free Online Board Game to Play with Friends</title>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "VideoGame", "name": "Check Flip", "alternateName": ["Hesap Kimde", "Check Flip Game"], "url": "https://checkflipgame.com/", "image": "https://checkflipgame.com/assets/og.png", "description": "Free multiplayer board game in your browser: roll the dice, draw cards, stay hungry and make your friends pick up the check. 2–6 players, online or against bots, no download.", "genre": ["Board game", "Party game", "Strategy"], "gamePlatform": ["Web browser", "Android", "iOS", "Windows", "macOS"], "applicationCategory": "GameApplication", "operatingSystem": "Any", "playMode": ["MultiPlayer", "SinglePlayer"], "numberOfPlayers": {"@type": "QuantitativeValue", "minValue": 2, "maxValue": 6}, "inLanguage": ["en", "tr"], "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Arjin Kavalcı", "url": "https://github.com/arjinkvlc"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
@@ -43,21 +49,16 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
     <div class="spacer"></div>
     <button id="logBtn" class="iconbtn logbtn" data-a="log" data-ia="showLog" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></button>
     <button id="chatHdr" class="iconbtn chathdr" data-a="chatopen" data-ia="openChat" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="chatbadge" id="chatBadge2" hidden>0</span></button>
-    <button id="moreBtn" class="iconbtn morebtn" data-a="more" data-ia="moreAria" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></button>
-    <div class="tgls" id="tgls"><button id="langBtn" class="iconbtn langbtn" data-a="lang">TR</button>
-    <button id="musicBtn" class="iconbtn" data-a="music" data-ia="music"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
-    <button id="sndBtn" class="iconbtn" data-a="snd" data-ia="sound"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="w" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="x" d="M22 9l-6 6M16 9l6 6"/></svg></button>
-    <button id="shapeBtn" class="iconbtn" data-a="shapes" data-ia="shapesAria"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="3.5"/><path d="M17 3.5l3.8 6.5h-7.6z"/><rect x="3.5" y="14" width="7" height="7" rx="1"/><path d="M17 13.5l3.5 3.5-3.5 3.5-3.5-3.5z"/></svg></button>
-    <button id="themeBtn" class="iconbtn" data-a="theme" data-ia="themeAria"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="moon" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg></button></div>
+    <button id="setBtn" class="iconbtn" data-a="settings" data-ia="settingsTitle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     <div id="acctChip" class="acctchip" hidden></div>
     <button id="logoutBtn" class="iconbtn logoutbtn" data-a="logout" data-ia="aLogout" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
     <button id="leaveBtn" class="iconbtn leavebtn" data-a="leave" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span class="lt" data-i="leaveLong"></span><span class="st" data-i="leave"></span></button>
   </header>
 
   <section id="home" class="home">
+    <h1 class="vh" id="seoH1" data-i="seoH1">Check Flip – a free online board game to play with friends</h1>
     <div class="hmain">
       <p class="eyebrow" data-i="tagline"></p>
-      <h1 data-i="heroQ"></h1>
       <div id="nickWrap" class="nickwrap">
         <label for="nm" data-i="nickLabel"></label>
         <input id="nm" maxlength="14" autocomplete="nickname">
@@ -97,6 +98,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <ul id="rulesList"></ul>
       <p><button class="linkbtn" data-a="tipsreset" data-i="tipsReset"></button></p>
       <div class="cols" id="cardLists"></div>
+      <div class="seoabout" id="seoAbout" data-ih="seoAbout"><h2>What is Check Flip?</h2><p>Check Flip is a free multiplayer board game you play in the browser, on a phone or a computer, with no download and no sign-up needed. 2 to 6 players move around a board full of restaurants, roll the dice, draw Chance and Event cards and try to stay hungry, because at the end of every day one player picks up the check for the whole table. Buy restaurants, earn commission, make deals to pass the check on, and be the last one at the table.</p><p>Play online with friends using a room code, join a quick game with other players, play against bots (easy, normal or hard) or take turns on one device. Classic, Quick (10 days) and 2 vs 2 team modes. With a free account you earn XP, unlock avatars, dice and boards, climb the monthly season leaderboard and win medals. In English and Turkish.</p></div>
     </details>
     <footer class="credit" style="grid-column:1/-1"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a><span class="ver" id="verTag"></span></footer>
   </section>
@@ -228,6 +230,14 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<div class="modal" id="setModal" hidden><div class="modalcard setcard" role="dialog" aria-labelledby="setTitle">
+  <button class="btn small ghost mclose" data-a="setClose" data-ia="close">✕</button>
+  <h2 id="setTitle" class="h2" data-i="settingsTitle"></h2>
+  <div class="setrow"><span data-i="setLang"></span><div class="seg2" role="group"><button data-a="setLang" data-l="tr">Türkçe</button><button data-a="setLang" data-l="en">English</button></div></div>
+  <div class="setrow"><span data-i="setTheme"></span><div class="seg2" role="group"><button data-a="setTheme" data-t="light" data-i="themeLight"></button><button data-a="setTheme" data-t="dark" data-i="themeDark"></button></div></div>
+  <div class="setrow"><span data-i="setMusic"></span><button id="musicBtn" class="switch" data-a="music" role="switch"><i></i></button></div>
+  <div class="setrow"><span data-i="setSound"></span><button id="sndBtn" class="switch" data-a="snd" role="switch"><i></i></button></div>
+</div></div>
 <div class="modal" id="modal" hidden><div class="modalcard" id="modalCard"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>

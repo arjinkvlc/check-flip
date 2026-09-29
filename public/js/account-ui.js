@@ -4,7 +4,7 @@
  * titles, achievements, stats) and the end-of-game progress box.
  */
 import {
-  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, titleCls, updateEmail, EMAIL_RE,
+  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, titleCls, updateEmail, EMAIL_RE, changeUsername, USERNAME_RE as UNAME_RE,
   signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount
 } from './account.js';
 import {t, getLang} from './i18n.js';
@@ -225,7 +225,7 @@ export function renderProfile(el) {
     const st = p.stats || {}, since = new Date(p.created_at);
     const cell = (k, v) => `<div class="stat"><b>${esc(String(v))}</b><small>${esc(t(k))}</small></div>`;
     body = `<div class="stats">${cell('pLevel', lv)}${cell('pXpTotal', p.xp)}${cell('pWins', p.wins)}${cell('pGames', p.games)}${cell('pBotGames', p.bot_games)}${cell('pDeals', st.deals || 0)}${cell('pBelt', st.belt || 0)}${cell('pMember', isNaN(since) ? '–' : since.toLocaleDateString(getLang()))}</div>
-      ${emailHTML()}
+      ${nameHTML()}${emailHTML()}
       <h3>${esc(t('pRecent'))}</h3>${ACC.recent.length ? `<ul class="recent">${ACC.recent.map(r => `<li><span>${esc(r.mode === 'solo' ? t('pSolo') : t('pOnline'))}</span><span>${r.won ? '🏆 ' : ''}${esc(t('pPlace', r.place, r.players))}</span><span>${!r.counted ? esc(t('pNotCounted')) : `+${r.xp} XP${r.mode === 'online' && !r.verified ? ' · ' + esc(t('pPending')) : ''}`}</span><small>${esc(new Date(r.created_at).toLocaleString(getLang(), {dateStyle: 'short', timeStyle: 'short'}))}</small></li>`).join('')}</ul>` : `<p class="note">${esc(t('pNoRecent'))}</p>`}
       <p class="botnote">${esc(t('pBotNote'))}</p>
       <div class="danger"><b>${esc(t('pDeleteTitle'))}</b><p class="note">${esc(t('pDeleteNote'))}</p>
@@ -240,6 +240,25 @@ export function renderProfile(el) {
     <div class="box">${TAB_NOTE[tab] ? `<p class="note">${esc(t(TAB_NOTE[tab]))}</p>` : ''}${AU.err ? `<p class="err">${esc(AU.err)}</p>` : ''}${body}</div>`;
 }
 
+// username: can be changed once every 7 days
+const NAME_WAIT = 7 * 864e5;
+function nameHTML() {
+  const p = ACC.profile, last = p.name_changed_at ? new Date(p.name_changed_at).getTime() : 0, next = last + NAME_WAIT, wait = last && next > Date.now();
+  const when = new Date(next).toLocaleString(getLang(), {dateStyle: 'medium', timeStyle: 'short'}), dis = AU.busy || wait ? 'disabled' : '';
+  return `<div class="emailbox"><b>${esc(t('pNameTitle'))}</b><p class="note">${esc(wait ? t('pNameWait', when) : t('pNameNote'))}</p>
+    <form data-form="uname" class="row"><label for="pName" class="vh">${esc(t('aUsername'))}</label><input id="pName" maxlength="14" autocomplete="username" pattern="[A-Za-z0-9_]{3,14}" value="${esc(p.username)}" required ${wait ? 'disabled' : ''}>
+    <button class="btn" type="submit" ${dis}>${esc(AU.busy ? t('aWorking') : t('pNameBtn'))}</button></form>
+    ${AU.nameErr ? `<p class="err" role="alert">${esc(AU.nameErr)}</p>` : ''}${AU.nameMsg ? `<p class="okmsg" role="status">${esc(AU.nameMsg)}</p>` : ''}</div>`;
+}
+async function saveName() {
+  if (AU.busy) return;
+  const v = val('pName').trim();
+  if (v === ACC.profile.username) return;
+  AU.busy = true; AU.nameErr = ''; AU.nameMsg = ''; H.render();
+  try { await changeUsername(v); AU.nameMsg = t('pNameSaved', v); }
+  catch (e) { AU.nameErr = e && e.key === 'aErrNameWait' ? t('pNameWait', new Date(e.at).toLocaleString(getLang(), {dateStyle: 'medium', timeStyle: 'short'})) : errText(e); }
+  AU.busy = false; H.render();
+}
 function emailHTML() {
   const has = hasRealEmail(), dis = AU.busy ? 'disabled' : '';
   return `<div class="emailbox"><b>${esc(t('pEmailTitle'))}</b><p class="note">${has ? esc(t('pEmailOn', ACC.user.email)) : esc(t('pEmailOff'))}</p>
@@ -301,7 +320,7 @@ export function accountClick(a, b) {
     case 'authTab': AU.tab = b.dataset.t; AU.err = ''; AU.msg = ''; H.render(); return true;
     case 'authGuest': ACC.recovery = false; AU.err = ''; AU.msg = ''; H.go('home'); return true;
     case 'logout': signOut(); return true;
-    case 'profile': if (loggedIn()) { AU.err = ''; AU.emailErr = ''; AU.emailMsg = ''; if (b && b.closest && b.closest('#acctChip')) AU.prof = 'stats'; H.go('profile'); } return true;
+    case 'profile': if (loggedIn()) { AU.err = ''; AU.emailErr = ''; AU.emailMsg = ''; AU.nameErr = ''; AU.nameMsg = ''; if (b && b.closest && b.closest('#acctChip')) AU.prof = 'stats'; H.go('profile'); } return true;
     case 'profBack': AU.err = ''; H.go('home'); return true;
     case 'profTab': AU.prof = b.dataset.t; AU.err = ''; H.render(); return true;
     case 'equip': doEquip({[b.dataset.kind]: b.dataset.key}); return true;
@@ -321,6 +340,6 @@ export function accountClick(a, b) {
 }
 document.addEventListener('submit', e => {
   const f = e.target.closest && e.target.closest('form[data-form]'); if (!f) return;
-  e.preventDefault(); if (f.dataset.form === 'email') saveEmail(); else runForm(f.dataset.form);
+  e.preventDefault(); if (f.dataset.form === 'email') saveEmail(); else if (f.dataset.form === 'uname') saveName(); else if (f.dataset.form !== 'fradd') runForm(f.dataset.form);
 });
 document.addEventListener('input', e => { if (e.target && e.target.id === 'auName') checkName(); });

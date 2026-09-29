@@ -16,13 +16,15 @@ import './i18n-v11.js';
 import './i18n-v13.js';
 import './i18n-v15.js';
 import './i18n-v16.js';
+import './i18n-v17.js';
+import './i18n-v18.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
 import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
 import {shareResult} from './share.js';
 import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast, socialClick} from './social-ui.js';
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
-import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls} from './account.js';
+import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 
@@ -120,7 +122,11 @@ function wire(c0) {
 }
 function onMsg(sub, m) {
   if (sub === 'state') { if (!m || typeof m !== 'object' || !Array.isArray(m.pl)) return; if (S && !newer(m, S)) return; S = m; if (S.host !== me.pid) lastHb = Date.now(); afterState(); return; }
-  if (sub === 'in') { if (isHost()) hostHandle(m); return; }
+  if (sub === 'in') {
+    // someone (re)joined: share my copy of the table and my presence, in case the server's copy is older
+    if (m && m.k === 'sync' && m.pid !== me.pid && mq && S) { const cl = mq; setTimeout(() => { if (mq !== cl || !S) return; cl.publish(T('state'), JSON.stringify(S), {qos: 1, retain: true, properties: EXP}); cl.publish(T('pres/' + me.pid), '1', {qos: 1, retain: true, properties: EXP}); }, 150 + Math.random() * 450); return; }
+    if (isHost()) hostHandle(m); return;
+  }
   if (sub === 'chat') { if (!m || typeof m.pid !== 'string' || m.pid === me.pid || ui.muted.has(m.pid)) return; const qk = QUICK.includes(m.q) ? m.q : null; if (!qk && typeof m.t !== 'string') return; addChat(m.pid, m.n, qk ? t('qc_' + qk) : m.t, false); return; }
   if (sub === 'react') { if (!m || !EMOJIS.includes(m.e) || m.pid === me.pid || !shown || ui.muted.has(m.pid)) return; const i = shown.pl.findIndex(q => q.id === m.pid); if (i >= 0) showReact(i, m.e); return; }
   if (sub === 'hb') { if (m && S && m.pid === S.host) lastHb = Date.now(); return; }
@@ -242,6 +248,7 @@ async function joinRoom(forced) {
     const st = await probeState(c, 3500);
     if (!st) { try { c.end(true); } catch (e) {} continue; }
     S = null; wire(c); onMsg('state', st);
+    mq.publish(T('in'), JSON.stringify({k: 'sync', pid: me.pid}), {qos: 1});
     if (mode === 'online' && S && !isHost()) mq.publish(T('in'), JSON.stringify({k: 'hello', pid: me.pid, nm, pf: publicCard(), av: myAvatarPref()}), {qos: 1});
     // nobody let us in (e.g. the host already left): give up, or look for another table
     const myCode = code; setTimeout(() => { if (mode === 'online' && code === myCode && ui.screen === 'joining') failJoin(t('eJoin'), true); }, 10000);
@@ -667,9 +674,8 @@ function sendReact(e) {
 const colOf = i => COLORS[i % COLORS.length];
 const teamTag = tm => `<span class="tag team t${tm}">${esc(t(tm ? 'teamB' : 'teamA'))}</span>`;
 let AVM = [], FRM = [];
-const SHAPES = ['●', '▲', '■', '◆', '★', '✚'];
-const shp = i => `<b class="shp" aria-hidden="true">${SHAPES[i % SHAPES.length]}</b>`;
-const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${avHTML(AVM[i])}${shp(i)}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}">${shp(i)}</span>`;
+
+const dot = i => AVM[i] && AVATARS[AVM[i]] ? `<span class="dot av${frCls(FRM[i])}" style="--c:${colOf(i)}">${avHTML(AVM[i])}</span>` : `<span class="dot${frCls(FRM[i])}" style="--c:${colOf(i)}"></span>`;
 const setAVM = V => { AVM = V && V.pl ? V.pl.map(q => q.av) : []; FRM = V && V.pl ? V.pl.map(q => q.pf && q.pf.fr) : []; };
 // level + title shown next to a logged-in player's name
 const pfTag = q => q && q.pf ? `<span class="lvtag">${esc(t('lvTag', q.pf.lv))}</span>` : '';
@@ -696,10 +702,11 @@ document.addEventListener('input', e => { if (e.target.id) e.target.dataset.touc
 function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
   if (code) $('#roomChip').innerHTML = `${esc(S && S.pub ? t('chipPub') : t('chipRoom'))} <b>${esc(code)}</b>`;
-  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('off', !SFX.on); $('#sndBtn').setAttribute('aria-pressed', String(SFX.on)); $('#gameCredit').hidden = true;
-  $('#musicBtn').classList.toggle('off', !Music.on); $('#musicBtn').setAttribute('aria-pressed', String(Music.on)); $('#musicBtn').title = t('music');
-  $('#langBtn').textContent = getLang() === 'en' ? 'TR' : 'EN'; $('#langBtn').setAttribute('aria-label', t('langAria'));
-  $('#themeBtn').title = t('themeAria'); { const sh = document.body.classList.contains('shapes'); $('#shapeBtn').classList.toggle('on', sh); $('#shapeBtn').setAttribute('aria-pressed', String(sh)); $('#shapeBtn').title = t('shapesAria'); } renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
+  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); $('#gameCredit').hidden = true;
+  $('#musicBtn').classList.toggle('on', Music.on); $('#musicBtn').setAttribute('aria-checked', String(Music.on));
+  document.querySelectorAll('[data-a=setLang]').forEach(b => b.classList.toggle('on', b.dataset.l === getLang()));
+  document.querySelectorAll('[data-a=setTheme]').forEach(b => b.classList.toggle('on', b.dataset.t === (document.documentElement.dataset.theme || 'light')));
+  renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
   Music.scene(ui.screen === 'game' && shown && shown.ph !== 'lobby' ? 'game' : 'menu');
   if (ui.screen === 'home') { show('home'); renderHome(); return; }
   updateToast();
@@ -792,7 +799,7 @@ function drawTokens(V) {
   cells.forEach((el, p) => {
     const ids = at[p].slice().sort((x, y) => (x === A) - (y === A));
     el.querySelector('.toks').innerHTML = ids.map(i => { const av = V.pl[i].av && AVATARS[V.pl[i].av] ? avHTML(V.pl[i].av) : '';
-      return `<span class="tok${av ? ' avt' : ''}${frCls(FRM[i])}${i === A ? ' act' : ''}${i === mi ? ' me' : ''}" data-i="${i}" style="--c:${colOf(i)};${i === 2 && !av ? 'color:#16202b' : ''}" title="${esc(V.pl[i].n)}">${av || esc((V.pl[i].n || '?')[0].toUpperCase())}${shp(i)}</span>`; }).join('');
+      return `<span class="tok${av ? ' avt' : ''}${frCls(FRM[i])}${i === A ? ' act' : ''}${i === mi ? ' me' : ''}" data-i="${i}" style="--c:${colOf(i)};${i === 2 && !av ? 'color:#16202b' : ''}" title="${esc(V.pl[i].n)}">${av || esc((V.pl[i].n || '?')[0].toUpperCase())}</span>`; }).join('');
     const here = A >= 0 && ids.includes(A); el.classList.toggle('here', here); if (here) el.style.setProperty('--hcol', colOf(A));
   });
 }
@@ -998,7 +1005,6 @@ function copyText(txt, btn, okLabel, resetLabel, selectEl) {
   try { navigator.clipboard.writeText(txt).then(() => { btn.textContent = okLabel; if (resetLabel) setTimeout(() => { btn.textContent = resetLabel; }, 1800); }, f); } catch (err) { f(); }
 }
 // close the small settings menu (phones) when tapping elsewhere
-document.addEventListener('pointerdown', e => { if (document.body.classList.contains('moreopen') && !e.target.closest('#tgls, #moreBtn')) { document.body.classList.remove('moreopen'); $('#moreBtn').setAttribute('aria-expanded', 'false'); } });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-a]'); if (!b || b.disabled) return; const a = b.dataset.a;
   if (accountClick(a, b) || socialClick(a, b)) { SFX.play('click'); return; }
@@ -1007,8 +1013,10 @@ document.addEventListener('click', e => {
     case 'hmode': ui.hmode = b.dataset.m; lsSet('cf-hmode', ui.hmode); render(); break;
     case 'friendsPlay': ui.roomOpen = !ui.roomOpen; render(); if (ui.roomOpen) setTimeout(() => $('#code').focus(), 30); break;
     case 'howto': { const d = $('#rulesBox'); d.open = true; d.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'}); break; }
-    case 'more': { const on = document.body.classList.toggle('moreopen'); b.setAttribute('aria-expanded', String(on)); break; }
-    case 'theme': setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); break;
+    case 'settings': $('#setModal').hidden = false; render(); break;
+    case 'setClose': $('#setModal').hidden = true; break;
+    case 'setLang': if (b.dataset.l !== getLang()) { setLang(b.dataset.l); pickNick(); applyStatic(); } render(); break;
+    case 'setTheme': setTheme(b.dataset.t); render(); break;
     case 'stab': setTab(b.dataset.t); break;
     case 'lang': setLang(getLang() === 'en' ? 'tr' : 'en'); pickNick(); applyStatic(); render(); break;
     case 'create': ui.err = ''; ui.quick = 0; createRoom(false); break;
@@ -1039,7 +1047,6 @@ document.addEventListener('click', e => {
     case 'nshare': navigator.share && navigator.share({title: 'Check Flip', text: t('waText', code), url: inviteLink()}).catch(() => {}); break;
     case 'mute': mutePlayer(b.dataset.pid, true); break;
     case 'unmute': mutePlayer(b.dataset.pid, false); b.closest('li') && b.closest('li').remove(); break;
-    case 'shapes': { const on = !document.body.classList.contains('shapes'); document.body.classList.toggle('shapes', on); lsSet('cf-shapes', on ? '1' : '0'); render(); break; }
     case 'rmbot': removeBot(b.dataset.id); break;
     case 'start': send({t: 'start'}, myIdx(S)); break;
     case 'roll': send({t: 'roll'}, actor(S)); break;
@@ -1093,7 +1100,8 @@ pickNick();
 $('#nm').value = lsGet('hs-nm') || '';
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
 { const qs = new URLSearchParams(location.search); const qp = qs.get('room') || qs.get('oda'); if (qp) { $('#code').value = qp.toUpperCase().slice(0, 5); ui.roomOpen = true; } }
-ui.hmode = lsGet('cf-hmode') || 'classic'; ui.botLv = lsGet('cf-botlv') || 'normal'; document.body.classList.toggle('shapes', lsGet('cf-shapes') === '1'); setTheme(document.documentElement.dataset.theme || 'light', false);
+setSocialGameCheck(() => ui.screen === 'game' && !!shown && shown.ph !== 'lobby' && shown.ph !== 'over');
+ui.hmode = lsGet('cf-hmode') || 'classic'; ui.botLv = lsGet('cf-botlv') || 'normal'; setTheme(document.documentElement.dataset.theme || 'light', false);
 const uiHooks = {
   go: sc => { ui.screen = sc; render(); },
   render: () => { updateToast(); if (['home', 'auth', 'profile', 'friends', 'leaders'].includes(ui.screen) || (shown && (shown.ph === 'over' || shown.ph === 'lobby'))) render(); },
@@ -1110,3 +1118,6 @@ initAccount().then(() => { applyStatic(); render(); });
 if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]debug=1/.test(location.search)) {
   window.__cf = {state: () => S, endGame: () => { if (!S || !isHost()) return; S.ph = 'over'; S.win = 0; S.end = 'last'; S.fe = null; S.pend = null; if (mode === 'local') sync(); else commit(); }};
 }
+// settings panel: close on the backdrop or Escape
+document.addEventListener('click', e => { if (e.target && e.target.id === 'setModal') $('#setModal').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#setModal').hidden) $('#setModal').hidden = true; });

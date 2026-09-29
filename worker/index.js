@@ -14,8 +14,15 @@
  *                    {t:'pub', topic, payload, retain, ttl}          publish (retain + '' = delete)
  *                    'ping'                                           → 'pong' (answered without waking the object)
  *   server → client  {t:'msg', topic, payload}
+ *
+ * Retained messages live in memory and are written to storage sparingly (the free plan
+ * allows 100,000 storage writes a day): the game state at most every 30 s per room plus
+ * when the last player leaves, presence right away, public-table ads (_pub) never.
+ * A player who reconnects asks the others for the latest state ('sync'), so a slightly
+ * older copy in storage after the object slept is corrected at once.
  */
 import {DurableObject} from 'cloudflare:workers';
+import {SEO} from '../public/js/seo-text.js';
 
 const ROOT = 'checkplease/v1/';           // topic prefix (kept from the game's former name)
 const PUB_HUB = '_pub';                   // hub that lists public tables for quick play
@@ -24,6 +31,7 @@ const MAX_FRAME = 96 * 1024;              // bytes per message (a full game stat
 const MAX_SUBS = 16;
 const RATE_WINDOW = 10000, RATE_MAX = 80; // messages per socket per 10 s
 const MAX_TTL = 12 * 3600;                // retained messages live at most 12 h
+const STATE_SAVE_MS = 30000;              // game state: write to storage at most every 30 s
 
 const hubOf = topic => typeof topic === 'string' && topic.startsWith(ROOT) ? topic.slice(ROOT.length).split('/')[0] : null;
 const match = (filter, topic) => {
@@ -52,6 +60,8 @@ export default {
       if (!originOk(req, env)) return new Response('Forbidden', {status: 403});
       return env.HUB.get(env.HUB.idFromName(hub)).fetch(req);
     }
+    if (url.pathname === '/tr/') return Response.redirect(url.origin + '/tr' + url.search, 301);
+    if (url.pathname === '/tr') return turkishPage(req, env, url);
     return env.ASSETS.fetch(req);
   },
   async scheduled(event, env, ctx) {
@@ -59,13 +69,41 @@ export default {
   }
 };
 
-// A tiny read through the public REST API counts as activity for Supabase.
+// /tr: the same page with the Turkish title, description and "What is Check Flip?" text already
+// in the HTML, so search engines index a Turkish version without running JavaScript.
+async function turkishPage(req, env, url) {
+  const res = await env.ASSETS.fetch(new Request(url.origin + '/', req));
+  if (!res.ok || !(res.headers.get('Content-Type') || '').includes('text/html')) return res;
+  const T = SEO.tr, page = 'https://checkflipgame.com/tr';
+  const attr = (name, value) => ({element(el) { el.setAttribute(name, value); }});
+  const out = new HTMLRewriter()
+    .on('html', attr('lang', 'tr'))
+    .on('head', {element(el) { el.prepend('<base href="/">', {html: true}); }})
+    .on('title', {element(el) { el.setInnerContent(T.title); }})
+    .on('meta[name="description"]', attr('content', T.desc))
+    .on('link[rel="canonical"]', attr('href', page))
+    .on('meta[property="og:url"]', attr('content', page))
+    .on('meta[property="og:title"]', attr('content', T.title))
+    .on('meta[name="twitter:title"]', attr('content', T.title))
+    .on('meta[property="og:description"]', attr('content', T.desc))
+    .on('meta[name="twitter:description"]', attr('content', T.desc))
+    .on('meta[property="og:locale"]', attr('content', 'tr_TR'))
+    .on('meta[property="og:locale:alternate"]', attr('content', 'en_US'))
+    .on('#seoH1', {element(el) { el.setInnerContent(T.h1); }})
+    .on('#seoAbout', {element(el) { el.setInnerContent(T.about, {html: true}); }})
+    .transform(res);
+  const h = new Headers(out.headers); h.set('Content-Language', 'tr'); h.delete('ETag');
+  return new Response(out.body, {status: 200, headers: h});
+}
+
+// Daily: runs the database upkeep (season medals, old game rows); this also counts as activity,
+// so a free Supabase project isn't paused. Falls back to a tiny read on older databases.
 async function keepSupabaseAwake(env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_KEY) return;
-  const r = await fetch(env.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/cosmetics?select=key&limit=1', {
-    headers: {apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + env.SUPABASE_KEY}
-  });
-  console.log('supabase keep-alive:', r.status);
+  const base = env.SUPABASE_URL.replace(/\/$/, ''), headers = {apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + env.SUPABASE_KEY, 'Content-Type': 'application/json'};
+  let r = await fetch(base + '/rest/v1/rpc/daily_upkeep', {method: 'POST', headers, body: '{}'});
+  console.log('supabase upkeep:', r.status, r.ok ? await r.text() : '');
+  if (!r.ok) { r = await fetch(base + '/rest/v1/cosmetics?select=key&limit=1', {headers}); console.log('supabase keep-alive:', r.status); }
 }
 
 export class Hub extends DurableObject {
@@ -73,7 +111,29 @@ export class Hub extends DurableObject {
     super(ctx, env);
     // keep-alive pings are answered by the runtime without waking this object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+    this.mem = null;          // topic -> {p, e}: retained messages (loaded from storage when the object wakes up)
+    this.savedAt = new Map(); // topic -> last write to storage
+    this.dirty = new Set();   // retained topics newer in memory than in storage
   }
+
+  async load() {
+    if (this.mem) return;
+    const mem = new Map(), ret = await this.ctx.storage.list({prefix: 'r:'});
+    for (const [k, v] of ret) mem.set(k.slice(2), v);
+    if (!this.mem) this.mem = mem;
+  }
+  // 'now' = write at once, 'later' = at most every STATE_SAVE_MS, 'never' = memory only
+  policy(topic) {
+    if (hubOf(topic) === PUB_HUB) return 'never';
+    return topic.endsWith('/state') ? 'later' : 'now';
+  }
+  async save(topic, v) {
+    await this.ctx.storage.put('r:' + topic, v);
+    this.savedAt.set(topic, Date.now()); this.dirty.delete(topic);
+    const al = await this.ctx.storage.getAlarm();
+    if (al == null || al > v.e) await this.ctx.storage.setAlarm(v.e);
+  }
+  async flush() { for (const t of [...this.dirty]) { const v = this.mem && this.mem.get(t); if (v) await this.save(t, v); else this.dirty.delete(t); } }
 
   async fetch(req) {
     const url = new URL(req.url);
@@ -119,10 +179,10 @@ export class Hub extends DurableObject {
       a.subs = a.subs.concat(add).slice(0, MAX_SUBS);
       ws.serializeAttachment(a);
       // deliver retained messages that match the new filters
-      const ret = await this.ctx.storage.list({prefix: 'r:'});
-      for (const [k, v] of ret) {
-        const topic = k.slice(2);
-        if (v.e < now || !add.some(f => match(f, topic))) continue;
+      await this.load();
+      for (const [topic, v] of this.mem) {
+        if (v.e < now) { this.mem.delete(topic); continue; }
+        if (!add.some(f => match(f, topic))) continue;
         try { ws.send(JSON.stringify({t: 'msg', topic, payload: v.p})); } catch (e) {}
       }
       return;
@@ -144,6 +204,7 @@ export class Hub extends DurableObject {
     // last player gone: take the room off the public-table list right away
     const hub = a && a.hub;
     if (hub && hub !== PUB_HUB && !this.ctx.getWebSockets().some(o => o !== ws && o.readyState === 1)) {
+      await this.flush();
       await this.forward(PUB_HUB, {topic: ROOT + PUB_HUB + '/' + hub, payload: '', retain: true, ttl: 60});
     }
   }
@@ -155,12 +216,16 @@ export class Hub extends DurableObject {
 
   async publish(topic, payload, retain, ttl) {
     if (retain) {
-      if (payload === '') await this.ctx.storage.delete('r:' + topic);
-      else {
-        const e = Date.now() + clampTtl(ttl) * 1000;
-        await this.ctx.storage.put('r:' + topic, {p: payload, e});
-        const al = await this.ctx.storage.getAlarm();
-        if (al == null || al > e) await this.ctx.storage.setAlarm(e);
+      await this.load();
+      const pol = this.policy(topic);
+      if (payload === '') {
+        const had = this.mem.delete(topic); this.dirty.delete(topic); this.savedAt.delete(topic);
+        if (pol !== 'never' && had) await this.ctx.storage.delete('r:' + topic);
+      } else {
+        const v = {p: payload, e: Date.now() + clampTtl(ttl) * 1000};
+        this.mem.set(topic, v);
+        if (pol === 'now' || (pol === 'later' && Date.now() - (this.savedAt.get(topic) || 0) >= STATE_SAVE_MS)) await this.save(topic, v);
+        else if (pol === 'later') this.dirty.add(topic);
       }
     }
     const msg = JSON.stringify({t: 'msg', topic, payload});
@@ -173,6 +238,7 @@ export class Hub extends DurableObject {
   // remove expired retained messages; schedule the next clean-up
   async alarm() {
     const now = Date.now(); let next = null;
+    if (this.mem) for (const [t, v] of this.mem) if (v.e <= now) { this.mem.delete(t); this.dirty.delete(t); }
     const ret = await this.ctx.storage.list({prefix: 'r:'});
     for (const [k, v] of ret) {
       if (v.e <= now) await this.ctx.storage.delete(k);

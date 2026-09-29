@@ -6,7 +6,11 @@
  */
 const LANGS = ['en', 'tr'];
 let lang = 'en';
-try { const s = localStorage.getItem('hs-lang'); if (LANGS.includes(s)) lang = s; } catch (e) {}
+// saved choice first; otherwise the /tr page or a Turkish browser opens in Turkish
+{ let s = null; try { s = localStorage.getItem('hs-lang'); } catch (e) {}
+  if (LANGS.includes(s)) lang = s;
+  else if (typeof location !== 'undefined' && /^\/tr\/?$/.test(location.pathname)) lang = 'tr';
+  else if (typeof navigator !== 'undefined' && /^tr\b/i.test(navigator.language || '')) lang = 'tr'; }
 
 const getLang = () => lang;
 function setLang(l) { if (!LANGS.includes(l)) return; lang = l; try { localStorage.setItem('hs-lang', l); } catch (e) {} document.documentElement.lang = l; }

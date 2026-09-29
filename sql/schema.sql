@@ -659,6 +659,71 @@ begin
    order by r.rpos;
 end $$;
 
+-- my place in a finished season (for the "Season N is over, you finished 2nd!" message)
+create or replace function public.my_season(p_season integer)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select to_jsonb(x) from (
+    select r.pos, r.swins as wins, r.total as players, p_season as season from (
+      select t.user_id, t.swins, count(*) over () as total,
+             row_number() over (order by t.swins desc, t.sxp desc, p.username) as pos
+        from public.season_table(p_season) t join public.profiles p on p.id = t.user_id
+       where t.swins > 0 or t.sxp > 0
+    ) r where r.user_id = auth.uid()
+  ) x;
+$$;
+
+-- recent online games I played together with friends (newest first)
+create or replace function public.friend_matches(p_limit integer default 10)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(g order by g.at desc), '[]'::jsonb) from (
+    select m.game_id, m.created_at as at, m.players, m.place, m.won,
+           (select jsonb_agg(jsonb_build_object('username', p.username, 'place', o.place, 'won', o.won) order by o.place)
+              from public.game_results o join public.profiles p on p.id = o.user_id
+             where o.game_id = m.game_id and o.user_id in (select f.friend_id from public.friends f where f.user_id = auth.uid())) as friends
+      from public.game_results m
+     where m.user_id = auth.uid() and m.mode = 'online'
+       and exists (select 1 from public.game_results o join public.friends f on f.friend_id = o.user_id and f.user_id = auth.uid() where o.game_id = m.game_id)
+     order by m.created_at desc
+     limit least(greatest(coalesce(p_limit, 10), 1), 30)
+  ) g;
+$$;
+
+-- Daily upkeep (called by the Worker's cron): hand out season medals, drop old detail rows.
+-- Profiles keep their totals (level, wins, games, stats) and achievements; only per-game rows older than 180 days go.
+create or replace function public.daily_upkeep()
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare n int;
+begin
+  perform public.close_seasons();
+  delete from public.game_results where created_at < now() - interval '180 days';
+  get diagnostics n = row_count;
+  delete from public.login_attempts where at < now() - interval '1 day';
+  return jsonb_build_object('ok', true, 'results_removed', n);
+end $$;
+
+create index if not exists game_results_created on public.game_results (created_at);
+
+-- Change username: at most once every 7 days; same rules as sign-up (format, word filter, unique).
+alter table public.profiles add column if not exists name_changed_at timestamptz;
+create or replace function public.change_username(p_new text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare v_uid uuid := auth.uid(); v_last timestamptz; v_old text;
+begin
+  if v_uid is null then raise exception 'not_authenticated'; end if;
+  p_new := trim(coalesce(p_new, ''));
+  if p_new !~ '^[A-Za-z0-9_]{3,14}$' then raise exception 'username_invalid'; end if;
+  if public.name_blocked(p_new) then raise exception 'username_blocked'; end if;
+  select name_changed_at, username into v_last, v_old from public.profiles where id = v_uid for update;
+  if v_old = p_new then return jsonb_build_object('username', v_old, 'next', v_last + interval '7 days'); end if;
+  if v_last is not null and v_last > now() - interval '7 days' then
+    raise exception 'username_wait %', to_char(v_last + interval '7 days', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+  end if;
+  if lower(v_old) <> lower(p_new) and exists (select 1 from public.profiles where lower(username) = lower(p_new)) then raise exception 'username_taken'; end if;
+  update public.profiles set username = p_new, name_changed_at = now() where id = v_uid;
+  update auth.users set raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('username', p_new) where id = v_uid;
+  return jsonb_build_object('username', p_new, 'next', now() + interval '7 days');
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Public profile card (what friends and other players can see)
 -- ---------------------------------------------------------------------
@@ -806,6 +871,11 @@ grant execute on function public.my_daily(), public.social(), public.friend_add(
 grant execute on function public.daily_quest(date), public.leaderboard(text, int), public.public_profile(text) to anon, authenticated;
 grant execute on function public.close_seasons(), public.season_of(timestamptz), public.season_start(integer) to anon, authenticated;
 revoke execute on function public.season_table(integer) from public, anon, authenticated;
+revoke execute on function public.my_season(integer), public.friend_matches(integer) from public, anon;
+grant execute on function public.my_season(integer), public.friend_matches(integer) to authenticated;
+grant execute on function public.daily_upkeep() to anon, authenticated;
+revoke execute on function public.change_username(text) from public, anon;
+grant execute on function public.change_username(text) to authenticated;
 grant execute on function public.delete_my_account() to authenticated;
 
 -- ---------------------------------------------------------------------

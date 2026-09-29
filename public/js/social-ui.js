@@ -4,14 +4,14 @@
  */
 import {
   ACC, ACHS, titleCls, loggedIn, level, levelOf, xpFor, MAX_LEVEL, safeItem, leaderboard, publicProfile,
-  friendAdd, friendRespond, friendRemove, inviteFriend, inviteDismiss, pollSocial, USERNAME_RE
+  friendAdd, friendRespond, friendRemove, inviteFriend, inviteDismiss, pollSocial, USERNAME_RE, onAccount, mySeason, friendMatches
 } from './account.js';
 import {frCls, medalHTML, medalsRow, seasonNow, seasonDaysLeft} from './account-ui.js';
 import {t, getLang} from './i18n.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 let H = null;   // hooks from app.js
-export const SU = {lbKind: 'weekly', lb: {}, lbAt: {}, lbErr: '', fMsg: '', fErr: '', busy: false, invited: {}, hidden: {}};
+export const SU = {fm: null, fmAt: 0, lbKind: 'weekly', lb: {}, lbAt: {}, lbErr: '', fMsg: '', fErr: '', busy: false, invited: {}, hidden: {}};
 export function initSocialUI(hooks) { H = hooks; }
 
 // small round avatar with the player's equipped frame
@@ -63,8 +63,45 @@ export function renderFriends(el) {
     <div class="box"><form data-form="fradd" class="row"><input id="frName" maxlength="14" placeholder="${esc(t('frAddPh'))}" autocomplete="off" required>
       <button class="btn primary" type="submit" ${SU.busy ? 'disabled' : ''}>${esc(t('frAdd'))}</button></form>
       ${SU.fErr ? `<p class="err">${esc(SU.fErr)}</p>` : ''}${SU.fMsg ? `<p class="okmsg">${esc(SU.fMsg)}</p>` : ''}${out}</div>
-    ${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>`;
+    ${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>${s.friends.length ? matchesHTML() : ''}`;
+  if (s.friends.length && (!SU.fm || Date.now() - SU.fmAt > 60000)) loadMatches();
 }
+async function loadMatches() {
+  SU.fmAt = Date.now();
+  try { SU.fm = await friendMatches(); } catch (e) { SU.fm = SU.fm || []; }
+  H.render();
+}
+function matchesHTML() {
+  const list = SU.fm;
+  const body = !list ? `<p class="note">${esc(t('aLoading'))}</p>` : !list.length ? `<p class="note">${esc(t('fmNone'))}</p>`
+    : `<ul class="fmlist">${list.map(g => `<li><span class="fmres ${g.won ? 'won' : ''}">${esc(g.won ? t('fmWon') : t('fmPlace', g.place, g.players))}</span>
+        <span class="fmwho">${(g.friends || []).map(f => `<span>${nameBtn(f.username)} <small>${esc(f.won ? t('fmWon') : t('fmPlace', f.place, g.players))}</small></span>`).join('')}</span>
+        <small class="note">${esc(new Date(g.at).toLocaleString(getLang(), {dateStyle: 'medium', timeStyle: 'short'}))}</small></li>`).join('')}</ul>`;
+  return `<div class="box"><h3>${esc(t('fmTitle'))}</h3>${body}</div>`;
+}
+
+/* ---------------- season over message ---------------- */
+// once per finished season: "Season 3 is over, you finished 2nd!"
+let seasonChecked = false;
+async function checkSeasonEnd() {
+  if (seasonChecked || !loggedIn()) return; seasonChecked = true;
+  const prev = seasonNow() - 1; if (prev < 1) return;
+  const key = 'cf-season-' + ACC.profile.id; let seen = 0;
+  try { seen = +localStorage.getItem(key) || 0; } catch (e) {}
+  if (seen >= prev) return;
+  let r = null; try { r = await mySeason(prev); } catch (e) { seasonChecked = false; return; }
+  try { localStorage.setItem(key, String(prev)); } catch (e) {}
+  if (!r || !r.pos) return;
+  const m = document.getElementById('modal'), c = document.getElementById('modalCard'); if (!m || !c || !m.hidden) return;
+  m.hidden = false;
+  c.innerHTML = `<button class="btn small ghost mclose" data-a="modalClose" aria-label="${esc(t('close'))}">✕</button>
+    <div class="seasonend">${r.pos <= 3 ? medalHTML(prev, r.pos) : '<span class="seasonpos">' + r.pos + '.</span>'}
+    <h2>${esc(t('seTitle', prev))}</h2><p class="sebig">${esc(t('sePlace', r.pos))}</p>
+    <p class="note">${esc(t('seSub', r.wins, r.players))}</p>${r.pos <= 3 ? `<p class="okmsg">${esc(t('seMedal'))}</p>` : ''}
+    <p class="note">${esc(t('seNext', prev + 1))}</p>
+    <div class="row mact"><button class="btn" data-a="leaders">${esc(t('lbTitle'))}</button><button class="btn primary" data-a="modalClose">${esc(t('seOk'))}</button></div></div>`;
+}
+onAccount(() => { if (loggedIn()) setTimeout(checkSeasonEnd, 800); });
 async function doFriend(fn, okMsg) {
   if (SU.busy) return; SU.busy = true; SU.fErr = ''; SU.fMsg = ''; H.render();
   try { const r = await fn(); SU.fMsg = typeof okMsg === 'function' ? okMsg(r) : okMsg || ''; }
@@ -128,7 +165,7 @@ export function renderInviteBox(el, room, show) {
 /* ---------------- events ---------------- */
 export function socialClick(a, b) {
   switch (a) {
-    case 'leaders': SU.lbErr = ''; H.go('leaders'); loadBoard(SU.lbKind, true); return true;
+    case 'leaders': if (modalUser === null) { const mm = document.getElementById('modal'); if (mm && !mm.hidden) closeProfile(); } SU.lbErr = ''; H.go('leaders'); loadBoard(SU.lbKind, true); return true;
     case 'friends': SU.fErr = ''; SU.fMsg = ''; H.go('friends'); pollSocial(); return true;
     case 'lbTab': SU.lbKind = b.dataset.t; SU.lbErr = ''; H.render(); loadBoard(SU.lbKind); return true;
     case 'viewp': openProfile(b.dataset.u); return true;

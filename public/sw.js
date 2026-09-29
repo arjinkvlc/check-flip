@@ -12,7 +12,7 @@ const VERSION = new URL(self.location).searchParams.get('v') || 'dev';
 const CACHE = 'checkflip-' + VERSION;
 const SHELL = [
   '/', '/manifest.webmanifest', '/css/style.css', '/assets/logo.svg',
-  '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/i18n-v13.js', '/js/i18n-v15.js', '/js/i18n-v16.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
+  '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/i18n-v13.js', '/js/i18n-v15.js', '/js/i18n-v16.js', '/js/i18n-v17.js', '/js/i18n-v18.js', '/js/seo-text.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
   '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js',
   '/js/pwa.js', '/js/version.js',
   ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic', 'barista', 'sommelier'].map(k => `/assets/avatars/${k}.svg`)
