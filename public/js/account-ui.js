@@ -142,7 +142,8 @@ export function renderAuth(el) {
 
 /* Cloudflare Turnstile (optional, see config.js): one widget kept outside the form so re-renders don't reset it */
 let tsId = null, tsToken = null, tsLoading = false;
-const captchaOn = () => !!TURNSTILE_SITE_KEY && ACC.enabled;
+// (off on localhost: the widget only works on the site's own domain)
+const captchaOn = () => !!TURNSTILE_SITE_KEY && ACC.enabled && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const CAPTCHA_TABS = ['login', 'signup', 'forgot'];
 function mountCaptcha(tab) {
   const w = document.getElementById('tsWrap'); if (!w) return;

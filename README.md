@@ -298,6 +298,9 @@ The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Ch
 
 ## Changelog
 
+### 1.10.1
+- Turnstile captcha turned on for log in, sign up and password reset (site key in `config.js`; off on localhost)
+
 ### 1.10.0
 - Tonight's dinner restaurant is drawn at the start of each day and shown on the board, so buying and upgrading can be planned
 - End of the game: **Start a new game** of the same kind (Quick play → another public table, a room → the same room, bots or one device → same players and settings) and **Back to menu**
