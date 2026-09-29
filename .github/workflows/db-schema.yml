@@ -25,13 +25,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install psql
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
       - name: Apply sql/schema.sql
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RAW_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: '20'
         run: |
+          # tidy the secret: drop line breaks, spaces, quotes or backticks copied around it
+          DATABASE_URL="$(printf '%s' "$RAW_URL" | tr -d '\r\n' | sed -e 's/^[[:space:]"`'"'"']*//' -e 's/[[:space:]"`'"'"']*$//')"
+          echo "::add-mask::$DATABASE_URL"
           if [ -z "$DATABASE_URL" ]; then echo "::error::Repository secret SUPABASE_DB_URL is not set"; exit 1; fi
+          case "$DATABASE_URL" in postgresql://*|postgres://*) ;; *) echo "::error::SUPABASE_DB_URL must start with postgresql:// (paste the whole Session pooler URI, not only the password)"; exit 1;; esac
+          case "$DATABASE_URL" in *'['*|*']'*) echo "::error::Put your real database password into the URI (without the [ ] brackets)"; exit 1;; esac
+          case "$DATABASE_URL" in *'@db.'*'.supabase.co'*) echo "::error::This is the direct connection (IPv6 only). Use the Session pooler URI from Supabase > Connect"; exit 1;; esac
+          if ! psql "$DATABASE_URL" -Atc 'select 1' > /dev/null; then
+            echo "::error::Could not connect. Check the password (after a reset, wait 1-2 minutes); special characters in it must be URL-encoded (@ %40, # %23, / %2F, ? %3F, : %3A, % %25)."
+            exit 1
+          fi
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f sql/schema.sql
           echo "Schema applied."
