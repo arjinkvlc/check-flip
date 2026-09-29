@@ -188,7 +188,10 @@ When a limit is reached, new rooms and running games fall back to the public MQT
 ### 1. Supabase (accounts)
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor → New query:** paste all of `sql/schema.sql` and **Run**. Run it again after every update of the file; it's safe to re-run.
+2. **Database schema:** paste all of `sql/schema.sql` into **SQL Editor → New query** and **Run** (safe to re-run). To apply future changes automatically, add the GitHub secret below; the *Apply database schema* workflow (`.github/workflows/db-schema.yml`) then runs the file whenever it changes on `main`:
+   - Supabase → **Connect** (top bar) → **Session pooler** → copy the URI and put your database password in place of `[YOUR-PASSWORD]` (forgot it? **Project Settings → Database → Reset database password**). Use the pooler: GitHub's runners can't reach the direct connection, which is IPv6-only on the free plan.
+   - GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**: name `SUPABASE_DB_URL`, value = that URI.
+   - Run it once by hand: **Actions → Apply database schema → Run workflow**.
 3. **Authentication → Sign In / Providers → Email:** keep the Email provider on and turn **Confirm email off** (accounts without an e-mail can't confirm one).
 4. **Authentication → URL Configuration:** *Site URL* `https://checkflipgame.com`; add `https://checkflipgame.com` and `https://www.checkflipgame.com` to *Redirect URLs* (password-reset links return there).
 5. **Password-reset e-mails:** the built-in mailer only delivers to your own team's addresses and a few mails per hour. For real players, use a custom SMTP server, e.g. [Resend](https://resend.com) (free: 3,000 e-mails/month):
@@ -266,6 +269,9 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.5.1
+- GitHub Action that applies `sql/schema.sql` to Supabase automatically when it changes (needs the `SUPABASE_DB_URL` secret)
 
 ### 1.5.0
 - Cards in hand are private: other players see "?" until a card is played

@@ -1,0 +1,37 @@
+# Applies sql/schema.sql to the Supabase database whenever it changes on main.
+# The file is safe to re-run (create or replace / if not exists / on conflict), and it runs
+# in one transaction, so a failing statement changes nothing.
+#
+# Needs one repository secret: SUPABASE_DB_URL = the "Session pooler" connection string from
+# Supabase (Connect button), with your database password filled in. It never appears in the code
+# or the logs. Pull requests from forks don't get secrets, so they can't touch the database.
+name: Apply database schema
+
+on:
+  push:
+    branches: [main]
+    paths: ['sql/schema.sql']
+  workflow_dispatch:
+
+concurrency:
+  group: db-schema
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql
+        run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
+      - name: Apply sql/schema.sql
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::error::Repository secret SUPABASE_DB_URL is not set"; exit 1; fi
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f sql/schema.sql
+          echo "Schema applied."
