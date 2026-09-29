@@ -19,15 +19,22 @@ const isTeams = S => modeOf(S) === 'teams';
 const limits = S => { const k = MODES[modeOf(S)].t; return {def: Math.round(LIM.def * k), feast: Math.round(LIM.feast * k), reply: Math.round(LIM.reply * k)}; };
 const COLORS = ['#e2483d', '#3a7fc2', '#f0ad2c', '#1b9a86', '#8b5cf6', '#f07c2a'];
 // board position -> restaurant key
-const VENUES = {6: 'pizza', 18: 'sushi', 27: 'burger', 37: 'taco'};
+const VENUES = {7: 'pizza', 17: 'sushi', 27: 'burger', 37: 'taco'};
 const VICON = {pizza: '🍕', sushi: '🍣', burger: '🍔', taco: '🌮'};
 const KICON = {start: '🏁', half: '🌗', kemer: '🪢', sans: '🎲', olay: '🍽️', gelir: '💰', fatura: '🧾', atis: '🥨', spor: '🏋️', kisa: '⏩', geri: '⏪', mola: '☕', mekan: '🏪', bos: ''};
-const BOARD = ['start', 'bos', 'sans', 'gelir', 'atis', 'olay', 'mekan', 'fatura', 'sans', 'spor',
-  'kisa', 'olay', 'kemer', 'bos', 'gelir', 'sans', 'fatura', 'olay', 'mekan', 'atis',
+// v1.5 layout: both halves hold the same mix, a restaurant every 10 squares, no two alike side by side.
+// One Tighten the Belt square; the other belt is a card in the Chance deck (A12, A13).
+const BOARD = ['start', 'bos', 'sans', 'gelir', 'atis', 'olay', 'fatura', 'mekan', 'sans', 'spor',
+  'kisa', 'olay', 'kemer', 'bos', 'gelir', 'sans', 'fatura', 'mekan', 'olay', 'atis',
   'half', 'bos', 'sans', 'gelir', 'olay', 'fatura', 'spor', 'mekan', 'sans', 'olay',
-  'mola', 'bos', 'kemer', 'olay', 'gelir', 'sans', 'geri', 'mekan', 'fatura', 'atis'];
-const CARD_IDS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'B0', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11'];
+  'mola', 'bos', 'atis', 'olay', 'gelir', 'sans', 'geri', 'mekan', 'fatura', 'atis'];
+const CARD_IDS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'B0', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11'];
 const HOLD = {A10: 'feast', B8: 'any', B9: 'any', B10: 'feast', B11: 'feast', K: 'feast'};
+// cards that go to the hand (A12 = the Tighten the Belt card from the Chance deck, held as K)
+const KEEP = c => !!HOLD[c] || c === 'A12' || c === 'A13';
+const handCard = c => c === 'A12' || c === 'A13' ? 'K' : c;
+// how much a bot wants to keep a card (higher = keep)
+const CARD_VALUE = {K: 6, B10: 5, B11: 4, A10: 4, B9: 2, B8: 2};
 // avatar keys → illustrations in public/assets/avatars/<key>.svg (unlock rules in js/account.js)
 const AVATARS = {waiter: 1, waitress: 1, student: 1, foodie: 1, italian: 1, doner: 1, noodle: 1, baker: 1, grandma: 1, critic: 1, barista: 1, sommelier: 1};
 const EMOJIS = ['😂', '😭', '😡', '😱', '👏', '😋'];
@@ -54,7 +61,7 @@ function setAvatar(S, id, key) {
 }
 
 /* ================= engine ================= */
-function newState() { return {v: 6, cfg: {start: null, days: 0, mode: 'classic'}, rm: {}, pub: 0, rdy: {}, ep: 0, rev: 0, tk: 0, ph: 'lobby', host: null, pl: [], ord: [], tq: [], ti: 0, cur: -1, rd: 0, dbl: 0, bn: 0, day: 0, dA: [], dB: [], pend: null, fe: null, dice: null, own: {}, ev: 0, fx: null, log: [], seq: {}, win: null, end: null}; }
+function newState() { return {v: 7, cfg: {start: null, days: 0, mode: 'classic'}, rm: {}, pub: 0, rdy: {}, ep: 0, rev: 0, tk: 0, ph: 'lobby', host: null, pl: [], ord: [], tq: [], ti: 0, cur: -1, rd: 0, dbl: 0, bn: 0, day: 0, dA: [], dB: [], pend: null, fe: null, dice: null, own: {}, ev: 0, fx: null, log: [], seq: {}, win: null, end: null}; }
 // st: per-game counters for achievements and daily quests
 //   d: checks passed on with a deal, b: Tighten the Belt used, i: paid a big check and stayed, t: owned all restaurants at ★★★,
 //   by: restaurants bought, up: upgrades, cu: cards played, pd: checks paid
@@ -90,7 +97,12 @@ function fwd(S, i, n) {
   }
 }
 function back(S, i, n) { const Q = S.pl[i]; for (let k = 0; k < n; k++) { Q.p = (Q.p - 1 + N) % N; step(S, Q.p); } }
-function give(S, i, c) { const Q = S.pl[i]; if (Q.c.length >= CFG.HAND) { L(S, 'handFull', {n: Q.n, c}); return; } Q.c.push(c); }
+// a card for the hand; when the hand is full the player chooses what to drop (returns true = waiting for that choice)
+function give(S, i, c) {
+  const Q = S.pl[i];
+  if (Q.c.length >= CFG.HAND) { S.pend = {k: 'swap', i, c}; return true; }
+  Q.c.push(c); return false;
+}
 function draw(S, d) {
   const k = 'd' + d;
   if (!S[k].length) { const held = new Set(S.pl.flatMap(q => q.c)); S[k] = shuffle(CARD_IDS.filter(id => id[0] === d && !held.has(id))); }
@@ -100,7 +112,7 @@ function worth(S, i) { let w = S.pl[i].m; for (const k in S.own) if (S.own[k].o 
 function land(S, i, dep) {
   const Q = S.pl[i]; if (S.fx) S.fx.sq = Q.p;
   switch (BOARD[Q.p]) {
-    case 'kemer': if (Q.c.length < CFG.HAND) L(S, 'gotBelt', {n: Q.n}); give(S, i, 'K'); break;
+    case 'kemer': L(S, 'gotBelt', {n: Q.n}); return give(S, i, 'K');
     case 'sans': return card(S, i, draw(S, 'A'), dep);
     case 'olay': return card(S, i, draw(S, 'B'), dep);
     case 'gelir': Q.m += 20; L(S, 'payday', {n: Q.n, m: 20}, 1); break;
@@ -135,7 +147,8 @@ function card(S, i, c, dep) {
     case 'B4': S.ord.forEach(j => hun(S.pl[j], 1)); break;
     case 'B5': { let t = 0; rivals(S, i).forEach(j => t += pay(S.pl[j], 10)); Q.m += t; break; }
     case 'B7': { const mx = Math.max(...S.ord.map(j => S.pl[j].h)); S.ord.filter(j => S.pl[j].h === mx).forEach(j => { S.pl[j].m += 20; }); break; }
-    default: give(S, i, c);
+    case 'A12': case 'A13': return give(S, i, 'K');
+    default: return give(S, i, c);
   }
   return false;
 }
@@ -286,6 +299,12 @@ function actInner(S, i, pid, a) {
       } else { fx.title = tt('offerRejected'); fx.sub = tt('notSoldSub', {o: O.n, v}); L(S, 'notSold', {o: O.n, v}, 1); }
       after(S); return true;
     }
+    case 'swap': {
+      if (S.ph !== 'play' || !P || P.k !== 'swap' || P.i !== i) return false; const Q = S.pl[i]; S.pend = null;
+      if (a.drop === 'new' || a.drop == null) L(S, 'handFull', {n: Q.n, c: P.c});
+      else { const k = +a.drop; if (!(k >= 0 && k < Q.c.length)) return false; const o = Q.c[k]; Q.c[k] = P.c; L(S, 'swapped', {n: Q.n, c: P.c, o}); }
+      fx.quiet = 1; after(S); return true;
+    }
     case 'use': if (!S.pl[i].a) return false; fx.card = String(a.c); return useCard(S, i, String(a.c), +a.to);
     case 'home': {
       if (S.ph !== 'play' || !P || P.k !== 'home' || P.i !== i) return false; const Q = S.pl[i], o = S.own[P.p], v = VENUES[P.p]; S.pend = null; const lv = o.lv || 1;
@@ -347,6 +366,7 @@ function autoPick(S) {
   switch (P.k) {
     case 'move': return {t: 'mv', v: P.o[0]};
     case 'tgt': { const r = rivals(S, A); return {t: 'tgt', to: r[Math.floor(Math.random() * r.length)]}; }
+    case 'swap': return {t: 'swap', drop: 'new'};
     case 'home': return {t: 'home', up: 0}; case 'buy': return {t: 'buy', yes: 0}; case 'offer': return {t: 'offer', amt: 0}; case 'ow': return {t: 'owr', ok: 0};
   }
   return null;
@@ -393,6 +413,7 @@ function botDecide(S, i) {
   switch (P.k) {
     case 'move': { let best = P.o[0], bs = -1e9; for (const v of P.o) { const sc = sqScore(S, i, Q.p, v); if (sc > bs) { bs = sc; best = v; } } return {t: 'mv', v: best}; }
     case 'tgt': return {t: 'tgt', to: rich[0]};
+    case 'swap': { let k = -1, lo = CARD_VALUE[P.c] || 0; Q.c.forEach((c, j) => { const v = CARD_VALUE[c] || 0; if (v < lo) { lo = v; k = j; } }); return {t: 'swap', drop: k < 0 ? 'new' : k}; }
     case 'buy': return {t: 'buy', yes: Q.m - CFG.VPRICE >= 50 ? 1 : 0};
     case 'offer': { const o = S.own[P.p], a = o.pr + 10; return {t: 'offer', amt: Q.m - a >= 90 && Math.random() < .35 ? a : 0}; }
     case 'ow': return {t: 'owr', ok: P.amt >= S.own[P.p].pr * 1.6 || Q.m < 40 ? 1 : 0};
@@ -409,7 +430,7 @@ function botSide(S, i) {
 }
 
 export {
-  COMS, UPC, RENT, COLLECT, CFG, N, HALF, IRON, autoMoney, LIM, MODES, modeOf, isTeams, limits, mateOf, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, AVATARS, EMOJIS,
+  COMS, UPC, RENT, COLLECT, CFG, N, HALF, IRON, autoMoney, LIM, MODES, modeOf, isTeams, limits, mateOf, COLORS, VENUES, VICON, KICON, BOARD, CARD_IDS, HOLD, KEEP, handCard, AVATARS, EMOJIS,
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, avTaken, setAvatar,
   newState, addPlayer, L, mover, pay, hun, rivals, fwd, back, give, draw, worth, land, card, doRoll, after, next,
   ownedBy, feast, bill, canTake, elim, payFeast, startDay, rank, startGame, useCard, actInner, act, actor, autoPick, checkStart,

@@ -97,7 +97,7 @@ alter table public.profiles add column if not exists last_seen timestamptz;
 -- (Names and visuals live in the client; keys must match js/account.js.)
 create table if not exists public.cosmetics (
   key        text not null,
-  kind       text not null check (kind in ('avatar', 'frame', 'board', 'bubble', 'title')),
+  kind       text not null check (kind in ('avatar', 'frame', 'board', 'bubble', 'title', 'dice')),
   req_level  integer not null default 1,
   req_ach    text,
   sort       integer not null default 0,
@@ -106,7 +106,7 @@ create table if not exists public.cosmetics (
 
 -- (older installs: allow the 'avatar' kind)
 alter table public.cosmetics drop constraint if exists cosmetics_kind_check;
-alter table public.cosmetics add constraint cosmetics_kind_check check (kind in ('avatar', 'frame', 'board', 'bubble', 'title'));
+alter table public.cosmetics add constraint cosmetics_kind_check check (kind in ('avatar', 'frame', 'board', 'bubble', 'title', 'dice'));
 
 -- Failed login attempts (username login throttle)
 create table if not exists public.login_attempts (
@@ -192,7 +192,15 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('title',  'marathon',  1, 'marathon',    21),
   ('title',  'social',    1, 'social',      22),
   ('title',  'quester',   1, 'quester',     23),
-  ('title',  'devoted',   1, 'devoted',     24)
+  ('title',  'devoted',   1, 'devoted',     24),
+  ('dice',   'classic',   1, null,           0),
+  ('dice',   'redwhite',  3, null,           1),
+  ('dice',   'bone',      8, null,           2),
+  ('dice',   'gingham',  12, null,           3),
+  ('dice',   'neon',     18, null,           4),
+  ('dice',   'marble',   24, null,           5),
+  ('dice',   'gold',     32, null,           6),
+  ('dice',   'chelsea',  40, null,           7)
 on conflict (kind, key) do update set req_level = excluded.req_level, req_ach = excluded.req_ach, sort = excluded.sort;
 
 -- ---------------------------------------------------------------------
@@ -234,10 +242,22 @@ returns integer language sql immutable as $$
   select least(99, floor(sqrt(greatest(p_xp, 0) / 6.5))::int + 1);
 $$;
 
+-- Word filter for usernames (same lists as public/js/filter.js; keep them in sync).
+-- roots: anywhere in the name (letters may repeat), words: only as a whole part of the name.
+create or replace function public.name_blocked(p text)
+returns boolean language sql immutable set search_path = '' as $$
+  with n as (select translate(lower(coalesce(p, '')), '0134578', 'oieastb') as s),
+  pat as (select r, (select string_agg(ch || '+', '') from regexp_split_to_table(r, '') ch) as rx from unnest(array['nigger', 'nigga', 'niggr', 'faggot', 'fagot', 'hitler', 'retard', 'whore', 'slut', 'cunt', 'bitch', 'pussy', 'penis', 'vagina', 'porn', 'fuck', 'shit', 'asshole', 'motherf', 'pedophil', 'pedofil', 'terrorist', 'dildo', 'blowjob', 'handjob', 'cumshot', 'boob', 'tits', 'horny', 'milf', 'nude', 'orospu', 'oruspu', 'orosbu', 'siktir', 'sikis', 'sikim', 'sikik', 'siker', 'sikeyim', 'sikey', 'amcik', 'aminak', 'aminakoy', 'gotunu', 'gotune', 'gotlek', 'yarrak', 'yarak', 'dalyar', 'gotveren', 'gotver', 'ibne', 'pezevenk', 'pezeveng', 'kahpe', 'kaltak', 'serefsiz', 'gavat', 'pust', 'tasak', 'tassak', 'surtuk', 'fahise', 'tecavuz', 'pornocu', 'yavsak', 'kevase', 'godos', 'dallama', 'hassiktir']) r),
+  wpat as (select w, (select string_agg(ch || '+', '') from regexp_split_to_table(w, '') ch) as rx from unnest(array['sik', 'amk', 'aq', 'mk', 'oc', 'sex', 'seks', 'fag', 'dick', 'cock', 'rape', 'kkk', 'isis', 'nazi', 'bok']) w)
+  select exists (select 1 from pat, n where regexp_replace(n.s, '[^a-z]', '', 'g') ~ pat.rx)
+      or exists (select 1 from wpat, n where regexp_replace(n.s, '[^a-z]', ' ', 'g') ~ ('(^|[^a-z])' || wpat.rx || '([^a-z]|$)'));
+$$;
+
 -- New auth user → profile row (username comes from sign-up metadata)
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
+  if public.name_blocked(new.raw_user_meta_data ->> 'username') then raise exception 'username_blocked'; end if;
   insert into public.profiles (id, username)
   values (new.id, new.raw_user_meta_data ->> 'username');
   return new;
@@ -249,6 +269,7 @@ create trigger on_auth_user_created after insert on auth.users
 create or replace function public.username_available(p_username text)
 returns boolean language sql stable security definer set search_path = '' as $$
   select p_username ~ '^[A-Za-z0-9_]{3,14}$'
+     and not public.name_blocked(p_username)
      and not exists (select 1 from public.profiles where lower(username) = lower(p_username));
 $$;
 
@@ -516,7 +537,7 @@ declare
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   select public.level_of(xp) into v_lv from public.profiles where id = v_uid;
-  foreach k in array array['avatar', 'frame', 'board', 'bubble', 'title'] loop
+  foreach k in array array['avatar', 'frame', 'board', 'bubble', 'title', 'dice'] loop
     v := p ->> k;
     if v is not null and v <> '' then
       select * into c from public.cosmetics where kind = k and key = v;

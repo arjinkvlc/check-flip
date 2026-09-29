@@ -894,3 +894,77 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 }
 .iprev .ptitle{white-space:normal;text-align:center;max-width:120px}
 @media (max-width:759px){.stat b{font-size:22px;overflow-wrap:anywhere}.emailbox .row{flex-wrap:wrap}.emailbox .row input{flex:1 1 100%}.emailbox .row .btn{flex:1}}
+
+/* ================= v1.5 ================= */
+/* phone settings menu (music, sound, theme, language) */
+.tgls{display:contents}
+.morebtn{display:none}
+@media (max-width:759px){
+  body.ingame .morebtn{display:inline-flex}
+  body.ingame .tgls{display:none;position:absolute;right:8px;top:calc(46px + env(safe-area-inset-top,0px));z-index:80;flex-direction:column;gap:2px;padding:6px;border-radius:16px;background:var(--paper);border:1px solid var(--line);box-shadow:0 14px 34px rgba(0,0,0,.28)}
+  body.ingame.moreopen .tgls{display:flex;animation:dropin .18s ease-out}
+  body.ingame .tgls .iconbtn{width:44px;height:44px}
+  body.ingame .tgls .langbtn{display:inline-flex}
+  body.ingame .top{position:relative}
+  body.ingame .leavebtn{flex:none}
+  body.ingame .leavebtn .st{display:none}
+}
+@keyframes dropin{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+
+/* private hands */
+.card.hid{min-width:22px;text-align:center;background:var(--chipbg);border-color:var(--line);color:var(--muted);font-family:var(--display);font-weight:800}
+/* full hand: choose what to keep */
+.swapbox{display:grid;gap:10px;border:2px solid var(--mustard);background:var(--s-yellow);border-radius:14px;padding:12px;animation:popin .28s ease}
+.swapnew{display:grid;gap:4px;justify-items:start}
+.swapnew .newc{font-size:14px;padding:4px 10px;background:var(--hi);border-color:var(--mustard)}
+.swapnew small{font-size:13px;color:var(--muted)}
+.swapbox .btn.choice.ghost{border-color:var(--line)}
+
+/* dice skins: the dice take the look of the player who rolls */
+.die{background:var(--dbg,#fff);border-color:var(--dbd,#131a26);box-shadow:0 .8cqi 0 var(--dsh,#0b0f16)}
+.die span.pip{background:var(--dpip,#131a26);box-shadow:var(--dpipfx,none)}
+.dice.dbl .die{border-color:var(--dbd,#131a26);box-shadow:0 .8cqi 0 var(--dsh,#0b0f16),0 0 0 max(3px,.6cqi) var(--tomato)}
+.dice.dbl .pip{background:var(--dpip,#131a26)}
+.dice[data-skin="redwhite"]{--dbg:#d62b2b;--dbd:#7d1212;--dsh:#5c0d0d;--dpip:#fff}
+.dice[data-skin="bone"]{--dbg:radial-gradient(circle at 30% 25%,#fbf4e2,#e6d7b3 70%,#d6c294);--dbd:#8a6f45;--dsh:#6b5231;--dpip:#5a3b1c}
+.dice[data-skin="gingham"]{--dbg:#fff linear-gradient(90deg,rgba(214,43,43,.28) 50%,transparent 0) 0 0/33.3% 33.3%,#fff;--dbd:#b3261e;--dsh:#7d1212;--dpip:#131a26;--dpipfx:0 0 0 2px #fff}
+.dice[data-skin="gingham"] .die{background:linear-gradient(rgba(214,43,43,.28) 50%,transparent 0) 0 0/100% 33.4%,linear-gradient(90deg,rgba(214,43,43,.28) 50%,transparent 0) 0 0/33.4% 100%,#fff}
+.dice[data-skin="neon"]{--dbg:#11111f;--dbd:#00e5ff;--dsh:#ff3cac;--dpip:#ff3cac;--dpipfx:0 0 6px #ff3cac,0 0 12px rgba(255,60,172,.6)}
+.dice[data-skin="neon"] .die{box-shadow:0 .8cqi 0 #7a1d57,0 0 14px rgba(0,229,255,.55)}
+.dice[data-skin="marble"]{--dbg:linear-gradient(125deg,transparent 42%,rgba(90,100,120,.25) 44%,transparent 47%),linear-gradient(35deg,transparent 62%,rgba(90,100,120,.18) 63%,transparent 65%),#f4f5f8;--dbd:#6c7584;--dsh:#4a5261;--dpip:#26313d}
+.dice[data-skin="gold"]{--dbg:linear-gradient(135deg,#8a6212,#f7d774 35%,#fff3c4 50%,#e0b43c 65%,#8a6212);--dbd:#6f4c12;--dsh:#4a320a;--dpip:#3b2800}
+.dice[data-skin="chelsea"]{--dbg:radial-gradient(circle at 30% 25%,#1a63c8,#034694 55%,#022f66);--dbd:#d4af37;--dsh:#011d42;--dpip:radial-gradient(circle at 35% 30%,#fff3b0,#d4af37 55%,#9c7a1c);--dpipfx:0 0 4px rgba(212,175,55,.8)}
+.dice[data-skin="chelsea"] .die{border-width:max(3px,.6cqi)}
+.dprev{display:flex;gap:8px}
+.dprev .die{width:44px;aspect-ratio:1;border-width:2.5px;box-shadow:0 3px 0 var(--dsh,#0b0f16);padding:12%}
+
+/* motion */
+@media (prefers-reduced-motion:no-preference){
+  .app>section:not([hidden]){animation:scrin .34s cubic-bezier(.2,.8,.2,1) both}
+  .modal:not([hidden]){animation:fadein .2s ease both}
+  .toast{animation:toastin .38s cubic-bezier(.2,1.25,.4,1) both}
+  .roompanel{animation:slidedown .26s cubic-bezier(.2,.8,.2,1) both}
+  .tile,.pill,.chipbtn,.btn,.bigplay,.iconbtn,.stab,.backbtn{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background-color .16s ease,color .16s ease}
+  .tile:hover,.pill:hover,.chipbtn:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+  .bigplay:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 10px 0 var(--tomato-d)}
+  .btn:not(:disabled):active,.tile:active,.pill:active,.iconbtn:active{transform:scale(.97)}
+  .xpbar i{transition:width .9s cubic-bezier(.2,.8,.2,1)}
+  .chatlist li{animation:msgin .26s ease-out both}
+  .players li.turn{animation:turnglow 2.2s ease-in-out infinite}
+  .hav{animation:bob 4.2s ease-in-out infinite}
+  .hav.a2{animation-delay:-1.1s}.hav.a3{animation-delay:-2.2s}.hav.a4{animation-delay:-3.1s}
+  .hrec{animation:sway 6s ease-in-out infinite}
+  .profhero .pfav.big{animation:popin .4s cubic-bezier(.2,1.3,.4,1) both}
+  .overhead svg.trophy{animation:trophy .7s cubic-bezier(.2,1.4,.4,1) both}
+  .timer i{transition:width .25s linear,background-color .4s}
+}
+@keyframes scrin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes toastin{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes slidedown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes msgin{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes turnglow{0%,100%{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 38%,transparent)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes sway{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(-2deg) translateY(-4px)}}
+@keyframes trophy{0%{transform:scale(.3) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
+.swapbox .choices{grid-template-columns:1fr}.swapbox .btn.choice{flex-direction:column;align-items:flex-start;gap:2px}.swapbox .btn.choice b{font-size:16px}

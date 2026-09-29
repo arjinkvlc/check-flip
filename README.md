@@ -36,8 +36,8 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 - **Negotiation:** The payer gets one offer: "I'll give you $X, you pay the check."
 - **Cards:**
   - Chance and Event decks.
-  - Some cards are kept in hand (max 2): Free sample, Hunger pangs, Discount coupon, Pass the check, Going Dutch.
-  - Tighten the Belt (squares 12 and 32) lets the payer skip their own meal and share.
+  - Some cards are kept in hand (max 2): Free sample, Hunger pangs, Discount coupon, Pass the check, Going Dutch, Tighten the Belt. Only you see your cards; the others see "?". With a full hand you choose: drop one of yours or skip the new card.
+  - Tighten the Belt (square 12, plus 2 cards in the Chance deck) lets the payer skip their own meal and share.
 - **Timer:** 30 seconds to decide, 45 seconds to pay. If time runs out or a player disconnects, the game plays for them.
 - **Day limit (optional):** When time is up, the richest player (*money + restaurant value*) wins.
 - **Accounts (optional):** Logged-in players earn XP and unlock achievements and cosmetics. **Games with bots (single player, or bots added to a room) give half XP and don't count toward achievements** (except level achievements). Wins and other achievements come from online games once another player at the same table confirms the result. Games shorter than 3 days or 4 minutes don't count.
@@ -160,6 +160,8 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── pwa.js          # install prompt + service worker registration
 │       ├── i18n-v11.js     # texts added in v1.1
 │       ├── i18n-v13.js     # texts added in v1.3 (home screen, theme)
+│       ├── i18n-v15.js     # texts added in v1.5 (private hands, dice, filter)
+│       ├── filter.js       # word filter for names and chat (same lists as public.name_blocked in SQL)
 │       └── version.js      # version number (shown in the footer)
 ├── worker/index.js         # Cloudflare Worker: static site, room relay (Durable Object), cron
 ├── wrangler.jsonc          # Worker configuration
@@ -264,6 +266,15 @@ Game texts live in `public/js/i18n.js`, account texts in `public/js/i18n-account
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.5.0
+- Cards in hand are private: other players see "?" until a card is played
+- Full hand (2 cards): you now choose which card to drop, or skip the new one (before, the new card was silently lost)
+- Tighten the Belt: one square (12) plus two cards in the Chance deck; balanced board (both halves hold the same squares, a restaurant every 10 squares, no two alike side by side)
+- Dice skins, unlocked by level: Classic, Red & white, Old bone, Checked tablecloth, Neon, Marble, Solid gold, Royal blue & gold. Everyone sees the roller's dice
+- New dice roll sound (shake + bounces on the table) and more motion: screen transitions, hover lifts, sliding menus and chat messages
+- Word filter: usernames with offensive words are refused (also checked on the server), chat shows them as *****, bad guest nicknames are replaced
+- Phones: music / sound / theme / language moved into a ⋮ menu in game so the Leave button always fits
 
 ### 1.4.1
 - Fix: after a Hop in a taxi / Got lost / shortcut / go back move, the token now visibly moves after the card is shown (before, the whole move played at once and looked like the card did nothing)

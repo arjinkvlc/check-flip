@@ -11,11 +11,25 @@ const SFX=(()=>{let ctx=null,on=lsGet('hs-snd')!=='0';
     for(let i=0;i<a.length;i++)a[i]=(Math.random()*2-1)*Math.pow(1-i/a.length,2);
     const src=c.createBufferSource();src.buffer=b;const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=hp||1500;const g=c.createGain();g.gain.value=v||.2;
     src.connect(f).connect(g).connect(c.destination);src.start(c.currentTime+t0)}
+  // one die hitting the table: a short filtered click, a hard "tick" and a soft wooden knock
+  function clack(t0,v,p){const c=ac();if(!c)return;const t=c.currentTime+t0,len=.045;
+    const b=c.createBuffer(1,Math.max(1,c.sampleRate*len|0),c.sampleRate),a=b.getChannelData(0);
+    for(let i=0;i<a.length;i++)a[i]=(Math.random()*2-1)*Math.pow(1-i/a.length,6);
+    const src=c.createBufferSource();src.buffer=b;const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=p;f.Q.value=2.2;
+    const g=c.createGain();g.gain.value=v;src.connect(f).connect(g).connect(c.destination);src.start(t);
+    tone(p*1.35,t0,.028,'sine',v*.22);tone(150+Math.random()*70,t0,.06,'triangle',v*.45)}
+  // two dice shaken in a hand, then thrown: bounces get closer and quieter
+  function roll(){
+    for(let k=0;k<14;k++)clack(k*.036+Math.random()*.012,.07+Math.random()*.05,2600+Math.random()*1400);
+    [0,1].forEach(d=>{let t=.62+d*.045,gap=.16,v=.34;
+      for(let k=0;k<7;k++){clack(t,v*(.85+Math.random()*.3),1900+Math.random()*1300);t+=gap*(.8+Math.random()*.4);gap*=.68;v*=.72}});
+  }
   const P={
     click:()=>tone(620,0,.07,'triangle',.12),
     menu:()=>{tone(523,0,.1,'triangle',.12);tone(784,.07,.14,'triangle',.12)},
     rattle:()=>{noise(0,.035,.22,2600);noise(.04,.03,.16,3200)},
-    land:()=>{noise(0,.06,.3,700);tone(160,0,.12,'triangle',.22)},
+    roll:()=>roll(),
+    land:()=>{clack(0,.16,1700);tone(140,0,.1,'triangle',.12)},
     step:()=>tone(540,0,.05,'square',.045),
     good:()=>[523,659,784,1047].forEach((f,k)=>tone(f,k*.075,.2,'triangle',.15)),
     bad:()=>[440,370,311,262].forEach((f,k)=>tone(f,k*.09,.22,'sawtooth',.07)),

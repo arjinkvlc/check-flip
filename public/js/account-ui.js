@@ -8,6 +8,7 @@ import {
   signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount
 } from './account.js';
 import {t, getLang} from './i18n.js';
+import {nameBlocked} from './filter.js';
 import './i18n-account.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -158,6 +159,7 @@ function checkName() {
   const el = document.getElementById('auNameChk'), v = val('auName'); if (!el) return;
   clearTimeout(nameTimer); el.textContent = ''; el.className = 'chk';
   if (!USERNAME_RE.test(v)) return;
+  if (nameBlocked(v)) { el.textContent = t('aNameNo'); el.className = 'chk bad'; return; }
   const my = ++nameSeq;
   nameTimer = setTimeout(async () => {
     let ok = null; try { ok = await usernameAvailable(v); } catch (e) {}
@@ -173,13 +175,16 @@ export function errText(e) {
 }
 
 /* ---------------- profile & looks ---------------- */
-const TABS = ['stats', 'avatar', 'frame', 'board', 'bubble', 'title', 'ach'];
-const TAB_LABEL = {avatar: 'pTabAvatar', frame: 'pTabFrames', board: 'pTabBoards', bubble: 'pTabBubbles', title: 'pTabTitles', ach: 'pTabAch', stats: 'pTabStats'};
-const TAB_NOTE = {avatar: 'pAvatarNote', frame: 'pFramesNote', board: 'pBoardsNote', bubble: 'pBubblesNote', title: 'pTitlesNote', ach: 'pAchNote'};
+const TABS = ['stats', 'avatar', 'frame', 'board', 'dice', 'bubble', 'title', 'ach'];
+const TAB_LABEL = {dice: 'pTabDice', avatar: 'pTabAvatar', frame: 'pTabFrames', board: 'pTabBoards', bubble: 'pTabBubbles', title: 'pTabTitles', ach: 'pTabAch', stats: 'pTabStats'};
+const TAB_NOTE = {dice: 'pDiceNote', avatar: 'pAvatarNote', frame: 'pFramesNote', board: 'pBoardsNote', bubble: 'pBubblesNote', title: 'pTitlesNote', ach: 'pAchNote'};
 
+const PIPS = {1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]};
+const diePips = n => Array.from({length: 9}, (_, j) => `<span class="${PIPS[n].includes(j) ? 'pip' : ''}"></span>`).join('');
 function preview(kind, key) {
   if (kind === 'frame') return `<span class="pfav big${frCls(key)}">${avatarGlyph()}</span>`;
   if (kind === 'board') return `<span class="bprev" data-board="${key}"><i></i></span>`;
+  if (kind === 'dice') return `<span class="dice dprev" data-skin="${key}"><span class="die">${diePips(5)}</span><span class="die">${diePips(3)}</span></span>`;
   if (kind === 'bubble') return `<span class="ctb${bbCls(key)}">${esc(getLang() === 'tr' ? 'Hesap sende! 😋' : 'Your treat! 😋')}</span>`;
   return `<span class="ptitle big${titleCls(key)}">${esc(itemName('title', key))}</span>`;
 }

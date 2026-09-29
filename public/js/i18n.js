@@ -40,6 +40,7 @@ const C = {
       A4: ['Parking ticket', '−$20'], A5: ['Rent day', '−$30'], A6: ['Hop in a taxi', '4 squares forward'], A7: ['Got lost', '3 squares back'],
       A8: ['Express lane', 'Go to the nearest Start or Halfway square and collect the bonus'], A9: ['Debt collected', 'Take $15 from a rival of your choice'],
       A10: ['Discount coupon', 'When you pay, the check is 25% off'], A11: ['Forgot your wallet', '−$10'],
+      A12: ['Tighten the Belt', "Kept in hand. When you pay, you don't eat: you skip your own share and keep your hunger"], A13: ['Tighten the Belt', "Kept in hand. When you pay, you don't eat: you skip your own share and keep your hunger"],
       B0: ['Skipped breakfast', '+2 hunger'], B1: ["Grandma's cookies", '−3 hunger'], B2: ['Marathon', '+3 hunger, −$10'],
       B3: ['Upset stomach', 'Your hunger drops to 0'], B4: ['Street food smell', 'Everyone +1 hunger'], B5: ['Your birthday', 'Every rival pays you $10'],
       B6: ['Gossip', 'A rival of your choice misses 1 move'], B7: ['Cooking contest', 'The hungriest player gets +$20'],
@@ -73,6 +74,7 @@ const C = {
       A4: ['Park cezası', '−₺20'], A5: ['Kira günü', '−₺30'], A6: ['Taksiye atla', '4 kare ileri'], A7: ['Yolu şaşırdın', '3 kare geri'],
       A8: ['Ekspres yol', 'En yakın Başlangıç ya da Yarım Tur karesine git, ödülü al'], A9: ['Borç tahsilatı', 'Seçtiğin rakipten ₺15 al'],
       A10: ['İndirim kuponu', 'Ismarlarken hesap %25 düşer'], A11: ['Cüzdanı unuttun', '−₺10'],
+      A12: ['Kemer Sıkma', 'Elde tutulur. Ismarlarken sen yemezsin: kendi payını ödemezsin, açlığın korunur'], A13: ['Kemer Sıkma', 'Elde tutulur. Ismarlarken sen yemezsin: kendi payını ödemezsin, açlığın korunur'],
       B0: ['Kahvaltıyı atladın', '+2 açlık'], B1: ['Büyükannenin kurabiyeleri', '−3 açlık'], B2: ['Maraton', '+3 açlık, −₺10'],
       B3: ['Mide bozuldu', 'Açlığın 0 olur'], B4: ['Sokak yemeği kokusu', 'Herkese +1 açlık'], B5: ['Doğum günün', 'Her rakip sana ₺10 öder'],
       B6: ['Dedikodu', 'Seçtiğin rakip 1 hamle bekler'], B7: ['Yemek yarışması', 'En aç oyuncu +₺20 alır'],
@@ -120,7 +122,7 @@ const U = {
       '<b>Quick game</b> seats you at an open table that starts at 4 players or when everyone is ready. In <b>Single player</b> you play against 1–3 bots.'
     ],
     decksA: 'Chance deck', decksB: 'Event deck', squares: 'Squares', restaurants: 'Restaurants', kept: 'kept',
-    beltNote: sq => `<b>${sq}</b> (squares 12 and 32): ${cardDescSafe('K')}. Kept in hand.`,
+    beltNote: sq => `<b>${sq}</b> (square 12, and 2 cards in the Chance deck): ${cardDescSafe('K')}. Kept in hand.`,
     localTitle: 'Same device', localNote: 'Pass the device around. 2–6 players. Tap the avatar button to pick an avatar for a player.',
     addPlayer: 'Add player', back: 'Back', startMoney: 'Starting money', dayLimit: 'Day limit', off: 'Off', nDays: n => `${n} days`, startGame: 'Start game',
     randomName: 'Empty = random name', removePlayer: 'Remove player', pickAvatar: 'Pick avatar', playerNameAria: n => `Player ${n} name`,
@@ -206,7 +208,7 @@ const U = {
       '<b>Hızlı oyun</b> seni açık bir masaya oturtur; masa 4 kişi olunca ya da herkes hazır deyince başlar. <b>Tek kişilik</b> modda 1–3 bota karşı oynarsın.'
     ],
     decksA: 'Şans destesi', decksB: 'Olay destesi', squares: 'Kareler', restaurants: 'Mekânlar', kept: 'saklanır',
-    beltNote: sq => `<b>${sq}</b> (12. ve 32. kare): ${cardDescSafe('K')}. Saklanır.`,
+    beltNote: sq => `<b>${sq}</b> (12. kare ve Şans destesinde 2 kart): ${cardDescSafe('K')}. Saklanır.`,
     localTitle: 'Aynı cihazda oyun', localNote: 'Cihazı elden ele geçirerek oynayın. 2–6 oyuncu. Avatar düğmesine dokunarak oyuncuya avatar seçebilirsin.',
     addPlayer: 'Oyuncu ekle', back: 'Geri', startMoney: 'Başlangıç parası', dayLimit: 'Gün sınırı', off: 'Kapalı', nDays: n => `${n} gün`, startGame: 'Oyunu başlat',
     randomName: 'Boşsa rastgele isim', removePlayer: 'Oyuncuyu kaldır', pickAvatar: 'Avatar seç', playerNameAria: n => `Oyuncu ${n} adı`,
@@ -376,7 +378,7 @@ const setVenueIconFn = fn => { venueIcon = fn; };
 function tx(e) {
   if (e == null) return '';
   if (typeof e === 'string') return e;
-  const f = LOG[lang][e.k] || TXT[lang][e.k] || LOG.en[e.k] || TXT.en[e.k];
+  const f = LOG[lang][e.k] || TXT[lang][e.k] || LOG.en[e.k] || TXT.en[e.k] || U[lang][e.k] || U.en[e.k];
   if (!f) return e.k;
   try { return typeof f === 'function' ? f(e.p || {}) : f; } catch (err) { return e.k; }
 }

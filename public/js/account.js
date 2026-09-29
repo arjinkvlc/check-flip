@@ -10,6 +10,7 @@
  * false and the game simply runs in guest mode.
  */
 import {SUPABASE_URL, SUPABASE_KEY, PLACEHOLDER_EMAIL_DOMAIN} from './config.js';
+import {nameBlocked} from './filter.js';
 
 /* ---------------- progression rules ---------------- */
 // level L needs 6.5 × (L−1)² XP  (level 10 ≈ 530 XP, level 50 ≈ 15 600 XP) — same as public.level_of()
@@ -69,9 +70,10 @@ export const CATALOG = {
     {key: 'heart', ach: 'first_bite'}, {key: 'gold', ach: 'regular'},
     {key: 'suits', ach: 'card_shark'}, {key: 'zen', ach: 'survivor'}, {key: 'zoom', ach: 'speed_eater'}, {key: 'mint', ach: 'social'}
   ],
-  title: [{key: 'rookie', lv: 1}, ...ACHS.map(a => ({key: a.key, ach: a.key}))]
+  title: [{key: 'rookie', lv: 1}, ...ACHS.map(a => ({key: a.key, ach: a.key}))],
+  dice: [{key: 'classic', lv: 1}, {key: 'redwhite', lv: 3}, {key: 'bone', lv: 8}, {key: 'gingham', lv: 12}, {key: 'neon', lv: 18}, {key: 'marble', lv: 24}, {key: 'gold', lv: 32}, {key: 'chelsea', lv: 40}]
 };
-export const DEFAULTS = {frame: 'none', board: 'felt', bubble: 'plain', title: 'rookie'};
+export const DEFAULTS = {frame: 'none', board: 'felt', bubble: 'plain', title: 'rookie', dice: 'classic'};
 // how each title badge looks (colour / font / effect); the rarer the achievement, the fancier
 const TITLE_STYLE = {
   rookie: 'plain',
@@ -122,7 +124,7 @@ export function equipped() {
 export function publicCard() {
   if (!loggedIn()) return null;
   const e = equipped();
-  return {u: ACC.profile.username, lv: level(), fr: e.frame, ti: e.title, bu: e.bubble};
+  return {u: ACC.profile.username, lv: level(), fr: e.frame, ti: e.title, bu: e.bubble, di: e.dice};
 }
 
 /* ---------------- errors ---------------- */
@@ -134,7 +136,7 @@ const AUTH_CODES = {
   refresh_token_not_found: 'aErrSession', reauthentication_needed: 'aErrSession', no_authorization: 'aErrSession',
   invalid_credentials: 'aErrLogin', user_already_exists: 'aErrEmailTaken', email_exists: 'aErrEmailTaken',
   email_address_invalid: 'aErrEmailInvalid', email_address_not_authorized: 'aErrEmailInvalid', email_not_confirmed: 'aErrConfirm',
-  signup_disabled: 'aErrSignupOff', email_provider_disabled: 'aErrSignupOff',
+  username_blocked: 'aErrNameBlocked', signup_disabled: 'aErrSignupOff', email_provider_disabled: 'aErrSignupOff',
   over_email_send_rate_limit: 'aErrEmailRate', over_request_rate_limit: 'aErrTooMany', over_sms_send_rate_limit: 'aErrTooMany',
   user_banned: 'aErrBanned', request_timeout: 'aErrNet', unexpected_failure: 'aErrServer'
 };
@@ -219,7 +221,7 @@ function checkPw(pw) {
   if (n > PW_MAX) throw Object.assign(new Error('aErrPwLong'), {key: 'aErrPwLong'});
 }
 export async function usernameAvailable(name) {
-  if (!sb || !USERNAME_RE.test(name)) return false;
+  if (!sb || !USERNAME_RE.test(name) || nameBlocked(name)) return false;
   const {data, error} = await sb.rpc('username_available', {p_username: name});
   if (error) throw fail(error);
   return !!data;
@@ -229,6 +231,7 @@ export async function signUp(username, password, email) {
   if (!sb) throw fail('disabled');
   username = String(username || '').trim(); email = String(email || '').trim().toLowerCase();
   if (!USERNAME_RE.test(username)) throw Object.assign(new Error('aErrName'), {key: 'aErrName'});
+  if (nameBlocked(username)) throw Object.assign(new Error('aErrNameBlocked'), {key: 'aErrNameBlocked'});
   checkPw(password);
   if (email && !EMAIL_RE.test(email)) throw Object.assign(new Error('aErrEmailInvalid'), {key: 'aErrEmailInvalid'});
   if (!(await usernameAvailable(username))) throw Object.assign(new Error('aErrNameTaken'), {key: 'aErrNameTaken'});

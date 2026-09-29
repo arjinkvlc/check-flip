@@ -150,6 +150,7 @@ const tr = {
 const NAMES = {
   en: {
     frame: {none: 'No frame', bronze: 'Bronze', silver: 'Silver', gold: 'Gold', diamond: 'Diamond', neon: 'Neon', flame: 'Flame', royal: 'Royal', ember: 'Ember', crown: 'Crown', ivy: 'Ivy', duo: 'Duo', star: 'Starry'},
+    dice: {classic: 'Classic', redwhite: 'Red & white', bone: 'Old bone', gingham: 'Checked tablecloth', neon: 'Neon', marble: 'Marble', gold: 'Solid gold', chelsea: 'Royal blue & gold'},
     board: {felt: 'Navy felt', hearts: 'Sweet hearts', wood: 'Oak table', feast: 'Feast', terracotta: 'Terracotta', marble: 'Marble', sunset: 'Sunset', night: 'Midnight', chalk: 'Chalkboard menu', neon: 'Neon diner', ocean: 'Ocean', bistro: 'Bistro awning', gold: 'Gold leaf', lavender: 'Lavender'},
     bubble: {plain: 'Plain', receipt: 'Receipt', comic: 'Comic', neon: 'Neon', heart: 'Sweetheart', gold: 'Golden', suits: 'Card suits', zen: 'Zen', zoom: 'Zoom', mint: 'Mint'},
     title: {rookie: 'Rookie'},
@@ -182,6 +183,7 @@ const NAMES = {
   },
   tr: {
     frame: {none: 'Çerçevesiz', bronze: 'Bronz', silver: 'Gümüş', gold: 'Altın', diamond: 'Elmas', neon: 'Neon', flame: 'Alev', royal: 'Kraliyet', ember: 'Kor', crown: 'Taç', ivy: 'Sarmaşık', duo: 'İkili', star: 'Yıldızlı'},
+    dice: {classic: 'Klasik', redwhite: 'Kırmızı beyaz', bone: 'Eski kemik', gingham: 'Kareli örtü', neon: 'Neon', marble: 'Mermer', gold: 'Som altın', chelsea: 'Kraliyet mavisi & altın'},
     board: {felt: 'Lacivert çuha', hearts: 'Kalpli', wood: 'Meşe masa', feast: 'Ziyafet', terracotta: 'Terakota', marble: 'Mermer', sunset: 'Gün batımı', night: 'Gece yarısı', chalk: 'Kara tahta menü', neon: 'Neon lokanta', ocean: 'Okyanus', bistro: 'Bistro tentesi', gold: 'Altın varak', lavender: 'Lavanta'},
     bubble: {plain: 'Sade', receipt: 'Fiş', comic: 'Çizgi roman', neon: 'Neon', heart: 'Tatlı dil', gold: 'Altın', suits: 'Kart', zen: 'Zen', zoom: 'Hız', mint: 'Nane'},
     title: {rookie: 'Çaylak'},
