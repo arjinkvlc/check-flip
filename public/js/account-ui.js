@@ -5,9 +5,9 @@
  */
 import {
   ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, titleCls, updateEmail, EMAIL_RE, changeUsername, USERNAME_RE as UNAME_RE,
-  signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount
+  signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount, isAdmin
 } from './account.js';
-import {t, getLang} from './i18n.js';
+import {t, getLang, locale} from './i18n.js';
 import {nameBlocked} from './filter.js';
 import {TURNSTILE_SITE_KEY} from './config.js';
 import './i18n-account.js';
@@ -86,7 +86,7 @@ export function renderAcctChip(el) {
   if (!loggedIn()) { el.hidden = true; el.innerHTML = ''; return; }
   const p = ACC.profile, e = equipped(), x = xpLine(p);
   el.innerHTML = `<button class="chipbtn me" data-a="profile" aria-label="${esc(t('profileBtn'))}" title="${esc(x.txt)}"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span>
-    <span class="cname"><span class="cn1"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span></span><span class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></span><small>${esc(x.txt)}</small></span>${friendBadge()}</button>`;
+    <span class="cname"><span class="cn1"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span>${isAdmin() ? `<span class="admbadge sm" title="${esc(t('adminBadgeT'))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span>` : ''}</span><span class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></span><small>${esc(x.txt)}</small></span>${friendBadge()}</button>`;
 }
 
 // today's quest (same for everyone, resets at 00:00 UTC)
@@ -215,7 +215,7 @@ function preview(kind, key) {
   if (kind === 'frame') return `<span class="pfav big${frCls(key)}">${avatarGlyph()}</span>`;
   if (kind === 'board') return `<span class="bprev" data-board="${key}"><i></i></span>`;
   if (kind === 'dice') return `<span class="dice dprev" data-skin="${key}"><span class="die">${diePips(5)}</span><span class="die">${diePips(3)}</span></span>`;
-  if (kind === 'bubble') return `<span class="ctb${bbCls(key)}">${esc(getLang() === 'tr' ? 'Hesap sende! 😋' : 'Your treat! 😋')}</span>`;
+  if (kind === 'bubble') return `<span class="ctb${bbCls(key)}">${esc(t('bubblePreview'))}</span>`;
   return `<span class="ptitle big${titleCls(key)}">${esc(itemName('title', key))}</span>`;
 }
 
@@ -256,7 +256,7 @@ export function renderProfile(el) {
   }
   el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="profhero"><span class="pfav big${frCls(e.frame)}">${avatarGlyph()}</span>
-      <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span></div><span class="ptitle${titleCls(e.title)}">${esc(itemName('title', e.title))}</span>
+      <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span>${isAdmin() ? `<span class="admbadge" title="${esc(t('adminBadgeT'))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>${esc(t('adminBadge'))}</span>` : ''}</div><span class="ptitle${titleCls(e.title)}">${esc(itemName('title', e.title))}</span>
       <div class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small>${medalsRow(ACC.medals)}</div></div>
     <div class="segtabs" role="tablist">${TABS.map(k => `<button class="stab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-a="profTab" data-t="${k}">${esc(t(TAB_LABEL[k]))}</button>`).join('')}</div>
     <div class="box">${TAB_NOTE[tab] ? `<p class="note">${esc(t(TAB_NOTE[tab]))}</p>` : ''}${AU.err ? `<p class="err">${esc(AU.err)}</p>` : ''}${body}</div>`;
@@ -266,7 +266,7 @@ export function renderProfile(el) {
 const NAME_WAIT = 7 * 864e5;
 function nameHTML() {
   const p = ACC.profile, last = p.name_changed_at ? new Date(p.name_changed_at).getTime() : 0, next = last + NAME_WAIT, wait = last && next > Date.now();
-  const when = new Date(next).toLocaleString(getLang(), {dateStyle: 'medium', timeStyle: 'short'}), dis = AU.busy || wait ? 'disabled' : '';
+  const when = new Date(next).toLocaleString(locale(), {dateStyle: 'medium', timeStyle: 'short'}), dis = AU.busy || wait ? 'disabled' : '';
   return `<div class="emailbox"><b>${esc(t('pNameTitle'))}</b><p class="note">${esc(wait ? t('pNameWait', when) : t('pNameNote'))}</p>
     <form data-form="uname" class="row"><label for="pName" class="vh">${esc(t('aUsername'))}</label><input id="pName" maxlength="14" autocomplete="username" pattern="[A-Za-z0-9_]{3,14}" value="${esc(p.username)}" required ${wait ? 'disabled' : ''}>
     <button class="btn" type="submit" ${dis}>${esc(AU.busy ? t('aWorking') : t('pNameBtn'))}</button></form>
@@ -278,7 +278,7 @@ async function saveName() {
   if (v === ACC.profile.username) return;
   AU.busy = true; AU.nameErr = ''; AU.nameMsg = ''; H.render();
   try { await changeUsername(v); AU.nameMsg = t('pNameSaved', v); }
-  catch (e) { AU.nameErr = e && e.key === 'aErrNameWait' ? t('pNameWait', new Date(e.at).toLocaleString(getLang(), {dateStyle: 'medium', timeStyle: 'short'})) : errText(e); }
+  catch (e) { AU.nameErr = e && e.key === 'aErrNameWait' ? t('pNameWait', new Date(e.at).toLocaleString(locale(), {dateStyle: 'medium', timeStyle: 'short'})) : errText(e); }
   AU.busy = false; H.render();
 }
 function emailHTML() {

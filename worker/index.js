@@ -16,7 +16,7 @@
  *   server → client  {t:'msg', topic, payload}
  *
  * Retained messages live in memory and are written to storage sparingly (the free plan
- * allows 100,000 storage writes a day): the game state at most every 30 s per room plus
+ * allows 100,000 storage writes a day): the game state at most every 60 s per room plus
  * when the last player leaves, presence right away, public-table ads (_pub) never.
  * A player who reconnects asks the others for the latest state ('sync'), so a slightly
  * older copy in storage after the object slept is corrected at once.
@@ -31,7 +31,7 @@ const MAX_FRAME = 96 * 1024;              // bytes per message (a full game stat
 const MAX_SUBS = 16;
 const RATE_WINDOW = 10000, RATE_MAX = 80; // messages per socket per 10 s
 const MAX_TTL = 12 * 3600;                // retained messages live at most 12 h
-const STATE_SAVE_MS = 30000;              // game state: write to storage at most every 30 s
+const STATE_SAVE_MS = 60000;              // game state: write to storage at most every 60 s (players re-send it on reconnect)
 const COUNT_HUB = '_count';               // keeps the number of players online (memory only)
 const ROOM_MAX_SOCKETS = 16;              // a table holds at most 6 players (+ a few reconnecting tabs)
 
@@ -63,6 +63,8 @@ export default {
       return env.HUB.get(env.HUB.idFromName(hub)).fetch(req);
     }
     if (url.pathname === '/api/online') return online(req, env, ctx);
+    // the visitor's country (from Cloudflare, no permission needed): picks Turkish for visitors from Türkiye
+    if (url.pathname === '/api/geo') return new Response(JSON.stringify({c: (req.cf && req.cf.country) || null}), {headers: {'Content-Type': 'application/json', 'Cache-Control': 'private, no-store'}});
     if (url.pathname === '/tr/') return Response.redirect(url.origin + '/tr' + url.search, 301);
     if (url.pathname === '/tr') return turkishPage(req, env, url);
     return env.ASSETS.fetch(req);

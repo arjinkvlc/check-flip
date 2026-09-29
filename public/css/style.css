@@ -1060,7 +1060,7 @@ body.shapes .tok.avt .avimg{border-radius:50%}
   body.ingame #actions{max-height:100%;overflow-y:auto;scrollbar-width:thin}
   body.ingame .gamewrap>.logbox,body.ingame .gamewrap>.chatbox{min-height:0;align-self:stretch;overflow:hidden}
   body.ingame .logbox{display:flex;flex-direction:column}
-  body.ingame .logbox .log{flex:1 1 auto;min-height:60px;max-height:none;overflow-y:auto;scrollbar-width:thin}
+  body.ingame .logbox .log{flex:1 1 auto;min-height:60px;max-height:none;overflow-y:auto;scrollbar-width:thin;align-content:start}
   body.ingame .logbox>.rules{flex:none}
   body.ingame .chatbox{grid-template-rows:minmax(0,1fr) auto}
   body.ingame .chatlist{height:auto;max-height:none;min-height:0;overflow-y:auto}
@@ -1137,3 +1137,9 @@ input,select,textarea{font-family:inherit}
 #adminBtn{margin-top:6px;justify-self:start}
 @media (max-width:759px){.admsum{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .seoabout a{color:var(--sky);font-weight:700}
+/* v1.11: language list in Settings */
+.langsel{min-width:170px;height:40px;border-radius:12px;padding:0 12px;font-weight:700;font-size:15px}
+/* admin badge */
+.admbadge{display:inline-flex;align-items:center;gap:3px;padding:1px 7px 1px 5px;border-radius:999px;background:#7a4fa8;color:#fff;font-size:11px;font-weight:800;letter-spacing:.02em;line-height:18px;vertical-align:middle}
+.admbadge svg.ic{width:12px;height:12px;stroke:#fff;fill:rgba(255,255,255,.25)}
+.admbadge.sm{padding:1px 3px}

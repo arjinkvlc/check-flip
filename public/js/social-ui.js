@@ -7,7 +7,7 @@ import {
   friendAdd, friendRespond, friendRemove, inviteFriend, inviteDismiss, pollSocial, USERNAME_RE, onAccount, mySeason, friendMatches
 } from './account.js';
 import {frCls, medalHTML, medalsRow, seasonNow, seasonDaysLeft} from './account-ui.js';
-import {t, getLang} from './i18n.js';
+import {t, getLang, locale} from './i18n.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 let H = null;   // hooks from app.js
@@ -51,19 +51,22 @@ export function renderLeaders(el) {
 export function renderFriends(el) {
   if (!loggedIn()) { el.innerHTML = `<div class="box"><p class="note">${esc(t('aLoading'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`; return; }
   const s = ACC.social || {friends: [], incoming: [], outgoing: []};
+  // the list couldn't be loaded: say so (with the error code) instead of showing an empty list
+  const loadErr = ACC.socialErr ? `<div class="box"><p class="err">${esc(t('frLoadErr', ACC.socialErr))}</p><button class="btn small" data-a="frRetry">${esc(t('frRetry'))}</button></div>` : '';
+  const loading = !ACC.social && !ACC.socialErr;
   const inc = s.incoming.length ? `<div class="box"><h3>${esc(t('frIncoming'))}</h3><ul class="frlist">${s.incoming.map(u => `<li>${nameBtn(u)}<span class="spacer"></span>
       <button class="btn small primary" data-a="frAccept" data-u="${esc(u)}">${esc(t('frAccept'))}</button><button class="btn small ghost" data-a="frDecline" data-u="${esc(u)}">${esc(t('frDecline'))}</button></li>`).join('')}</ul></div>` : '';
   const out = s.outgoing.length ? `<p class="note">${esc(t('frOutgoing'))} ${s.outgoing.map(u => `${esc(u)} <button class="linkbtn" data-a="frCancel" data-u="${esc(u)}">${esc(t('frCancel'))}</button>`).join(' · ')}</p>` : '';
   const fl = s.friends.length ? `<ul class="frlist">${s.friends.map(f => `<li>${face(f.equipped, f.username)}<span class="frname">${nameBtn(f.username)}
       <small class="${f.online ? 'online' : 'note'}">${esc(f.online ? t('frOnline') : t('frOffline'))}</small></span><span class="lvtag">${esc(t('aLv', f.level))}</span>
       <button class="btn small ghost" data-a="frRemove" data-u="${esc(f.username)}" aria-label="${esc(t('frRemove'))}">✕</button></li>`).join('')}</ul>`
-    : `<p class="note">${esc(t('frNone'))}</p>`;
+    : `<p class="note">${esc(loading ? t('aLoading') : t('frNone'))}</p>`;
   el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="scrtitle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><div><h1>${esc(t('frTitle'))}</h1><p class="note">${esc(t('frNote'))}</p></div></div>
     <div class="box"><form data-form="fradd" class="row"><input id="frName" maxlength="14" placeholder="${esc(t('frAddPh'))}" autocomplete="off" required>
       <button class="btn primary" type="submit" ${SU.busy ? 'disabled' : ''}>${esc(t('frAdd'))}</button></form>
       ${SU.fErr ? `<p class="err">${esc(SU.fErr)}</p>` : ''}${SU.fMsg ? `<p class="okmsg">${esc(SU.fMsg)}</p>` : ''}${out}</div>
-    ${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>${s.friends.length ? matchesHTML() : ''}`;
+    ${loadErr}${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>${s.friends.length ? matchesHTML() : ''}`;
   if (s.friends.length && (!SU.fm || Date.now() - SU.fmAt > 60000)) loadMatches();
 }
 async function loadMatches() {
@@ -76,7 +79,7 @@ function matchesHTML() {
   const body = !list ? `<p class="note">${esc(t('aLoading'))}</p>` : !list.length ? `<p class="note">${esc(t('fmNone'))}</p>`
     : `<ul class="fmlist">${list.map(g => `<li><span class="fmres ${g.won ? 'won' : ''}">${esc(g.won ? t('fmWon') : t('fmPlace', g.place, g.players))}</span>
         <span class="fmwho">${(g.friends || []).map(f => `<span>${nameBtn(f.username)} <small>${esc(f.won ? t('fmWon') : t('fmPlace', f.place, g.players))}</small></span>`).join('')}</span>
-        <small class="note">${esc(new Date(g.at).toLocaleString(getLang(), {dateStyle: 'medium', timeStyle: 'short'}))}</small></li>`).join('')}</ul>`;
+        <small class="note">${esc(new Date(g.at).toLocaleString(locale(), {dateStyle: 'medium', timeStyle: 'short'}))}</small></li>`).join('')}</ul>`;
   return `<div class="box"><h3>${esc(t('fmTitle'))}</h3>${body}</div>`;
 }
 
@@ -129,10 +132,10 @@ export async function openProfile(username) {
   }
   const cell = (k, v) => `<div class="stat"><b>${esc(String(v))}</b><small>${esc(t(k))}</small></div>`;
   c.innerHTML = `<button class="btn small ghost mclose" data-a="modalClose" aria-label="${esc(t('close'))}">✕</button>
-    <div class="profhead">${face(eq, p.username, true)}<div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span>
+    <div class="profhead">${face(eq, p.username, true)}<div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span>${p.admin ? `<span class="admbadge" title="${esc(t('adminBadgeT'))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>${esc(t('adminBadge'))}</span>` : ''}
       ${p.online ? `<span class="tag ok">${esc(t('frOnline'))}</span>` : ''}</div><span class="ptitle${titleCls(safeItem('title', eq.title))}">${esc(titleOf(eq))}</span>
       <div class="xpbar"><i style="width:${lv >= MAX_LEVEL ? 100 : ((p.xp - a) / (b - a) * 100).toFixed(1)}%"></i></div>${medalsRow(p.medals)}</div></div>
-    <div class="stats">${cell('pWins', p.wins)}${cell('pGames', p.games)}${cell('pWinRate', rate + '%')}${cell('pBotGames', p.bot_games)}${cell('pDeals', st.deals || 0)}${cell('pMember', new Date(p.created_at).toLocaleDateString(getLang()))}</div>
+    <div class="stats">${cell('pWins', p.wins)}${cell('pGames', p.games)}${cell('pWinRate', rate + '%')}${cell('pBotGames', p.bot_games)}${cell('pDeals', st.deals || 0)}${cell('pMember', new Date(p.created_at).toLocaleDateString(locale()))}</div>
     <h3>${esc(t('pTabAch'))} · ${p.achievements.length}/${ACHS.length}</h3>
     <div class="achgrid">${ACHS.map(x => `<span class="ach${p.achievements.includes(x.key) ? ' got' : ''}" title="${esc(t('achName', x.key) + ': ' + t('achDesc', x.key))}">${x.icon}<small>${esc(t('achName', x.key))}</small></span>`).join('')}</div>
     ${act ? `<div class="row mact">${act}</div>` : ''}`;
@@ -167,6 +170,7 @@ export function socialClick(a, b) {
   switch (a) {
     case 'leaders': if (modalUser === null) { const mm = document.getElementById('modal'); if (mm && !mm.hidden) closeProfile(); } SU.lbErr = ''; H.go('leaders'); loadBoard(SU.lbKind, true); return true;
     case 'friends': SU.fErr = ''; SU.fMsg = ''; H.go('friends'); pollSocial(); return true;
+    case 'frRetry': pollSocial(); return true;
     case 'lbTab': SU.lbKind = b.dataset.t; SU.lbErr = ''; H.render(); loadBoard(SU.lbKind); return true;
     case 'viewp': openProfile(b.dataset.u); return true;
     case 'modalClose': closeProfile(); return true;

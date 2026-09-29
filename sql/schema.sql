@@ -299,7 +299,9 @@ begin
   end if;
   insert into public.login_attempts (username_l) values (lower(p_username));
   delete from public.login_attempts where at < now() - interval '1 day';
-  delete from public.metric_events where day < (now() at time zone 'utc')::date - 400;
+  perform public.metric_rollup();
+  delete from public.metric_events where day < (now() at time zone 'utc')::date - 14;
+  delete from public.metric_devices where last_day < (now() at time zone 'utc')::date - 90;
   delete from public.chat_reports where created_at < now() - interval '180 days';
   return null;
 end $$;
@@ -716,7 +718,7 @@ returns jsonb language plpgsql volatile security definer set search_path = '' as
 declare n int;
 begin
   perform public.close_seasons();
-  delete from public.game_results where created_at < now() - interval '180 days';
+  delete from public.game_results where created_at < now() - interval '90 days';
   get diagnostics n = row_count;
   delete from public.login_attempts where at < now() - interval '1 day';
   return jsonb_build_object('ok', true, 'results_removed', n);
@@ -760,7 +762,7 @@ begin
     'online', coalesce(p.last_seen > now() - interval '2 minutes', false),
     'achievements', coalesce((select jsonb_agg(a.key order by a.unlocked_at) from public.achievements a where a.user_id = p.id), '[]'::jsonb),
     'medals', coalesce((select jsonb_agg(jsonb_build_object('season', m.season, 'place', m.place) order by m.season desc) from public.season_medals m where m.user_id = p.id), '[]'::jsonb),
-    'me', p.id = v_me,
+    'me', p.id = v_me, 'admin', public.is_admin(p.id),
     'friend', exists (select 1 from public.friends f where f.user_id = v_me and f.friend_id = p.id),
     'requested', exists (select 1 from public.friend_requests r where r.from_id = v_me and r.to_id = p.id),
     'incoming', exists (select 1 from public.friend_requests r where r.from_id = p.id and r.to_id = v_me));
@@ -829,12 +831,12 @@ begin
   update public.profiles set last_seen = now() where id = v_me;
   delete from public.invites where created_at < now() - interval '10 minutes';
   return jsonb_build_object(
-    'friends', coalesce((select jsonb_agg(jsonb_build_object('username', p.username, 'level', public.level_of(p.xp), 'equipped', p.equipped,
+    'friends', coalesce((select jsonb_agg(jsonb_build_object('username', p.username, 'level', public.level_of(p.xp), 'equipped', jsonb_build_object('avatar', p.equipped -> 'avatar', 'frame', p.equipped -> 'frame'),
                   'online', coalesce(p.last_seen > now() - interval '2 minutes', false)) order by coalesce(p.last_seen > now() - interval '2 minutes', false) desc, lower(p.username))
                 from public.friends f join public.profiles p on p.id = f.friend_id where f.user_id = v_me), '[]'::jsonb),
     'incoming', coalesce((select jsonb_agg(p.username order by r.created_at) from public.friend_requests r join public.profiles p on p.id = r.from_id where r.to_id = v_me), '[]'::jsonb),
     'outgoing', coalesce((select jsonb_agg(p.username order by r.created_at) from public.friend_requests r join public.profiles p on p.id = r.to_id where r.from_id = v_me), '[]'::jsonb),
-    'invites', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'from', p.username, 'room', i.room, 'equipped', p.equipped) order by i.created_at desc)
+    'invites', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'from', p.username, 'room', i.room, 'equipped', jsonb_build_object('avatar', p.equipped -> 'avatar', 'frame', p.equipped -> 'frame')) order by i.created_at desc)
                 from public.invites i join public.profiles p on p.id = i.from_id where i.to_id = v_me), '[]'::jsonb));
 end $$;
 
@@ -904,6 +906,67 @@ create index if not exists metric_events_device on public.metric_events (device,
 alter table public.metric_events enable row level security;
 revoke all on public.metric_events from anon, authenticated;
 
+-- v1.11: small tables instead of keeping every raw event (raw events are kept 14 days)
+create table if not exists public.metric_devices (
+  device    uuid primary key,
+  first_day date not null,
+  last_day  date not null,
+  back1     boolean not null default false,
+  back7     boolean not null default false
+);
+create index if not exists metric_devices_first on public.metric_devices (first_day);
+create index if not exists metric_devices_last on public.metric_devices (last_day);
+alter table public.metric_devices enable row level security;
+revoke all on public.metric_devices from anon, authenticated;
+create table if not exists public.metric_daily (
+  day date primary key, visitors int not null default 0, new_visitors int not null default 0, players int not null default 0,
+  games_started int not null default 0, games_finished int not null default 0,
+  quick int not null default 0, room int not null default 0, solo int not null default 0, local int not null default 0,
+  d1 numeric, d7 numeric
+);
+alter table public.metric_daily enable row level security;
+revoke all on public.metric_daily from anon, authenticated;
+
+-- devices seen before v1.11 (safe to re-run)
+insert into public.metric_devices (device, first_day, last_day, back1, back7)
+  select e.device, min(e.day), max(e.day),
+    bool_or(e.day = f.first_day + 1), bool_or(e.day = f.first_day + 7)
+    from public.metric_events e join (select device, min(day) first_day from public.metric_events where kind = 'visit' group by device) f using (device)
+   where e.kind = 'visit' group by e.device
+  on conflict (device) do nothing;
+
+-- one day's numbers: from the raw events (last 14 days) and the device table
+create or replace function public.metric_day(p_day date)
+returns public.metric_daily language sql stable security definer set search_path = '' as $$
+  select p_day,
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'visit'),
+    (select count(*)::int from public.metric_devices d where d.first_day = p_day),
+    (select count(distinct e.device)::int from public.metric_events e where e.day = p_day and e.kind = 'game_start'),
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'game_start'),
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'game_end'),
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'game_start' and e.mode = 'quick'),
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'game_start' and e.mode = 'room'),
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'game_start' and e.mode = 'solo'),
+    (select count(*)::int from public.metric_events e where e.day = p_day and e.kind = 'game_start' and e.mode = 'local'),
+    (select case when count(*) = 0 or p_day + 1 > (now() at time zone 'utc')::date then null else round(100.0 * count(*) filter (where d.back1) / count(*), 1) end
+       from public.metric_devices d where d.first_day = p_day),
+    (select case when count(*) = 0 or p_day + 7 > (now() at time zone 'utc')::date then null else round(100.0 * count(*) filter (where d.back7) / count(*), 1) end
+       from public.metric_devices d where d.first_day = p_day)
+$$;
+-- save finished days (called by daily_upkeep); D1 / D7 of the last 8 days are updated as they become known
+create or replace function public.metric_rollup()
+returns void language plpgsql volatile security definer set search_path = '' as $$
+declare d date;
+begin
+  for d in select generate_series((now() at time zone 'utc')::date - 8, (now() at time zone 'utc')::date - 1, interval '1 day')::date loop
+    if exists (select 1 from public.metric_daily m where m.day = d) then
+      update public.metric_daily m set d1 = x.d1, d7 = x.d7 from public.metric_day(d) x where m.day = d;
+    elsif exists (select 1 from public.metric_events e where e.day = d) then
+      insert into public.metric_daily select * from public.metric_day(d);
+    end if;
+  end loop;
+end $$;
+
 create or replace function public.log_event(p_device uuid, p_kind text, p_mode text default null)
 returns void language plpgsql volatile security definer set search_path = '' as $$
 declare v_day date := (now() at time zone 'utc')::date; v_n int;
@@ -912,6 +975,10 @@ begin
   if p_mode is not null and p_mode not in ('quick', 'room', 'solo', 'local') then p_mode := null; end if;
   if p_kind = 'visit' then
     insert into public.metric_events (day, device, kind) values (v_day, p_device, 'visit') on conflict do nothing;
+    -- first / last day per device, and whether it came back 1 and 7 days after the first visit
+    insert into public.metric_devices as d (device, first_day, last_day) values (p_device, v_day, v_day)
+      on conflict (device) do update set last_day = v_day,
+        back1 = d.back1 or v_day = d.first_day + 1, back7 = d.back7 or v_day = d.first_day + 7;
     return;
   end if;
   select count(*) into v_n from public.metric_events where day = v_day and device = p_device;
@@ -924,28 +991,18 @@ create or replace function public.admin_metrics(p_days int default 14)
 returns table (day date, visitors int, new_visitors int, players int, games_started int, games_finished int,
                quick int, room int, solo int, local int, d1 numeric, d7 numeric)
 language plpgsql stable security definer set search_path = '' as $$
+declare v_today date := (now() at time zone 'utc')::date;
 begin
   if not public.is_admin() then raise exception 'not_admin'; end if;
+  -- today live; earlier days from the saved rows (or live while they are still in the last 14 days)
   return query
-  with days as (select generate_series((now() at time zone 'utc')::date - (least(greatest(p_days, 1), 120) - 1), (now() at time zone 'utc')::date, interval '1 day')::date as d),
-  firsts as (select device, min(e.day) as first_day from public.metric_events e where e.kind = 'visit' group by device)
-  select ds.d,
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'visit'),
-    (select count(*)::int from firsts f where f.first_day = ds.d),
-    (select count(distinct e.device)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start'),
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start'),
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_end'),
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'quick'),
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'room'),
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'solo'),
-    (select count(*)::int from public.metric_events e where e.day = ds.d and e.kind = 'game_start' and e.mode = 'local'),
-    (select case when count(*) = 0 or ds.d + 1 > (now() at time zone 'utc')::date then null
-            else round(100.0 * count(*) filter (where exists (select 1 from public.metric_events v where v.device = f.device and v.kind = 'visit' and v.day = ds.d + 1)) / count(*), 1) end
-       from firsts f where f.first_day = ds.d),
-    (select case when count(*) = 0 or ds.d + 7 > (now() at time zone 'utc')::date then null
-            else round(100.0 * count(*) filter (where exists (select 1 from public.metric_events v where v.device = f.device and v.kind = 'visit' and v.day = ds.d + 7)) / count(*), 1) end
-       from firsts f where f.first_day = ds.d)
-  from days ds order by ds.d desc;
+  select x.* from generate_series(v_today - (least(greatest(p_days, 1), 120) - 1), v_today, interval '1 day') g(dd)
+    cross join lateral (
+      select * from public.metric_daily m where m.day = g.dd::date and g.dd::date < v_today
+      union all
+      select * from public.metric_day(g.dd::date) where not exists (select 1 from public.metric_daily m where m.day = g.dd::date and g.dd::date < v_today)
+    ) x
+  order by 1 desc;
 end $$;
 
 -- ---- chat reports and sanctions ----
@@ -1142,6 +1199,7 @@ revoke execute on function public.change_username(text) from public, anon;
 grant execute on function public.change_username(text) to authenticated;
 grant execute on function public.delete_my_account() to authenticated;
 -- v1.10
+revoke execute on function public.metric_day(date), public.metric_rollup() from public, anon, authenticated;
 revoke execute on function public.is_admin(uuid), public.log_event(uuid, text, text), public.admin_metrics(int), public.sanction_until(uuid, text),
   public.account_banned(uuid), public.my_status(), public.auto_sanction(uuid, text), public.report_chat(jsonb), public.admin_reports(text, int),
   public.admin_sanctions(), public.admin_sanction(text, text, int, bigint, text), public.admin_lift(bigint), public.admin_dismiss(bigint),

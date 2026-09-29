@@ -5,7 +5,7 @@
  *  - Bans: active sanctions, which can be lifted
  */
 import {ACC, isAdmin, adminMetrics, adminReports, adminSanctions, adminSanction, adminLift, adminDismiss} from './account.js';
-import {t, getLang} from './i18n.js';
+import {t, locale} from './i18n.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const AD = {tab: 'metrics', data: {}, busy: false, err: '', msg: '', status: 'open'};
@@ -15,7 +15,7 @@ const rerender = () => { if (H) H.render(); };
 const when = v => {
   if (!v) return '';
   if (v === 'infinity') return t('banForever');
-  return new Date(v).toLocaleString(getLang() === 'tr' ? 'tr-TR' : 'en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+  return new Date(v).toLocaleString(locale(), {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
 };
 const pct = v => v == null ? '–' : v + '%';
 

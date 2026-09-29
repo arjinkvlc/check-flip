@@ -4,20 +4,58 @@
  * Oyun kaydı motor tarafından {k, p} (anahtar + parametre) olarak tutulur ve
  * her oyuncunun ekranında kendi seçtiği dile çevrilir.
  */
-const LANGS = ['en', 'tr'];
-let lang = 'en';
-// saved choice first; otherwise the /tr page or a Turkish browser opens in Turkish
+// Languages. English and Turkish are built in (this file and the i18n-*.js files); the others are
+// packs in js/lang/<code>.js, loaded when chosen. A missing text falls back to English.
+// Every new text must be added in ALL of these languages.
+const LANGS = ['en', 'tr', 'es', 'pt', 'fr', 'de'];
+const LANG_NAMES = {en: 'English', tr: 'Türkçe', es: 'Español', pt: 'Português (Brasil)', fr: 'Français', de: 'Deutsch'};
+const LOCALES = {en: 'en-GB', tr: 'tr-TR', es: 'es-ES', pt: 'pt-BR', fr: 'fr-FR', de: 'de-DE'};
+const PACKS = ['es', 'pt', 'fr', 'de'];
+let lang = 'en', geoCheck = false;
+// First visit language, no permission needed: the saved choice; the /tr page → Turkish; the browser's
+// language if we have it; a browser in English (or a language we don't have) visiting from Türkiye → Turkish
+// (the country comes from Cloudflare, /api/geo); else English.
 { let s = null; try { s = localStorage.getItem('hs-lang'); } catch (e) {}
   if (LANGS.includes(s)) lang = s;
-  else if (typeof location !== 'undefined' && /^\/tr\/?$/.test(location.pathname)) lang = 'tr';
-  else if (typeof navigator !== 'undefined' && /^tr\b/i.test(navigator.language || '')) lang = 'tr'; }
+  else if (typeof location !== 'undefined' && /^\/tr(\/|$)/.test(location.pathname)) lang = 'tr';
+  else if (typeof navigator !== 'undefined') {
+    const want = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']).map(x => String(x).slice(0, 2).toLowerCase());
+    const hit = want.find(x => LANGS.includes(x)); if (hit) lang = hit;
+    geoCheck = lang === 'en' && typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
+  } }
+async function geoLang() {
+  if (!geoCheck) return;
+  let cc = null; try { cc = localStorage.getItem('cf-cc'); } catch (e) {}
+  if (!cc) {
+    try {
+      const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 1500);
+      const r = await fetch('/api/geo', {signal: ctl.signal}); clearTimeout(to);
+      if (r.ok) { cc = (await r.json()).c || 'XX'; try { localStorage.setItem('cf-cc', cc); } catch (e) {} }
+    } catch (e) {}
+  }
+  if (cc === 'TR') lang = 'tr';
+}
 
 const getLang = () => lang;
-function setLang(l) { if (!LANGS.includes(l)) return; lang = l; try { localStorage.setItem('hs-lang', l); } catch (e) {} document.documentElement.lang = l; }
+const locale = () => LOCALES[lang] || 'en-GB';
+const loaded = new Set(['en', 'tr']), packHooks = [];
+// the text pack of a language: {C, U, LOG, TXT, NAMES}; other modules (account names) hook in with onPack
+async function loadLang(l) {
+  if (!PACKS.includes(l) || loaded.has(l)) return;
+  const pk = (await import(`./lang/${l}.js`)).default;
+  C[l] = pk.C || {}; U[l] = Object.assign(U[l] || {}, pk.U || {}); LOG[l] = pk.LOG || {}; TXT[l] = pk.TXT || {};
+  loaded.add(l); packHooks.forEach(f => { try { f(l, pk); } catch (e) { console.error(e); } });
+}
+const onPack = f => { packHooks.push(f); };
+// switch language (loads its pack first); resolves when the new texts are ready
+async function setLang(l) {
+  if (!LANGS.includes(l)) return;
+  try { await loadLang(l); } catch (e) { console.error('language pack', l, e); return; }
+  lang = l; try { localStorage.setItem('hs-lang', l); } catch (e) {} if (typeof document !== 'undefined') document.documentElement.lang = l;
+}
 
-const SIGN = {en: '¤', tr: '¤'};
-const M = n => SIGN[lang] + n;
-const MM = n => (n < 0 ? '−' : '') + SIGN[lang] + Math.abs(n);
+const M = n => '¤' + n;
+const MM = n => (n < 0 ? '−' : '') + '¤' + Math.abs(n);
 
 /* ---------- content ---------- */
 const C = {
@@ -90,13 +128,14 @@ const C = {
     nicks: ['Aç Kurt', 'Pizza Sever', 'Taco Patronu', 'Erişte Kralı', 'Burgerci', 'Suşi Ustası', 'Donut Avcısı', 'Makarnacı', 'Atıştırmacı', 'Obur', 'Waffle Ustası', 'Köri Ustası', 'Simitçi', 'Mantıcı', 'Köfteci', 'Tostçu', 'Nacho Ninja', 'Pankekçi', 'Peynirci', 'Patatesçi']
   }
 };
-const sqName = kind => C[lang].sq[kind][0];
-const sqDesc = kind => C[lang].sq[kind][1];
-const venueName = key => C[lang].venue[key] || key;
-const cardName = c => (C[lang].cards[c] || [c])[0];
-const cardDesc = c => (C[lang].cards[c] || ['', ''])[1];
-const avatarLabel = k => C[lang].avatars[k] || k;
-const nickList = () => C[lang].nicks;
+const CL = part => (C[lang] && C[lang][part]) || C.en[part];
+const sqName = kind => (CL('sq')[kind] || C.en.sq[kind])[0];
+const sqDesc = kind => (CL('sq')[kind] || C.en.sq[kind])[1];
+const venueName = key => CL('venue')[key] || C.en.venue[key] || key;
+const cardName = c => (CL('cards')[c] || C.en.cards[c] || [c])[0];
+const cardDesc = c => (CL('cards')[c] || C.en.cards[c] || ['', ''])[1];
+const avatarLabel = k => CL('avatars')[k] || C.en.avatars[k] || k;
+const nickList = () => CL('nicks');
 
 /* ---------- UI strings ---------- */
 const U = {
@@ -274,7 +313,7 @@ const U = {
   }
 };
 function cardDescSafe(c) { return cardDesc(c); }
-function t(key, ...args) { const v = U[lang][key] ?? U.en[key]; return typeof v === 'function' ? v(...args) : (v ?? key); }
+function t(key, ...args) { const v = (U[lang] || U.en)[key] ?? U.en[key]; return typeof v === 'function' ? v(...args) : (v ?? key); }
 
 /* ---------- game log & popup titles ---------- */
 const V_ = v => venueName(v);
@@ -382,12 +421,17 @@ const setVenueIconFn = fn => { venueIcon = fn; };
 function tx(e) {
   if (e == null) return '';
   if (typeof e === 'string') return e;
-  const f = LOG[lang][e.k] || TXT[lang][e.k] || LOG.en[e.k] || TXT.en[e.k] || U[lang][e.k] || U.en[e.k];
+  const f = (LOG[lang] || {})[e.k] || (TXT[lang] || {})[e.k] || LOG.en[e.k] || TXT.en[e.k] || (U[lang] || {})[e.k] || U.en[e.k];
   if (!f) return e.k;
   try { return typeof f === 'function' ? f(e.p || {}) : f; } catch (err) { return e.k; }
 }
 
 // lets other modules (js/i18n-account.js) add UI strings
-function extendStrings(o) { for (const l in o) if (U[l]) Object.assign(U[l], o[l]); }
+function extendStrings(o) { for (const l in o) Object.assign(U[l] = U[l] || {}, o[l]); }
+const venueIconOf = v => venueIcon(v);
+// the first language (saved / browser) is loaded before the game draws its first screen
+const i18nReady = geoLang().then(() => loadLang(lang)).catch(() => { lang = 'en'; });
+// for tools/check-langs.mjs
+const __I18N = {C, U, LOG, TXT};
 
-export {LANGS, getLang, setLang, extendStrings, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn};
+export {LANGS, LANG_NAMES, PACKS, locale, loadLang, onPack, i18nReady, venueIconOf, __I18N, getLang, setLang, extendStrings, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn};

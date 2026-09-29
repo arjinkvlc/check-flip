@@ -395,7 +395,7 @@ export const inviteDismiss = id => call('invite_dismiss', {p_id: id}).then(pollS
 export const mySeason = n => call('my_season', {p_season: n});
 export const friendMatches = () => call('friend_matches', {p_limit: 10});
 // friends, requests and invites; also keeps me "online" for friends (online = seen in the last 2 minutes).
-// Polled every 45 s on the menus, every 90 s during a game, never while the tab is hidden.
+// Polled every 45 s on the menus, every 90 s during a game, every 3 min with no friends or requests, never while the tab is hidden.
 let lastSocial = '', socialAt = 0, inGame = () => false;
 export const setSocialGameCheck = fn => { inGame = fn; };
 export async function pollSocial() {
@@ -403,11 +403,15 @@ export async function pollSocial() {
   socialAt = Date.now();
   try {
     const data = await call('social');
-    const key = JSON.stringify(data);
-    if (key !== lastSocial) { lastSocial = key; ACC.social = data; emit(); }
-  } catch (e) {}
+    const key = JSON.stringify(data), hadErr = !!ACC.socialErr; ACC.socialErr = null;
+    // (compare with the list on screen too: after logging out and in again the reply is the same as before,
+    // but the list was cleared, v1.11 fix)
+    if (key !== lastSocial || !ACC.social || hadErr) { lastSocial = key; ACC.social = data; emit(); }
+  } catch (e) { ACC.socialErr = (e && (e.code || e.key || e.message)) || 'error'; console.warn('friends list', e); emit(); }
 }
-setInterval(() => { if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - socialAt >= (inGame() ? 90000 : 45000)) pollSocial(); }, 5000);
+// nobody to hear from (no friends, requests or invites): every 3 minutes is enough
+const quiet = () => { const s = ACC.social; return !!s && !s.friends.length && !s.incoming.length && !s.outgoing.length && !(s.invites || []).length; };
+setInterval(() => { if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - socialAt >= (quiet() ? 180000 : inGame() ? 90000 : 45000)) pollSocial(); }, 5000);
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - socialAt > 45000) pollSocial(); });
 onAccount(() => { if (loggedIn() && !ACC.social) pollSocial(); });
 

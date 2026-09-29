@@ -2,7 +2,7 @@
  * Check Flip — texts for accounts, profile, achievements and cosmetics (English / Türkçe).
  * Registered into the main dictionary of js/i18n.js.
  */
-import {extendStrings, M} from './i18n.js';
+import {extendStrings, M, onPack} from './i18n.js';
 import {IRON} from './engine.js';
 
 const en = {
@@ -221,10 +221,17 @@ const NAMES = {
     }
   }
 };
-for (const l of ['en', 'tr']) {
-  const N = NAMES[l], o = l === 'en' ? en : tr;
-  o.itemName = (kind, key) => kind === 'title' ? (N.title[key] || (N.ach[key] || [key])[0]) : ((N[kind] || {})[key] || key);
-  o.achName = key => (N.ach[key] || [key])[0];
-  o.achDesc = key => { const d = (N.ach[key] || ['', ''])[1]; return typeof d === 'function' ? d() : d; };
+// names in a language, falling back to English for anything a pack doesn't have
+function nameFns(l) {
+  const N = NAMES[l] || {}, E = NAMES.en, part = k => Object.assign({}, E[k], N[k] || {});
+  const ach = part('ach'), title = part('title');
+  return {
+    itemName: (kind, key) => kind === 'title' ? (title[key] || (ach[key] || [key])[0]) : (part(kind)[key] || key),
+    achName: key => (ach[key] || [key])[0],
+    achDesc: key => { const d = (ach[key] || ['', ''])[1]; return typeof d === 'function' ? d() : d; }
+  };
 }
+Object.assign(en, nameFns('en')); Object.assign(tr, nameFns('tr'));
 extendStrings({en, tr});
+// language packs (js/lang/*.js) bring their own NAMES
+onPack((l, pk) => { NAMES[l] = pk.NAMES || {}; extendStrings({[l]: nameFns(l)}); });

@@ -20,6 +20,7 @@ import './i18n-v17.js';
 import './i18n-v18.js';
 import './i18n-v19.js';
 import './i18n-v110.js';
+import './i18n-v111.js';
 import {renderAdmin, adminClick, initAdminUI} from './admin-ui.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
@@ -29,7 +30,9 @@ import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
 import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck, onAccount, logEvent, reportChat, isAdmin} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
-import {getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
+import {LANGS, LANG_NAMES, locale, i18nReady, getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
+// the chosen language's texts must be ready before the first screen is drawn
+await i18nReady;
 
 setVenueIconFn(key => VICON[key] || '');
 const $ = s => document.querySelector(s);
@@ -652,7 +655,7 @@ function sendQuick(k) {
 }
 // typed chat is off for guests at public tables and during a chat ban (ready-made lines still work)
 const chatLocked = () => (ui.chatBan && ui.chatBan > Date.now()) || (mode === 'online' && S && S.pub && !loggedIn());
-const banDate = ms => !ms || ms > 8e15 || ms === Infinity ? t('banForever') : new Date(ms).toLocaleString(getLang() === 'tr' ? 'tr-TR' : 'en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+const banDate = ms => !ms || ms > 8e15 || ms === Infinity ? t('banForever') : new Date(ms).toLocaleString(locale(), {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
 function addSys(text) { const ul = $('#chatList'); if (!ul) return; const em = ul.querySelector('.chatempty'); if (em) em.remove(); const li = document.createElement('li'); li.className = 'sys'; li.innerHTML = `<span>${esc(text)}</span>`; ul.appendChild(li); ul.scrollTop = ul.scrollHeight; }
 function chatLockUI() {
   const lk = $('#chatLock'), inp = $('#chatIn'), btn = $('#chatForm button'); if (!lk || !inp) return;
@@ -742,7 +745,7 @@ function render(prev, forceV) {
   if (code) $('#roomChip').innerHTML = `${esc(S && S.pub ? t('chipPub') : t('chipRoom'))} <b>${esc(code)}</b>`;
   $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); $('#gameCredit').hidden = true;
   $('#musicBtn').classList.toggle('on', Music.on); $('#musicBtn').setAttribute('aria-checked', String(Music.on));
-  document.querySelectorAll('[data-a=setLang]').forEach(b => b.classList.toggle('on', b.dataset.l === getLang()));
+  { const sel = $('#setLangSel'); if (sel && sel.value !== getLang()) sel.value = getLang(); }
   document.querySelectorAll('[data-a=setTheme]').forEach(b => b.classList.toggle('on', b.dataset.t === (document.documentElement.dataset.theme || 'light')));
   renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
   Music.scene(ui.screen === 'game' && shown && shown.ph !== 'lobby' ? 'game' : 'menu');
@@ -1065,10 +1068,10 @@ document.addEventListener('click', e => {
     case 'settings': $('#adminBtn').hidden = !isAdmin(); $('#setModal').hidden = false; render(); break;
     case 'admin': $('#setModal').hidden = true; ui.screen = 'admin'; render(); break;
     case 'setClose': $('#setModal').hidden = true; break;
-    case 'setLang': if (b.dataset.l !== getLang()) { setLang(b.dataset.l); pickNick(); applyStatic(); } render(); break;
+    case 'setLang': if (b.dataset.l !== getLang()) changeLang(b.dataset.l); break;
     case 'setTheme': setTheme(b.dataset.t); render(); break;
     case 'stab': setTab(b.dataset.t); break;
-    case 'lang': setLang(getLang() === 'en' ? 'tr' : 'en'); pickNick(); applyStatic(); render(); break;
+    case 'lang': changeLang(getLang() === 'en' ? 'tr' : 'en'); break;
     case 'create': ui.err = ''; ui.quick = 0; createRoom(false); break;
     case 'quick': ui.err = ''; ui.quick = 0; quickPlay(); break;
     case 'quickagain': leave(); ui.err = ''; ui.quick = 0; quickPlay(); break;
@@ -1192,6 +1195,11 @@ function showOnline() { const el = $('#onlineNow'); if (!el) return; el.hidden =
 setInterval(pollOnline, 60000); document.addEventListener('visibilitychange', pollOnline); setTimeout(pollOnline, 800);
 // suspended account: tell once, the account was signed out
 onAccount(() => { if (ACC.banned && ui.bannedShown !== ACC.banned) { ui.bannedShown = ACC.banned; const ms = ACC.banned === 'infinity' ? Infinity : Date.parse(ACC.banned); askUser(t('accountBannedT'), t('accountBanned', banDate(ms)), t('ok'), t('close')); } });
+// language switch (Settings): loads the language's texts if needed, then redraws everything
+async function changeLang(l) {
+  await setLang(l); pickNick(); applyStatic(); render();
+}
+{ const sel = $('#setLangSel'); if (sel) { sel.innerHTML = LANGS.map(l => `<option value="${l}" lang="${l}">${LANG_NAMES[l]}</option>`).join(''); sel.value = getLang(); sel.addEventListener('change', () => changeLang(sel.value)); } }
 // yes / no question in the page's own style
 function askUser(title, text, yes, no) {
   const m = $('#askModal'); $('#askTitle').textContent = title; $('#askText').textContent = text || ''; $('#askText').hidden = !text;
