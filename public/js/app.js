@@ -421,7 +421,7 @@ function botTick() {
 // Quick play bots play at the level of the people at the table: average account level (guests count as 1)
 function fillLevel() {
   const lv = S.pl.filter(q => !q.bot).map(q => (q.pf && +q.pf.lv) || 1), avg = lv.length ? lv.reduce((a, b) => a + b, 0) / lv.length : 1;
-  return avg < 4 ? 'easy' : avg < 12 ? 'normal' : 'hard';
+  return avg < 8 ? 'easy' : avg < 20 ? 'normal' : 'hard';
 }
 function addBot(fill) {
   if (!S || !isHost() || S.ph !== 'lobby' || (S.pub && !fill) || S.pl.length >= (S.pub ? CFG.PUBMAX : CFG.MAXP)) return;

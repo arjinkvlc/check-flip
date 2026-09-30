@@ -16,14 +16,14 @@ const en = {
   moreAria: 'More settings', aNameNo: 'not allowed'
 };
 const tr = {
-  hiddenCardT: 'Ele bir kart', hiddenCardS: n => `${n} bu kartı oynayana kadar saklıyor.`,
+  hiddenCardT: 'Gizli kart', hiddenCardS: n => `${n} bu kartı oynayana kadar gizli tutuyor.`,
   exSwapMe: 'Elin dolu: hangi kartı tutacağını seç', exSwap: n => `${n} oyuncusunun eli dolu, hangi kartı tutacağını seçiyor`,
-  sSwap: 'eli dolu, seçiyor', swapQ: 'Elin dolu (2 kart). Yeni kartı eldekilerden birinin yerine al ya da bırak.',
-  swapDrop: c => `${c} kartını bırak`, swapKeepNew: c => `${c} kartını al`, swapBurn: c => `Yeni kartı (${c}) alma`, swapKeepOld: 'elim olduğu gibi kalsın',
+  sSwap: 'eli dolu, kart seçiyor', swapQ: 'Elin dolu (2 kart). Yeni kartı eldekilerden birinin yerine al ya da bırak.',
+  swapDrop: c => `${c} kartını bırak`, swapKeepNew: c => `${c} kartını al`, swapBurn: c => `Yeni kartı (${c}) alma`, swapKeepOld: 'Elim olduğu gibi kalsın',
   isSwapping: n => `${n} elinde yer açmak için kart seçiyor…`,
   swapped: p => `${p.n}, ${cardName(p.o)} yerine ${cardName(p.c)} aldı`,
-  drewH: p => `${p.n} ele bir kart çekti`, handFullH: p => `${p.n}: el dolu, bir kart bırakıldı`, swappedH: p => `${p.n} elindeki bir kartı değiştirdi`,
-  pTabDice: 'Zarlar', pDiceNote: 'Zar atarken seçtiğin zarlar herkese görünür.',
+  drewH: p => `${p.n} ele bir kart çekti`, handFullH: p => `${p.n}: eli dolu olduğu için bir kart bırakıldı`, swappedH: p => `${p.n} elindeki bir kartı değiştirdi`,
+  pTabDice: 'Zarlar', pDiceNote: 'Seçtiğin zarları, zar atarken herkes görür.',
   aErrNameBlocked: 'Bu kullanıcı adına izin verilmiyor. Lütfen başka bir ad seç.',
   moreAria: 'Diğer ayarlar', aNameNo: 'izin verilmiyor'
 };

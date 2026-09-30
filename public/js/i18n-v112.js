@@ -9,8 +9,8 @@ extendStrings({
   },
   tr: {
     pubSearching: 'Oyuncular aranıyor…',
-    ePubOnly: 'Bu bir Hızlı oyun masası: kodla ya da linkle değil, yalnızca Hızlı oyun ile katılınabilir.',
+    ePubOnly: 'Bu bir Hızlı oyun masası: kodla ya da bağlantıyla değil, yalnızca Hızlı oyun ile katılınabilir.',
     kbdHint: '<kbd>Boşluk</kbd> zar at / devam · <kbd>1</kbd>–<kbd>9</kbd> seç · <kbd>C</kbd> sohbet',
-    kbdHelp: 'Klavye: <kbd>Boşluk</kbd> zar at, devam et ya da ana buton · <kbd>1</kbd>–<kbd>9</kbd> seçenek seç · <kbd>C</kbd> sohbet · <kbd>Esc</kbd> sohbet kutusundan çık'
+    kbdHelp: 'Klavye: <kbd>Boşluk</kbd> zar at, devam et ya da ana düğme · <kbd>1</kbd>–<kbd>9</kbd> seçenek seç · <kbd>C</kbd> sohbet · <kbd>Esc</kbd> sohbet kutusundan çık'
   }
 });

@@ -11,7 +11,7 @@ extendStrings({
   },
   tr: {
     leaveQ: 'Oyundan çıkılsın mı?',
-    leaveQOnline: 'Oyun sensiz devam eder, sıran geldiğinde bot oynar.',
+    leaveQOnline: 'Oyun sensiz devam eder; sıran geldiğinde yerine bot oynar.',
     leaveQLocal: 'Bu oyun biter ve devam ettirilemez.',
     leaveYes: 'Çık', stay: 'Kal',
     afterPay: 'Ödedikten sonra kalan', shortBy: m => `${m} eksik`,

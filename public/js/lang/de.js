@@ -72,7 +72,7 @@ export default {
       '<b>Volle Runde:</b> +¤40, +2 Hunger, Faktor +1. <b>Halbzeit (Feld 20):</b> +¤20, +1 Hunger.',
       'Du hast <b>30 Sekunden</b> zum Würfeln oder Entscheiden und 45 Sekunden zum Zahlen; läuft die Zeit ab, spielt das Spiel für dich.',
       'Du kannst die Rechnung nicht zahlen? Dann bist du raus. Mit optionalem Tageslimit gewinnt am Ende der Reichste (<b>Geld + Restaurantwert</b>).',
-      'Ein <b>schnelles Spiel</b> setzt dich an einen offenen Tisch, der bei 4 Spielern startet oder wenn alle bereit sind. Im <b>Einzelspieler</b>-Modus spielst du gegen 1–3 Bots.'
+      'Ein <b>schnelles Spiel</b> setzt dich an einen offenen Tisch; kommt niemand, nehmen Bots die freien Plätze. Das Spiel startet, wenn alle bereit sind. Im <b>Einzelspieler</b>-Modus spielst du gegen 1–3 Bots.'
     ],
     decksA: 'Glückskarten', decksB: 'Ereigniskarten', squares: 'Felder', restaurants: 'Restaurants', kept: 'behalten',
     beltNote: sq => `<b>${sq}</b> (Feld 12 und 2 Karten im Glücksstapel): ${BELT_DESC}. Bleibt auf der Hand.`,
@@ -85,7 +85,7 @@ export default {
     roomCode: 'Raumcode', copy: '📋 Kopieren', copied: '✓ Kopiert', selectedCopy: 'Markiert, jetzt kopieren', copyInvite: 'Einladungslink kopieren', inviteCopied: 'Kopiert', noLateJoin: 'Nach dem Start kann niemand mehr beitreten.',
     pickAvatarTitle: 'Wähl deinen Avatar', avatarNote: 'Avatare anderer Spieler sind vergeben. Gesperrte schaltest du mit Level und Erfolgen frei (dafür einloggen). Ohne Avatar spielst du mit einem farbigen Buchstaben.',
     settings: 'Einstellungen', auto: 'Auto', pubTable: 'Offener Tisch', ready: 'Bin bereit', readyUndo: '✓ Bereit (zurück)',
-    pubNote: (n, max) => `${n}/${max} Spieler. Der Tisch startet bei ${max} Spielern oder wenn mindestens 2 sitzen und alle bereit sind.`,
+    pubNote: (n, max) => `${n}/${max} Spieler. Das Spiel startet, wenn mindestens 2 sitzen und alle bereit sind.`,
     moneyCustom: m => `Startgeld ${M(m)}.`, moneyAuto: (n, m) => `Auto: ${M(m)} für ${n} Spieler (2 Spieler ¤100, 3 Spieler ¤150, 4+ Spieler ¤200)`,
     daysOn: d => `Nach ${d} Tagen gewinnt der Reichste`, daysOff: 'Aus: Wer übrig bleibt, gewinnt',
     you: 'du', hostTag: 'Gastgeber', readyTag: '✓ bereit', waitingTag: 'wartet', seatsFree: n => `${n} Platz${n > 1 ? 'e' : ''} frei`,

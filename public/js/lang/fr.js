@@ -71,7 +71,7 @@ export default {
       '<b>Tour complet :</b> +¤40, +2 faim, multiplicateur +1. <b>Mi-parcours (case 20) :</b> +¤20, +1 faim.',
       'Tu as <b>30 secondes</b> pour lancer ou décider et 45 secondes pour payer ; quand le temps est écoulé, le jeu joue pour toi.',
       'Tu ne peux pas payer l’addition ? Tu es éliminé. Avec la limite de jours (optionnelle), le joueur le plus riche (<b>argent + valeur des restaurants</b>) gagne à la fin.',
-      'La <b>partie rapide</b> t’installe à une table ouverte qui démarre à 4 joueurs ou quand tout le monde est prêt. En <b>Solo</b>, tu joues contre 1 à 3 bots.'
+      'La <b>partie rapide</b> t’installe à une table ouverte ; si personne ne vient, des bots prennent les places libres. La partie démarre quand tout le monde est prêt. En <b>Solo</b>, tu joues contre 1 à 3 bots.'
     ],
     decksA: 'Pioche Chance', decksB: 'Pioche Événement', squares: 'Cases', restaurants: 'Restaurants', kept: 'gardée',
     beltNote: sq => `<b>${sq}</b> (case 12, et 2 cartes dans la pioche Chance) : ${BELT_DESC}. Se garde en main.`,
@@ -84,7 +84,7 @@ export default {
     roomCode: 'Code du salon', copy: '📋 Copier', copied: '✓ Copié', selectedCopy: 'Sélectionné, copie-le', copyInvite: 'Copier le lien d’invitation', inviteCopied: 'Copié', noLateJoin: 'Plus personne ne peut rejoindre une fois la partie lancée.',
     pickAvatarTitle: 'Choisis ton avatar', avatarNote: 'Les avatars déjà pris ne peuvent pas être choisis. Les avatars verrouillés s’ouvrent avec les niveaux et les succès (connecte-toi pour les utiliser). Sans avatar, tu joues avec une lettre en couleur.',
     settings: 'Réglages', auto: 'Auto', pubTable: 'Table publique', ready: 'Je suis prêt', readyUndo: '✓ Prêt (annuler)',
-    pubNote: (n, max) => `${n}/${max} joueurs. La table démarre à ${max} joueurs, ou quand au moins 2 sont assis et que tout le monde est prêt.`,
+    pubNote: (n, max) => `${n}/${max} joueurs. La partie démarre quand au moins 2 sont assis et que tout le monde est prêt.`,
     moneyCustom: m => `Argent de départ ${M(m)}.`, moneyAuto: (n, m) => `Auto : ${M(m)} pour ${n} joueurs (2 joueurs ¤100, 3 joueurs ¤150, 4+ joueurs ¤200)`,
     daysOn: d => `Après ${d} jours, le plus riche gagne`, daysOff: 'Non : le dernier à table gagne',
     you: 'toi', hostTag: 'hôte', readyTag: '✓ prêt', waitingTag: 'en attente', seatsFree: n => `${n} place${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}`,

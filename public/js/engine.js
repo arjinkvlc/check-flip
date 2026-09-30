@@ -382,7 +382,8 @@ function autoPick(S) {
   }
   return null;
 }
-function checkStart(S) { if (S.pub && S.ph === 'lobby' && S.pl.length >= 2 && (S.pl.length >= CFG.PUBMAX || S.pl.every(q => S.rdy[q.id]))) act(S, S.host, {t: 'start'}); }
+// Quick play: starts when at least 2 are seated and everyone is ready (bots are always ready; a full table waits too)
+function checkStart(S) { if (S.pub && S.ph === 'lobby' && S.pl.length >= 2 && S.pl.every(q => S.rdy[q.id])) act(S, S.host, {t: 'start'}); }
 
 /* ================= bot AI (single player) ================= */
 // Simple, rule-abiding decisions: scores target squares, manages the check and deals by money.

@@ -501,7 +501,7 @@ begin
 
   if v_mode = 'quick' then
     -- v1.12: Quick play table where bots filled the empty seats and this was the only person: full XP, wins,
-    -- stats and achievements right away (nobody else can confirm the result); not counted for the season leaderboard
+    -- stats and achievements right away (nobody else can confirm the result); counts for the season leaderboard too
     update public.profiles set games = games + 1 where id = v_uid;
     perform public.apply_verified(v_gid, v_uid);
     v_verified := true;
@@ -635,7 +635,7 @@ create or replace function public.season_table(p_season integer)
 returns table (user_id uuid, swins int, sxp int) language sql stable security definer set search_path = '' as $$
   with w as (
     select r.user_id, sum(r.xp)::int as gxp,
-           (count(*) filter (where r.won and r.verified and r.mode = 'online'))::int as ww
+           (count(*) filter (where r.won and r.verified and r.mode in ('online', 'quick')))::int as ww
       from public.game_results r
      where r.created_at >= public.season_start(p_season) and r.created_at < public.season_start(p_season + 1)
      group by r.user_id

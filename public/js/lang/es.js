@@ -79,7 +79,7 @@ export default {
       '<b>Vuelta completa:</b> +¤40, +2 de hambre, multiplicador +1. <b>Medio camino (casilla 20):</b> +¤20, +1 de hambre.',
       'Tienes <b>30 segundos</b> para tirar o decidir y 45 segundos para pagar; si se acaba el tiempo, el juego juega por ti.',
       '¿No puedes pagar la cuenta? Quedas fuera. Con el límite de días opcional, gana el más rico (<b>dinero + valor de restaurantes</b>) cuando se acaba el tiempo.',
-      'La <b>partida rápida</b> te sienta en una mesa abierta que empieza con 4 jugadores o cuando todos están listos. En <b>Un jugador</b> juegas contra 1–3 bots.'
+      'La <b>partida rápida</b> te sienta en una mesa abierta; si no llega nadie, los bots ocupan los asientos libres. La partida empieza cuando todos están listos. En <b>Un jugador</b> juegas contra 1–3 bots.'
     ],
     decksA: 'Mazo de Suerte', decksB: 'Mazo de Evento', squares: 'Casillas', restaurants: 'Restaurantes', kept: 'se guarda',
     beltNote: sq => `<b>${sq}</b> (casilla 12, y 2 cartas en el mazo de Suerte): ${BELT_DESC}. Se guarda en la mano.`,
@@ -92,7 +92,7 @@ export default {
     roomCode: 'Código de sala', copy: '📋 Copiar', copied: '✓ Copiado', selectedCopy: 'Seleccionado, cópialo', copyInvite: 'Copiar enlace de invitación', inviteCopied: 'Copiado', noLateJoin: 'Nadie más puede unirse una vez empezada la partida.',
     pickAvatarTitle: 'Elige tu avatar', avatarNote: 'No puedes elegir avatares que ya tienen otros. Los bloqueados se abren con niveles y logros (inicia sesión para usarlos). Sin avatar, juegas con una letra de color.',
     settings: 'Ajustes', auto: 'Auto', pubTable: 'Mesa pública', ready: 'Estoy listo', readyUndo: '✓ Listo (deshacer)',
-    pubNote: (n, max) => `${n}/${max} jugadores. La mesa empieza con ${max} jugadores, o cuando hay al menos 2 sentados y todos están listos.`,
+    pubNote: (n, max) => `${n}/${max} jugadores. La partida empieza cuando hay al menos 2 sentados y todos están listos.`,
     moneyCustom: m => `Dinero inicial ${M(m)}.`, moneyAuto: (n, m) => `Auto: ${M(m)} para ${n} jugadores (2 jugadores ¤100, 3 jugadores ¤150, 4+ jugadores ¤200)`,
     daysOn: d => `Tras ${d} días, gana el más rico`, daysOff: 'No: gana el último que quede',
     you: 'tú', hostTag: 'anfitrión', readyTag: '✓ listo', waitingTag: 'esperando', seatsFree: n => n > 1 ? `${n} sitios libres` : `${n} sitio libre`,

@@ -34,19 +34,19 @@ PAGES = [
        cta='Create a room and send the link'),
   dict(lang='tr', path='tr/arkadaslarla-online-oyun', twin='online-board-game-with-friends',
        title='Arkadaşlarla Oynanacak Online Oyun – Ücretsiz, İndirmeden | Check Flip',
-       desc='Arkadaşlarınla tarayıcıda ücretsiz online kutu oyunu: oda kodunu gönder, 2–6 kişi, telefondan ya da bilgisayardan, indirme ve üyelik yok. Zar, kart ve akşam yemeğinin hesabı kimde kalacak?',
+       desc='Arkadaşlarınla tarayıcıda ücretsiz online kutu oyunu: oda kodunu gönder, 2–6 kişi, telefondan ya da bilgisayardan, indirme ve üyelik yok. Zarlar, kartlar ve tek bir soru: Akşam yemeğinin hesabı kimde kalacak?',
        h1='Arkadaşlarla oynanacak ücretsiz online kutu oyunu',
-       lead='Check Flip, 2–6 arkadaşla tarayıcıda oynanan bir kutu oyunu: biri oda kurar, kodu ya da linki gönderir, herkes telefondan veya bilgisayardan katılır. İndirme yok, üyelik yok.',
+       lead='Check Flip, 2–6 arkadaşla tarayıcıda oynanan bir kutu oyunudur: Biri oda kurar, kodu ya da linki gönderir, herkes telefondan veya bilgisayardan katılır. İndirme yok, üyelik yok.',
        sections=[
          ('Bir dakikada arkadaşlarla oyna', 'ol', [
            '<a href="/tr">checkflipgame.com/tr</a> adresini aç, <b>Arkadaşlarla</b> → <b>Oda kur</b>’a dokun.',
            '5 harfli oda kodunu ya da davet linkini WhatsApp’tan, Discord’dan veya istediğin yerden gönder.',
            'Arkadaşların linki açar, takma ad ve avatar seçer. Oda sahibi <b>Başlat</b>’a basar.']),
-         ('Neden grupla oynamaya uygun', 'ul', [
+         ('Neden grupla oynamaya uygun?', 'ul', [
            '<b>Herkes katılabilir</b>: Android, iPhone, Windows ya da Mac, güncel her tarayıcıda çalışır.',
-           '<b>Kısa ve eğlenceli</b>: Hızlı oyun yaklaşık 15 dakika sürer; her akşam birisi bütün masanın yemek hesabını öder, yani tartışacak bir şey hep vardır.',
+           '<b>Kısa ve eğlenceli</b>: Hızlı oyun yaklaşık 15 dakika sürer; her akşam biri bütün masanın yemek hesabını öder; tartışacak konu hiç bitmez.',
            '<b>Pazarlık ve blöf</b>: hesabı ödeyecek kişi para teklif edip hesabı devredebilir, restoranlar sahibinden satın alınabilir, Kemer Sıkma ya da İndirim kuponu gibi kartlar hesabı değiştirir.',
-           '<b>Sesli sohbete uygun</b>: sıralar net ve hızlı, Discord ya da görüntülü görüşme eşliğinde oynamak için birebir.',
+           '<b>Sesli sohbete uygun</b>: sıralar net ve hızlı, Discord ya da görüntülü görüşme eşliğinde oynamak için ideal.',
            '<b>Biri düşerse oyun durmaz</b>: bağlantısı kopan oyuncunun sırasını o dönene kadar bot oynar.']),
          ('Oyun modları', 'ul', [
            '<b>Klasik</b>: masada kalan son kişi kazanır.',
@@ -54,10 +54,10 @@ PAGES = [
            '<b>2’ye 2</b>: iki kişilik takımlar; hesabı ödeyemezsen eksiğini takım arkadaşın kapatır.',
            'Şu an çevrim içi arkadaşın yok mu? Botlara karşı (kolay, normal, zor) oyna ya da <b>Hızlı oyun</b> ile açık bir masaya katıl.'])],
        faq=[
-         ('Ücretsiz mi?', 'Evet. Check Flip tamamen ücretsiz ve parayla avantaj satın alınan bir şey yok.'),
-         ('Arkadaşlarımın hesap açması gerekiyor mu?', 'Hayır. Herkes sadece takma adla odaya katılabilir. Ücretsiz hesap XP, seviye, görünümler, arkadaş listesi ve aylık sezon sıralaması ekler.'),
+         ('Ücretsiz mi?', 'Evet. Check Flip tamamen ücretsizdir ve parayla avantaj satın alınamaz.'),
+         ('Arkadaşlarımın hesap açması gerekiyor mu?', 'Hayır. Herkes yalnızca bir takma adla odaya katılabilir. Ücretsiz hesap XP, seviye, görünümler, arkadaş listesi ve aylık sezon sıralaması ekler.'),
          ('Kaç kişi oynayabilir?', 'Arkadaş odaları 2–6 kişilik. Boş koltuklara bot da ekleyebilirsin.'),
-         ('Telefondan oynanır mı?', 'Evet. Oyun telefon için de tasarlandı; telefondaki ve bilgisayardaki oyuncular aynı masada oynayabilir.')],
+         ('Telefondan oynanabilir mi?', 'Evet. Oyun, bilgisayarlar kadar telefonlar için de tasarlandı; telefondaki ve bilgisayardaki oyuncular aynı masada oynayabilir.')],
        cta='Oda kur, linki gönder'),
   dict(lang='en', path='monopoly-alternative-online', twin='tr/monopoly-benzeri-online-oyun',
        title='A Monopoly-Like Board Game to Play Online Free – Check Flip',
@@ -86,32 +86,32 @@ PAGES = [
        cta='Play now'),
   dict(lang='tr', path='tr/monopoly-benzeri-online-oyun', twin='monopoly-alternative-online',
        title='Monopoly Benzeri Online Oyun – Ücretsiz, Arkadaşlarla | Check Flip',
-       desc='Arkadaşlarınla oynayacak Monopoly benzeri online bir oyun mu arıyorsun? Check Flip; zar, restoranlarla dolu bir tahta, kartlar ve pazarlık içeren ücretsiz bir tarayıcı oyunu. Ve bir de ödenmesi gereken akşam yemeği hesabı var.',
+       desc='Arkadaşlarınla oynayacak Monopoly benzeri online bir oyun mu arıyorsun? Check Flip; zar, restoranlarla dolu bir tahta, kartlar ve pazarlık içeren ücretsiz bir tarayıcı oyunudur. Üstelik birinin ödemesi gereken bir akşam yemeği hesabı da var.',
        h1='Ücretsiz oynanan Monopoly benzeri online kutu oyunu',
-       lead='Tahtada zar atıp ilerlemeyi, mekân satın almayı ve pazarlık yapmayı seviyorsan Check Flip sana tanıdık gelecek. Mülk oyunlarını eğlenceli yapan kısmı koruyor ve bir fark ekliyor: her akşam birisi bütün masanın yemek hesabını ödüyor.',
+       lead='Tahtada zar atıp ilerlemeyi, mekân satın almayı ve pazarlık yapmayı seviyorsan Check Flip sana tanıdık gelecek. Mülk oyunlarını eğlenceli kılan unsurları koruyor ve bunlara yeni bir boyut ekliyor: her akşam birisi bütün masanın yemek hesabını ödüyor.',
        sections=[
-         ('Tanıdık gelecekler', 'ul', [
+         ('Tanıdık gelecek özellikler', 'ul', [
            'İki zar at, 40 karelik tahtada ilerle.',
-           'Restoran satın al; başkaları üzerine gelince sana ücret öder, restoranını yükseltebilirsin.',
+           'Restoran satın al; başkaları restoranına geldiğinde sana ücret öder. Restoranını yükseltebilirsin.',
            'Şans ve Olay kartları, gelir kareleri ve faturalar.',
            'Pazarlık: restoranı sahibinden satın al ya da hesabı devretmek için birine para teklif et.']),
-         ('Farkı ne', 'ul', [
+         ('Farkları neler?', 'ul', [
            '<b>Ev yerine açlık</b>: her gün herkesin açlığı artar. Gün sonunda sıradaki oyuncu masadaki herkes için (kendisi dahil) <i>açlık × çarpan × 5</i> öder.',
            '<b>Bu akşamın restoranı</b>: her sabah akşam yemeğinin yeneceği restoran çekilir ve sahibi hesaptan komisyon alır; doğru zamanda doğru mekâna sahip olmak önemlidir.',
-           '<b>Oyun uzamaz</b>: Hızlı mod 10 gün (yaklaşık 15 dakika) sürer, saatlerce sürüp gitmez.',
+           '<b>Oyun uzayıp gitmez</b>: Hızlı mod 10 gün, yani yaklaşık 15 dakika sürer.',
            '<b>Tarayıcı için yapıldı</b>: 2–6 oyuncu telefondan ya da bilgisayardan linkle katılır; indirme ve üyelik yok.']),
-         ('Nasıl oynanır', 'ul', [
+         ('Nasıl oynanır?', 'ul', [
            'Arkadaşlarla özel odada (kodu ya da linki gönder).',
            'Hızlı oyun: başka oyuncularla açık bir masaya otur.',
            'Botlara karşı (kolaydan zora) ya da tek cihazda sırayla.'])],
        faq=[
          ('Check Flip resmi bir Monopoly oyunu mu?', 'Hayır. Check Flip özgün ve bağımsız bir oyundur. Monopoly, Hasbro’nun tescilli markasıdır ve Check Flip ile bir bağlantısı yoktur.'),
-         ('Ücretsiz mi?', 'Evet, tamamen ücretsiz; parayla avantaj satın alınan bir şey yok.'),
+         ('Ücretsiz mi?', 'Evet, tamamen ücretsizdir; parayla avantaj satın alınamaz.'),
          ('Bir oyun ne kadar sürer?', 'Hızlı oyun yaklaşık 15 dakika sürer; Klasik oyun, hesabı ödeyebilen tek kişi kalana kadar devam eder.')],
        cta='Hemen oyna'),
 ]
 UI = {'en': dict(back='← Back to the game', faq='Questions', more='More', other='Türkçe', home='/', privacy='Privacy'),
-      'tr': dict(back='← Oyuna dön', faq='Sık sorulanlar', more='Diğer sayfalar', other='English', home='/tr', privacy='Gizlilik')}
+      'tr': dict(back='← Oyuna dön', faq='Sık sorulan sorular', more='Diğer sayfalar', other='English', home='/tr', privacy='Gizlilik')}
 
 def page(p):
     L = UI[p['lang']]; url = f"{SITE}/{p['path']}"; twin = f"{SITE}/{p['twin']}"

@@ -15,7 +15,7 @@ const en = {
   settingsTitle: 'Settings', setMusic: 'Music', setLang: 'Language', setTheme: 'Theme', themeLight: 'Light', themeDark: 'Dark', setSound: 'Game sounds'
 };
 const tr = {
-  fmTitle: 'Arkadaşlarla son maçlar', fmNone: 'Henüz arkadaşlarınla çevrim içi oyun yok. Özel odadan birini davet et!',
+  fmTitle: 'Arkadaşlarla son oyunlar', fmNone: 'Henüz arkadaşlarınla çevrim içi oyun yok. Özel odadan birini davet et!',
   fmWon: 'kazandı', fmPlace: (p, n) => `${p}/${n}`,
   seTitle: n => `Sezon ${n} bitti!`, sePlace: p => p === 1 ? 'Birinci oldun 🏆' : `${p}. oldun`,
   seSub: (w, n) => `${w} galibiyet · ${n} oyuncu arasında`, seMedal: 'Madalyan artık profilinde.',

@@ -47,7 +47,7 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 
 - **Game modes:**
   - Private room: join with a 5-character code or an invite link. The host can add bots to fill empty seats.
-  - Quick game: random matchmaking. The table starts at 4 players, or when everyone is ready.
+  - Quick game: random matchmaking; if nobody comes, bots take the empty seats. The game starts when everyone at the table is ready.
   - Single player: 2, 3 or 4-player tables against bots.
   - **Modes:** Classic (last one standing), **Quick** (10 days, shorter turn timers, richest wins, ~15 minutes) and **2v2 teams** (seats 1 & 3 against 2 & 4; teammates cover each other's checks; knock out both rivals to win).
   - **Rematch:** everyone taps *Rematch* and a new game starts with the same settings.
@@ -303,9 +303,13 @@ The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Ch
 
 ## Changelog
 
+### 1.13.1
+- Quick play starts only when everyone at the table is ready, also when the table is full (bots no longer start the game on their own)
+- Turkish texts reworded to read more naturally across the game, rules, cards, account screens and landing pages (for example "hazır olduğunda" instead of "hazır deyince")
+
 ### 1.13.0
-- Quick play with bots counts in full: bots only fill empty seats, so the game gives full XP, wins and achievements (unlike games against bots). With several people at the table they confirm each other's result as before; alone with bots the result is saved right away (mode `quick`) but doesn't count for the season leaderboard
-- Quick play bots join quietly (no countdown) and play at the level of the table: average account level under 4 → easy, under 12 → normal, else hard (guests count as level 1)
+- Quick play with bots counts in full: bots only fill empty seats, so the game gives full XP, wins and achievements (unlike games against bots). With several people at the table they confirm each other's result as before; alone with bots the result is saved right away (mode `quick`) and counts everywhere, the season leaderboard included
+- Quick play bots join quietly (no countdown) and play at the level of the table: average account level under 8 → easy, under 20 → normal, else hard (guests count as level 1)
 - "Developed by", the privacy link and the version moved from the home screen into Settings
 
 ### 1.12.0
