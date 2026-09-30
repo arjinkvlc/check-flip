@@ -21,6 +21,7 @@ import './i18n-v18.js';
 import './i18n-v19.js';
 import './i18n-v110.js';
 import './i18n-v111.js';
+import './i18n-v112.js';
 import {renderAdmin, adminClick, initAdminUI} from './admin-ui.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
@@ -142,7 +143,7 @@ function onMsg(sub, m, meta) {
   }
   if (sub === 'react') { if (!m || !EMOJIS.includes(m.e) || m.pid === me.pid || !shown || ui.muted.has(m.pid)) return; const i = shown.pl.findIndex(q => q.id === m.pid); if (i >= 0) showReact(i, m.e); return; }
   if (sub === 'hb') { if (m && S && m.pid === S.host) lastHb = Date.now(); return; }
-  if (sub === 'dm/' + me.pid) { if (m && m.k === 'deny') { if (m.m === 'kicked') { ui.quick = 0; failJoin(t('eKicked'), false); } else failJoin(t(m.m === 'full' ? 'eFull' : m.m === 'started' ? 'eStarted' : 'eJoin'), true); } return; }
+  if (sub === 'dm/' + me.pid) { if (m && m.k === 'deny') { if (m.m === 'kicked') { ui.quick = 0; failJoin(t('eKicked'), false); } else if (m.m === 'pubOnly') { ui.quick = 0; failJoin(t('ePubOnly'), false); } else failJoin(t(m.m === 'full' ? 'eFull' : m.m === 'started' ? 'eStarted' : 'eJoin'), true); } return; }
   if (sub.startsWith('pres/')) {
     const pid = sub.slice(5); pres.set(pid, m === 1); refreshPresent();
     if (isHost() && S && S.ph === 'lobby' && m !== 1 && pid !== S.host && S.pl.some(q => q.id === pid)) {
@@ -179,9 +180,12 @@ function hostHandle(m) {
       const deny = r => mq.publish(T('dm/' + pid), JSON.stringify({k: 'deny', m: r}), {qos: 1});
       if (S.ban && S.ban[pid]) return deny('kicked');
       if (S.ph !== 'lobby') return deny('started');
+      // Quick play is for random players only: no joining with a code or an invite link (no friends / second accounts)
+      if (S.pub && m.via !== 'quick') return deny('pubOnly');
+      if (S.pub && S.pl.length >= CFG.PUBMAX) { const b = [...S.pl].reverse().find(q => q.bot); if (b) { S.pl = S.pl.filter(q => q !== b); delete S.rdy[b.id]; } }
       if (S.pl.length >= (S.pub ? CFG.PUBMAX : CFG.MAXP)) return deny('full');
       const rn = clean(m.nm), pool = nickList(); const nm = uniqName(S, rn && !nameBlocked(rn) ? rn : pool[Math.floor(Math.random() * pool.length)], pool); addPlayer(S, pid, nm, {pf: cleanCard(m.pf)}); if (typeof m.av === 'string') setAvatar(S, pid, m.av);
-      L(S, 'joined', {n: nm}); checkStart(S); commit();
+      L(S, 'joined', {n: nm}); S.lj = Date.now(); checkStart(S); commit();
     } else { const q = S.pl.find(x => x.id === pid); q.pf = cleanCard(m.pf) || q.pf || null; if (S.ph !== 'lobby' && q.a) L(S, 'reconnected', {n: q.n}, 1); commit(); }
     return;
   }
@@ -211,6 +215,15 @@ setInterval(() => {
   }
 }, 2000);
 setInterval(() => { if (mode === 'online' && S && S.pub && isHost() && S.ph === 'lobby') advert(); }, 20000);
+// Quick play: if nobody new sits down for 30 s, bots join one by one (ready), until the table is full and starts.
+// A bot's seat goes to a real player who joins in the meantime.
+const FILL_WAIT = 30000, FILL_STEP = 6000;
+const botFillAt = V => (V.lb && V.lb > (V.lj || 0) ? V.lb + FILL_STEP : (V.lj || Date.now()) + FILL_WAIT);
+setInterval(() => {
+  if (mode !== 'online' || !S || !S.pub || !isHost() || S.ph !== 'lobby' || S.pl.length >= CFG.PUBMAX) return;
+  if (Date.now() < botFillAt(S)) return;
+  addBot(true); S.lb = Date.now(); checkStart(S); commit();
+}, 1000);
 
 // Backup connection during a game. If the own relay can't be reached (e.g. its free daily
 // quota ran out) or a player at the table drops off it, everyone also joins the room on a
@@ -245,7 +258,7 @@ async function createRoom(pub, ix0) {
   let c = null, last = null; for (let ix = ix0 || 0; ix < BROKERS.length && !c; ix++) { try { c = await openBroker(ix); } catch (e) { last = e; } }
   if (!c) { reset(); showErr(t('eServer', errMsg(last))); return; }
   lsSet('hs-pid-' + code, me.pid);
-  S = newState(); S.host = me.pid; S.pub = pub ? 1 : 0; S.cfg.mode = homeMode(); addPlayer(S, me.pid, nm, {pf: publicCard(), av: myAvatarPref()}); L(S, 'created', {n: nm, pub: pub ? 1 : 0});
+  S = newState(); S.host = me.pid; S.pub = pub ? 1 : 0; S.lj = Date.now(); S.cfg.mode = homeMode(); addPlayer(S, me.pid, nm, {pf: publicCard(), av: myAvatarPref()}); L(S, 'created', {n: nm, pub: pub ? 1 : 0});
   wire(c); ui.screen = 'game'; commit();
 }
 async function joinRoom(forced) {
@@ -261,7 +274,7 @@ async function joinRoom(forced) {
     if (!st) { try { c.end(true); } catch (e) {} continue; }
     S = null; wire(c); onMsg('state', st);
     mq.publish(T('in'), JSON.stringify({k: 'sync', pid: me.pid}), {qos: 1});
-    if (mode === 'online' && S && !isHost()) mq.publish(T('in'), JSON.stringify({k: 'hello', pid: me.pid, nm, pf: publicCard(), av: myAvatarPref()}), {qos: 1});
+    if (mode === 'online' && S && !isHost()) mq.publish(T('in'), JSON.stringify({k: 'hello', pid: me.pid, nm, pf: publicCard(), av: myAvatarPref(), via: ui.quick ? 'quick' : 'code'}), {qos: 1});
     // nobody let us in (e.g. the host already left): give up, or look for another table
     const myCode = code; setTimeout(() => { if (mode === 'online' && code === myCode && ui.screen === 'joining') failJoin(t('eJoin'), true); }, 10000);
     return;
@@ -335,18 +348,20 @@ function maybeSubmit(V) {
   const mi = myIdx(V); if (hot() || mi < 0) return;
   submitted.add(V.gid);
   if (!ACC.enabled) return;
-  // games with bots (single player, or bots added to a room) count as bot games
-  const isSolo = mode === 'local' || V.pl.some(q => q.bot), gid = V.gid;
+  // games with bots (single player, or bots added to a room) count as bot games; Quick play is different:
+  // bots only fill empty seats there, so it counts in full (with nobody else to confirm it: mode 'quick')
+  const bots = V.pl.some(q => q.bot), isSolo = mode === 'local' || (bots && !V.pub), gid = V.gid;
+  const humans = V.pl.filter(q => !q.bot).length;
   if (!loggedIn()) { ui.result = {gid, st: 'guest', solo: isSolo}; return; }
   const q = V.pl[mi], st = q.st || {};
   const payload = {
-    game_id: gid, mode: isSolo ? 'solo' : 'online', pid: me.pid, order: standings(V).map(i => V.pl[i].id),
+    game_id: gid, mode: isSolo ? 'solo' : V.pub && bots && humans === 1 ? 'quick' : 'online', pid: me.pid, order: standings(V).map(i => V.pl[i].id),
     winners: winners(V).map(i => V.pl[i].id), won: winners(V).includes(mi), gmode: modeOf(V),
     days: V.day, duration: Math.max(0, Math.round((Date.now() - (V.t0 || Date.now())) / 1000)),
     stats: {deals: st.d || 0, belt: st.b || 0, iron: !!st.i, tycoon: !!st.t, bonus: Math.min(20, q.a ? V.day : (q.od || 0)),
       bought: st.by || 0, upgrades: st.up || 0, cards: st.cu || 0, paid: st.pd || 0, survived: q.a ? V.day : (q.od || 0),
       laps: st.lp || 0, top_money: st.mx || 0, top_venues: st.mv || 0},
-    // ranked: a public quick-play table with at least 3 people and no bots; only these count for the single-game feats
+    // ranked: a Quick play table with at least 3 players (bots that filled seats included); only these count for the single-game feats
     ranked: !isSolo && !!V.pub && V.pl.length >= 3
   };
   ui.result = {gid, st: 'saving', solo: isSolo};
@@ -403,13 +418,20 @@ function botTick() {
   }, BOT_WAIT + Math.random() * 700);
 }
 // host: add or remove a bot in a private room's lobby
-function addBot() {
-  if (!S || !isHost() || S.ph !== 'lobby' || S.pub || S.pl.length >= CFG.MAXP) return;
+// Quick play bots play at the level of the people at the table: average account level (guests count as 1)
+function fillLevel() {
+  const lv = S.pl.filter(q => !q.bot).map(q => (q.pf && +q.pf.lv) || 1), avg = lv.length ? lv.reduce((a, b) => a + b, 0) / lv.length : 1;
+  return avg < 4 ? 'easy' : avg < 12 ? 'normal' : 'hard';
+}
+function addBot(fill) {
+  if (!S || !isHost() || S.ph !== 'lobby' || (S.pub && !fill) || S.pl.length >= (S.pub ? CFG.PUBMAX : CFG.MAXP)) return;
   const used = new Set(S.pl.map(q => q.n));
   const pool = shuffle(nickList().filter(n => !used.has(n)));
   const avs = shuffle(Object.keys(AVATARS).filter(k => !S.pl.some(q => q.av === k)));
   const id = 'bot' + rid(6), nm = uniqName(S, pool[0] || 'Bot', nickList());
-  addPlayer(S, id, nm, {bot: 1, bd: botLv(), av: avs[0] || null}); L(S, 'joined', {n: nm}); commit();
+  addPlayer(S, id, nm, {bot: 1, bd: fill ? fillLevel() : botLv(), av: avs[0] || null}); L(S, 'joined', {n: nm});
+  if (fill) { S.rdy[id] = 1; return; }
+  commit();
 }
 function kickPlayer(id) {
   if (!S || !isHost() || S.ph !== 'lobby' || id === me.pid) return; const q = S.pl.find(x => x.id === id && !x.bot); if (!q) return;
@@ -742,8 +764,8 @@ document.addEventListener('input', e => { if (e.target.id) e.target.dataset.touc
 
 function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
-  if (code) $('#roomChip').innerHTML = `${esc(S && S.pub ? t('chipPub') : t('chipRoom'))} <b>${esc(code)}</b>`;
-  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); $('#gameCredit').hidden = true;
+  if (code) $('#roomChip').innerHTML = S && S.pub ? esc(t('chipPub')) : `${esc(t('chipRoom'))} <b>${esc(code)}</b>`;
+  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); 
   $('#musicBtn').classList.toggle('on', Music.on); $('#musicBtn').setAttribute('aria-checked', String(Music.on));
   { const sel = $('#setLangSel'); if (sel && sel.value !== getLang()) sel.value = getLang(); }
   document.querySelectorAll('[data-a=setTheme]').forEach(b => b.classList.toggle('on', b.dataset.t === (document.documentElement.dataset.theme || 'light')));
@@ -805,13 +827,21 @@ function avGrid(takenBy, mineKey, action) {
       return `<button class="avbtn${on ? ' on' : ''}${open ? '' : ' locked'}" data-a="${action}" data-k="${k}" ${taken || !open ? 'disabled' : ''} title="${esc(open ? avatarLabel(k) : lock)}"${taken ? ` style="--tc:${colOf(tk)}"` : ''}>${avHTML(k)}<small>${open ? lbl : esc(lock)}</small>${taken ? '<i class="avtk"></i>' : ''}</button>`;
     }).join('');
 }
+// Quick play waiting: spinning ring, "looking for players", seconds until bots join
+function pubWaitUI(V) {
+  if (!V || !V.pub || V.ph !== 'lobby') return;
+  $('#pubWait').hidden = V.pl.length >= CFG.PUBMAX; $('#pubWaitTxt').textContent = t('pubSearching');
+}
 function renderLobby(V) {
   setAVM(V);
   { const tb = {}; V.pl.forEach((q, i) => { if (q.av && q.id !== me.pid) tb[q.av] = i; }); const mp = V.pl.find(q => q.id === me.pid); $('#lobbyAv').innerHTML = avGrid(tb, mp && mp.av, 'av'); }
   $('#lobbyCode').textContent = code || ''; $('#inviteTxt').textContent = code ? inviteLink() : '';
   if (code) { $('#waBtn').href = 'https://wa.me/?text=' + encodeURIComponent(t('waText', code) + '\n' + inviteLink()); $('#nshareBtn').hidden = !navigator.share; }
   const pub = !!V.pub, host = isHost();
-  $('#cfgBox').hidden = pub; $('#pubBox').hidden = !pub;
+  $('#cfgBox').hidden = pub; $('#pubBox').hidden = !pub; $('#lobby .codebox').hidden = pub;
+  if (pub && $('#lobby').firstElementChild !== $('#pubBox')) { $('#lobby').prepend($('#pubBox')); $('#pubBox').after($('#lobbyList')); }   // public tables: waiting box, then the players
+  if (!pub && $('#lobby').firstElementChild !== $('#lobby .codebox')) { $('#lobby').prepend($('#lobby .codebox')); $('#lobbyAv').closest('.box').after($('#lobbyList')); }   // room: back to the usual order
+  $('#lobby').classList.toggle('pubmode', pub);
   if (!pub) {
     const inp = $('#startMoney'), cur = (V.cfg && V.cfg.start) || '';
     inp.disabled = !host; $('#autoMoneyBtn').hidden = !host;
@@ -824,6 +854,7 @@ function renderLobby(V) {
   } else {
     const mr = !!V.rdy[me.pid]; const rb = $('#readyBtn'); rb.textContent = mr ? t('readyUndo') : t('ready'); rb.classList.toggle('primary', !mr);
     $('#pubNote').textContent = t('pubNote', V.pl.length, CFG.PUBMAX);
+    pubWaitUI(V);
   }
   const max = pub ? CFG.PUBMAX : CFG.MAXP;
   $('#lobbyList').innerHTML = V.pl.map((q, i) => `<li>${dot(i)}<span class="pnw"><span class="pn${q.pf ? ' link' : ''}"${q.pf ? ` data-a="viewp" data-u="${esc(q.pf.u)}"` : ''}>${esc(q.n)}</span>${pfTitle(q)}</span>${isTeams(V) && i < 4 ? teamTag(i % 2) : ''}${pfTag(q)}${q.id === me.pid ? `<span class="tag">${esc(t('you'))}</span>` : ''}${q.id === V.host ? `<span class="tag">${esc(t('hostTag'))}</span>` : ''}${q.bot ? `${botTagHTML(q)}${host && !pub ? `<button class="btn small ghost rmbot" data-a="rmbot" data-id="${esc(q.id)}" aria-label="${esc(t('removeBot'))}">✕</button>` : ''}` : host && q.id !== me.pid && mode === 'online' ? `<button class="btn small ghost rmbot" data-a="kick" data-id="${esc(q.id)}" aria-label="${esc(t('kickAria', q.n))}" title="${esc(t('kickAria', q.n))}">✕</button>` : ''}${pub ? (V.rdy[q.id] ? `<span class="tag ok">${esc(t('readyTag'))}</span>` : `<span class="tag">${esc(t('waitingTag'))}</span>`) : ''}</li>`).join('') +
@@ -1008,7 +1039,8 @@ function renderGame(V, prev) {
   if (busy()) h += `<p class="note">${esc(t('sending'))}</p>`;
   if (lost) h = `<p class="status">${esc(t('reconnecting'))}</p>` + h;
   else if (ui.fbAt && Date.now() - ui.fbAt < 8000) h = `<p class="okmsg" role="status">${esc(t('netFallback'))}</p>` + h;
-  keepInputs($('#actions'), () => { $('#actions').innerHTML = `<button class="sheethandle" data-a="sheetmin" aria-label="${esc(t('sheetAria'))}"><span></span><em data-open="${esc(t('sheetOpen'))}">${esc(t('sheetHandle'))}</em></button>` + h; });
+  keepInputs($('#actions'), () => { $('#actions').innerHTML = `<button class="sheethandle" data-a="sheetmin" aria-label="${esc(t('sheetAria'))}"><span></span><em data-open="${esc(t('sheetOpen'))}">${esc(t('sheetHandle'))}</em></button>` + h + kbdHintHTML(); });
+  keyNumbers();
   requestAnimationFrame(fitSheet);
 
   const mi = myIdx(V);
@@ -1200,6 +1232,32 @@ async function changeLang(l) {
   await setLang(l); pickNick(); applyStatic(); render();
 }
 { const sel = $('#setLangSel'); if (sel) { sel.innerHTML = LANGS.map(l => `<option value="${l}" lang="${l}">${LANG_NAMES[l]}</option>`).join(''); sel.value = getLang(); sel.addEventListener('change', () => changeLang(sel.value)); } }
+/* ---- keyboard (computers): Space / Enter = roll, continue or the main button; 1–9 = the choices; C = chat ---- */
+const typing = el => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+const keyChoices = () => { const a = $('#actions'); if (!a) return []; const c = [...a.querySelectorAll('.choices button:not([disabled])')]; return c.length ? c : [...a.querySelectorAll('.targets button:not([disabled])')]; };
+function keyNumbers() { keyChoices().slice(0, 9).forEach((b, k) => { if (!b.querySelector('.kn')) b.insertAdjacentHTML('afterbegin', `<span class="kn" aria-hidden="true">${k + 1}</span>`); }); }
+function kbdHintHTML() {
+  if (ui.screen !== 'game' || !shown || (shown.ph !== 'play' && shown.ph !== 'feast')) return '';
+  return `<p class="kbdhint">${t('kbdHint')}</p>`;
+}
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape' && typing(e.target)) { e.target.blur(); return; }
+  if (typing(e.target) || !$('#askModal').hidden || !$('#setModal').hidden || !$('#modal').hidden) return;
+  if (ui.screen !== 'game' || !shown || shown.ph === 'lobby') return;
+  const k = e.key.toLowerCase();
+  if (k === 'c' && mode === 'online') { e.preventDefault(); act_('chatopen'); return; }
+  if (k === ' ' || k === 'enter') {
+    if (e.target && e.target.closest && e.target.closest('#actions button')) return;   // a focused action button handles it itself
+    if (e.target && e.target.blur && e.target !== document.body) e.target.blur();
+    const pop = $('#pop'); if (pop && !pop.hidden) { e.preventDefault(); $('#center').click(); return; }
+    const b = $('#actions') && $('#actions').querySelector('button.btn.primary:not([disabled])');
+    if (b) { e.preventDefault(); b.click(); }
+    return;
+  }
+  if (/^[1-9]$/.test(k)) { const b = keyChoices()[+k - 1]; if (b) { e.preventDefault(); b.click(); } }
+});
+const act_ = a => { const b = document.createElement('button'); b.dataset.a = a; document.body.appendChild(b); b.click(); b.remove(); };
 // yes / no question in the page's own style
 function askUser(title, text, yes, no) {
   const m = $('#askModal'); $('#askTitle').textContent = title; $('#askText').textContent = text || ''; $('#askText').hidden = !text;

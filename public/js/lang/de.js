@@ -42,6 +42,11 @@ export default {
   },
 
   U: {
+    // v1.12
+    pubSearching: 'Suche Mitspieler…',
+    ePubOnly: 'Das ist ein Tisch für schnelle Spiele: Beitritt nur über „Schnelles Spiel“, nicht per Code oder Link.',
+    kbdHint: '<kbd>Leertaste</kbd> würfeln / weiter · <kbd>1</kbd>–<kbd>9</kbd> wählen · <kbd>C</kbd> Chat',
+    kbdHelp: 'Tastatur: <kbd>Leertaste</kbd> würfeln, weiter oder der Hauptknopf · <kbd>1</kbd>–<kbd>9</kbd> Option wählen · <kbd>C</kbd> Chat · <kbd>Esc</kbd> Chat verlassen',
     // i18n.js
     title: 'Check Flip – Kostenloses Online-Brettspiel mit Freunden',
     metaDesc: 'Kostenloses Multiplayer-Brettspiel im Browser: Würfle, zieh Karten, bleib hungrig und lass deine Freunde die Rechnung zahlen. 2–6 Spieler, online oder gegen Bots, ohne Download.',
@@ -176,7 +181,7 @@ export default {
     pBubblesNote: 'Der Stil deiner Chatnachrichten. Alle im Raum sehen ihn.',
     pTitlesNote: 'Titel stehen unter deinem Namen. Mehr gibt’s über Erfolge.',
     pAchNote: 'Erfolge schalten Titel, Rahmen, Brettdesigns und Chatblasen frei.',
-    pBotNote: '🤖 Spiele mit Bots (Einzelspieler oder Bots im Raum) geben halbe XP, zählen aber nie für Erfolge (außer Level-Erfolge). Siege und andere Erfolge gibt es nur in Online-Spielen; sie werden bestätigt, wenn ein anderer Spieler am selben Tisch dasselbe Ergebnis speichert.',
+    pBotNote: '🤖 Spiele mit Bots (Einzelspieler oder Bots im Raum) geben halbe XP, zählen aber nie für Erfolge (außer Level-Erfolge). Siege und andere Erfolge gibt es nur in Online-Spielen; sie werden bestätigt, wenn ein anderer Spieler am selben Tisch dasselbe Ergebnis speichert. Schnelle Spiele sind anders: Bots auf freien Plätzen ändern nichts, das Spiel zählt voll.',
     pRewards: 'Schaltet frei:', pDone: '✓ Freigeschaltet', pProgress: (a, b) => `${a} / ${b}`,
     pWins: 'Online-Siege', pGames: 'Online-Spiele', pBotGames: 'Botspiele', pXpTotal: 'XP gesamt', pLevel: 'Level',
     pDeals: 'Rechnungen abgegeben', pBelt: 'Gürtel enger geschnallt', pMember: 'Mitglied seit',
@@ -311,7 +316,7 @@ export default {
     leaveQLocal: 'Dieses Spiel endet und kann nicht fortgesetzt werden.',
     leaveYes: 'Verlassen', stay: 'Bleiben',
     afterPay: 'Rest nach dem Zahlen', shortBy: m => `${m} fehlen`,
-    pRankedNote: 'Einzelspiel-Erfolge (Gastro-Mogul, Volles Haus, Rundenlegende, Tiefe Taschen) zählen nur in Ranglistenspielen: schnelle Spiele mit mindestens 3 Leuten und ohne Bots.',
+    pRankedNote: 'Einzelspiel-Erfolge (Gastro-Mogul, Volles Haus, Rundenlegende, Tiefe Taschen) zählen nur in Ranglistenspielen: schnelle Spiele mit mindestens 3 Spielern (Bots auf freien Plätzen zählen mit).',
 
     // i18n-v110.js
     dinnerAt: p => `Abendessen heute: ${venueName(p.v)}`,

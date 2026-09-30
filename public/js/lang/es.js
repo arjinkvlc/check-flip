@@ -51,6 +51,11 @@ export default {
   },
 
   U: {
+    // v1.12
+    pubSearching: 'Buscando jugadores…',
+    ePubOnly: 'Esta es una mesa de partida rápida: solo se entra con Partida rápida, no con un código o un enlace.',
+    kbdHint: '<kbd>Espacio</kbd> tirar / seguir · <kbd>1</kbd>–<kbd>9</kbd> elegir · <kbd>C</kbd> chat',
+    kbdHelp: 'Teclado: <kbd>Espacio</kbd> tirar, seguir o el botón principal · <kbd>1</kbd>–<kbd>9</kbd> elegir una opción · <kbd>C</kbd> chat · <kbd>Esc</kbd> salir del chat',
     // ---- i18n.js
     title: 'Check Flip – Juego de mesa online gratis para jugar con amigos',
     metaDesc: 'Juego de mesa multijugador gratis en tu navegador: tira los dados, roba cartas, pasa hambre y haz que tus amigos paguen la cuenta. De 2 a 6 jugadores, online o contra bots, sin descargas.',
@@ -183,7 +188,7 @@ export default {
     pBubblesNote: 'El estilo de tus mensajes de chat. Todos en la sala lo ven.',
     pTitlesNote: 'Los títulos aparecen bajo tu nombre. Consigue más con logros.',
     pAchNote: 'Los logros desbloquean títulos, marcos, estilos de tablero y burbujas de chat.',
-    pBotNote: '🤖 Las partidas con bots (un jugador, o bots añadidos a una sala) dan la mitad de XP pero nunca cuentan para logros (salvo los de nivel). Las victorias y demás logros solo vienen de partidas online, y se confirman cuando otro jugador de la misma mesa guarda el mismo resultado.',
+    pBotNote: '🤖 Las partidas con bots (un jugador, o bots añadidos a una sala) dan la mitad de XP pero nunca cuentan para logros (salvo los de nivel). Las victorias y demás logros solo vienen de partidas online, y se confirman cuando otro jugador de la misma mesa guarda el mismo resultado. La partida rápida es distinta: los bots que ocupan asientos vacíos no cambian nada, la partida cuenta completa.',
     pRewards: 'Desbloquea:', pDone: '✓ Desbloqueado', pProgress: (a, b) => `${a} / ${b}`,
     pWins: 'Victorias online', pGames: 'Partidas online', pBotGames: 'Partidas con bots', pXpTotal: 'XP total', pLevel: 'Nivel',
     pDeals: 'Cuentas pasadas', pBelt: 'Cinturones apretados', pMember: 'Miembro desde',
@@ -320,7 +325,7 @@ export default {
     leaveQLocal: 'Esta partida terminará y no se podrá continuar.',
     leaveYes: 'Salir', stay: 'Quedarme',
     afterPay: 'Queda tras pagar', shortBy: m => `faltan ${m}`,
-    pRankedNote: 'Las hazañas de una sola partida (Magnate total, Casa llena, Leyenda de las vueltas, Bolsillos llenos) solo cuentan en partidas clasificatorias: mesas de partida rápida con 3 o más personas y sin bots.',
+    pRankedNote: 'Las hazañas de una sola partida (Magnate total, Casa llena, Leyenda de las vueltas, Bolsillos llenos) solo cuentan en partidas clasificatorias: mesas de partida rápida con 3 o más jugadores (también cuentan los bots que ocupan asientos vacíos).',
 
     // ---- i18n-v110.js
     dinnerAt: p => `Cena de esta noche: ${venueName(p.v)}`,

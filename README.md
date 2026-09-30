@@ -303,6 +303,16 @@ The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Ch
 
 ## Changelog
 
+### 1.13.0
+- Quick play with bots counts in full: bots only fill empty seats, so the game gives full XP, wins and achievements (unlike games against bots). With several people at the table they confirm each other's result as before; alone with bots the result is saved right away (mode `quick`) but doesn't count for the season leaderboard
+- Quick play bots join quietly (no countdown) and play at the level of the table: average account level under 4 → easy, under 12 → normal, else hard (guests count as level 1)
+- "Developed by", the privacy link and the version moved from the home screen into Settings
+
+### 1.12.0
+- Quick play: a waiting screen with a spinning ring ("Looking for players…") and a countdown; if nobody new sits down for 30 s, bots join one by one (ready) until the table is full and starts. A real player who arrives takes a bot's seat. Games with bots give half XP and don't count for achievements, as before (changed in 1.13: Quick play counts in full)
+- Quick play tables can't be joined with a code or an invite link (no room code shown there), so friends or second accounts can't sit at a random table on purpose
+- Keyboard on computers: Space or Enter rolls, continues or presses the main button; 1–9 pick a choice (numbers shown on the buttons); C opens the chat, Enter sends, Esc leaves it; the list is in Settings
+
 ### 1.11.0
 - Four more languages: Español, Português (Brasil), Français, Deutsch; the language is picked from a list in Settings
 - First visit language: the browser's language when we have it; visitors from Türkiye with an English browser get Turkish (country from Cloudflare, no permission); otherwise English

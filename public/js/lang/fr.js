@@ -43,6 +43,11 @@ export default {
   },
 
   U: {
+    // v1.12
+    pubSearching: 'Recherche de joueurs…',
+    ePubOnly: 'C’est une table de partie rapide : on ne la rejoint qu’avec Partie rapide, pas avec un code ou un lien.',
+    kbdHint: '<kbd>Espace</kbd> lancer / continuer · <kbd>1</kbd>–<kbd>9</kbd> choisir · <kbd>C</kbd> chat',
+    kbdHelp: 'Clavier : <kbd>Espace</kbd> lancer, continuer ou le bouton principal · <kbd>1</kbd>–<kbd>9</kbd> choisir une option · <kbd>C</kbd> chat · <kbd>Échap</kbd> quitter le chat',
     // i18n.js
     title: 'Check Flip – Jeu de plateau gratuit en ligne entre amis',
     metaDesc: 'Jeu de plateau multijoueur gratuit dans ton navigateur : lance les dés, pioche des cartes, reste affamé et fais payer l’addition à tes amis. 2 à 6 joueurs, en ligne ou contre des bots, sans téléchargement.',
@@ -175,7 +180,7 @@ export default {
     pBubblesNote: 'Le style de tes messages de chat. Tout le monde dans le salon le voit.',
     pTitlesNote: 'Les titres s’affichent sous ton nom. Gagne-en d’autres avec les succès.',
     pAchNote: 'Les succès débloquent des titres, des cadres, des styles de plateau et des bulles de chat.',
-    pBotNote: '🤖 Les parties avec des bots (solo, ou bots ajoutés à un salon) rapportent moitié d’XP mais ne comptent jamais pour les succès (sauf ceux de niveau). Les victoires et les autres succès viennent uniquement des parties en ligne, et sont confirmés quand un autre joueur de la même table enregistre le même résultat.',
+    pBotNote: '🤖 Les parties avec des bots (solo, ou bots ajoutés à un salon) rapportent moitié d’XP mais ne comptent jamais pour les succès (sauf ceux de niveau). Les victoires et les autres succès viennent uniquement des parties en ligne, et sont confirmés quand un autre joueur de la même table enregistre le même résultat. La partie rapide est différente : les bots qui occupent les places libres ne changent rien, la partie compte entièrement.',
     pRewards: 'Débloque :', pDone: '✓ Débloqué', pProgress: (a, b) => `${a} / ${b}`,
     pWins: 'Victoires en ligne', pGames: 'Parties en ligne', pBotGames: 'Parties avec bots', pXpTotal: 'XP total', pLevel: 'Niveau',
     pDeals: 'Additions refilées', pBelt: 'Ceintures serrées', pMember: 'Membre depuis',
@@ -311,7 +316,7 @@ export default {
     leaveQLocal: 'Cette partie va se terminer et ne pourra pas être reprise.',
     leaveYes: 'Quitter', stay: 'Rester',
     afterPay: 'Reste après paiement', shortBy: m => `il manque ${m}`,
-    pRankedNote: 'Les exploits sur une seule partie (Magnat, Carré, Légende du tour, Poches pleines) ne comptent que dans les parties classées : tables de partie rapide à 3 joueurs ou plus, sans bots.',
+    pRankedNote: 'Les exploits sur une seule partie (Magnat, Carré, Légende du tour, Poches pleines) ne comptent que dans les parties classées : tables de partie rapide à 3 joueurs ou plus (les bots qui occupent les places libres comptent aussi).',
 
     // i18n-v110.js
     dinnerAt: p => `Dîner de ce soir : ${venueName(p.v)}`,

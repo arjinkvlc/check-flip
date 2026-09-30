@@ -102,7 +102,6 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <div class="cols" id="cardLists"></div>
       <div class="seoabout" id="seoAbout" data-ih="seoAbout"><h2>What is Check Flip?</h2><p>Check Flip is a free multiplayer board game you play in the browser, on a phone or a computer, with no download and no sign-up needed. 2 to 6 players move around a board full of restaurants, roll the dice, draw Chance and Event cards and try to stay hungry, because at the end of every day one player picks up the check for the whole table. Buy restaurants, earn commission, make deals to pass the check on, and be the last one at the table.</p><p>Play online with friends using a room code, join a quick game with other players, play against bots (easy, normal or hard) or take turns on one device. Classic, Quick (10 days) and 2 vs 2 team modes. With a free account you earn XP, unlock avatars, dice and boards, climb the monthly season leaderboard and win medals. In English, Turkish, Spanish, Portuguese, French and German.</p><p>More: <a href="/online-board-game-with-friends">playing online with friends</a> · <a href="/monopoly-alternative-online">a Monopoly-like game online</a></p></div>
     </details>
-    <footer class="credit" style="grid-column:1/-1"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a><span class="ver" id="verTag"></span></footer>
   </section>
 
   <section id="auth" class="lobby" hidden>
@@ -195,6 +194,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
     </div>
     <div class="box" id="pubBox" hidden>
       <h3 data-i="pubTable"></h3>
+      <div class="pubwait" id="pubWait"><span class="ring" aria-hidden="true"></span><div><b id="pubWaitTxt"></b></div></div>
       <p class="note" id="pubNote"></p>
       <button class="btn primary big" data-a="ready" id="readyBtn"></button>
     </div>
@@ -235,7 +235,6 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
     </section>
   </section>
   <button class="chatfab" id="chatFab" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge" hidden>0</span></button>
-  <footer class="credit" id="gameCredit" hidden><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a></footer>
 </div>
 
 <div class="toast" id="toast" hidden></div>
@@ -250,7 +249,9 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
   <div class="setrow"><span data-i="setTheme"></span><div class="seg2" role="group"><button data-a="setTheme" data-t="light" data-i="themeLight"></button><button data-a="setTheme" data-t="dark" data-i="themeDark"></button></div></div>
   <div class="setrow"><span data-i="setMusic"></span><button id="musicBtn" class="switch" data-a="music" role="switch"><i></i></button></div>
   <div class="setrow"><span data-i="setSound"></span><button id="sndBtn" class="switch" data-a="snd" role="switch"><i></i></button></div>
+  <p class="setkbd note" data-ih="kbdHelp"></p>
   <button class="btn small" id="adminBtn" data-a="admin" data-i="adminTitle" hidden></button>
+  <footer class="credit setcredit"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a><span class="ver" id="verTag"></span></footer>
 </div></div>
 <div class="modal" id="modal" hidden><div class="modalcard" id="modalCard"></div></div>
 <script src="vendor/mqtt-5.10.1.min.js"></script>

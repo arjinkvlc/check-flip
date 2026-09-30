@@ -44,7 +44,7 @@ create table if not exists public.game_results (
   game_id     text not null,
   user_id     uuid not null references public.profiles (id) on delete cascade,
   pid         text not null,                  -- seat id inside the game
-  mode        text not null check (mode in ('online', 'solo')),
+  mode        text not null check (mode in ('online', 'solo', 'quick')),
   players     integer not null,
   place       integer not null,
   won         boolean not null default false,
@@ -431,7 +431,7 @@ begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   perform public.guard_not_banned();
   if v_gid is null or v_gid !~ '^[A-Za-z0-9_-]{6,40}$' then raise exception 'bad_game_id'; end if;
-  if v_mode is null or v_mode not in ('online', 'solo') then raise exception 'bad_mode'; end if;
+  if v_mode is null or v_mode not in ('online', 'solo', 'quick') then raise exception 'bad_mode'; end if;
   if v_pid is null or v_pid !~ '^[A-Za-z0-9_-]{1,20}$' then raise exception 'bad_pid'; end if;
   if v_order is null or jsonb_typeof(v_order) <> 'array' then raise exception 'bad_order'; end if;
   v_players := jsonb_array_length(v_order);
@@ -450,7 +450,7 @@ begin
   v_eff := case when v_won then 1 else v_place end;
   -- ranked: public quick-play table with 3+ people (bot games come in as 'solo'); every player of the game must report it
   -- (it's part of the digest), so one changed client can't turn a private room into a ranked game
-  v_ranked := v_mode = 'online' and v_players >= 3 and coalesce((p ->> 'ranked')::boolean, false);
+  v_ranked := v_mode in ('online', 'quick') and v_players >= 3 and coalesce((p ->> 'ranked')::boolean, false);
   v_digest := md5(v_gid || '|' || v_order::text || '|' || v_winners::text || '|' || v_days || case when v_ranked then '|ranked' else '' end);
 
   perform pg_advisory_xact_lock(hashtext(v_gid));
@@ -499,7 +499,13 @@ begin
     return jsonb_build_object('counted', false, 'reason', case when v_days < 3 or v_dur < 240 then 'short' else 'limit' end, 'xp_gained', 0, 'xp', v_before, 'level', public.level_of(v_before), 'new_achievements', '[]'::jsonb);
   end if;
 
-  if v_mode = 'solo' then
+  if v_mode = 'quick' then
+    -- v1.12: Quick play table where bots filled the empty seats and this was the only person: full XP, wins,
+    -- stats and achievements right away (nobody else can confirm the result); not counted for the season leaderboard
+    update public.profiles set games = games + 1 where id = v_uid;
+    perform public.apply_verified(v_gid, v_uid);
+    v_verified := true;
+  elsif v_mode = 'solo' then
     -- bot games: XP only, no wins/stats; level achievements may still unlock
     update public.profiles set xp = xp + v_full, bot_games = bot_games + 1 where id = v_uid;
     update public.game_results set xp = v_full, verified = true where game_id = v_gid and user_id = v_uid;
@@ -523,7 +529,7 @@ begin
   -- daily quest: +30 XP once per UTC day when this game meets today's goal
   v_q := public.daily_quest();
   v_met := case v_q
-       when 'play_online' then v_mode = 'online'
+       when 'play_online' then v_mode in ('online', 'quick')
        when 'win_any'     then v_won
        when 'deal'        then coalesce((v_s ->> 'deals')::int, 0) >= 1
        when 'buy2'        then coalesce((v_s ->> 'bought')::int, 0) >= 2
@@ -876,6 +882,10 @@ end $$;
 -- =====================================================================
 -- v1.10: anonymous game metrics, chat reports and sanctions, admin tools
 -- =====================================================================
+
+-- v1.12: results of Quick play games where bots filled the table ('quick')
+alter table public.game_results drop constraint if exists game_results_mode_check;
+alter table public.game_results add constraint game_results_mode_check check (mode in ('online', 'solo', 'quick'));
 
 -- Admins: add yourself once in the SQL editor:
 --   insert into public.admins (user_id) select id from public.profiles where username = 'YOUR_NAME';

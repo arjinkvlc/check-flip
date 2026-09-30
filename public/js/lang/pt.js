@@ -42,6 +42,11 @@ export default {
   },
 
   U: {
+    // v1.12
+    pubSearching: 'Procurando jogadores…',
+    ePubOnly: 'Esta é uma mesa de Jogo rápido: só dá para entrar pelo Jogo rápido, não com código ou link.',
+    kbdHint: '<kbd>Espaço</kbd> rolar / continuar · <kbd>1</kbd>–<kbd>9</kbd> escolher · <kbd>C</kbd> chat',
+    kbdHelp: 'Teclado: <kbd>Espaço</kbd> rolar, continuar ou o botão principal · <kbd>1</kbd>–<kbd>9</kbd> escolher uma opção · <kbd>C</kbd> chat · <kbd>Esc</kbd> sair do chat',
     // i18n.js
     title: 'Check Flip – Jogo de Tabuleiro Online Grátis para Jogar com Amigos',
     metaDesc: 'Jogo de tabuleiro multiplayer grátis no navegador: role os dados, tire cartas, fique com fome e faça seus amigos pagarem a conta. 2–6 jogadores, online ou contra bots, sem download.',
@@ -176,7 +181,7 @@ export default {
     pBubblesNote: 'O estilo das suas mensagens no chat. Todo mundo na sala vê.',
     pTitlesNote: 'Os títulos aparecem embaixo do seu nome. Ganhe mais com conquistas.',
     pAchNote: 'Conquistas desbloqueiam títulos, molduras, estilos de tabuleiro e balões de chat.',
-    pBotNote: '🤖 Jogos com bots (um jogador, ou bots adicionados a uma sala) dão metade do XP, mas nunca contam para conquistas (exceto as de nível). Vitórias e outras conquistas só vêm de jogos online, e são confirmadas quando outro jogador da mesma mesa salva o mesmo resultado.',
+    pBotNote: '🤖 Jogos com bots (um jogador, ou bots adicionados a uma sala) dão metade do XP, mas nunca contam para conquistas (exceto as de nível). Vitórias e outras conquistas só vêm de jogos online, e são confirmadas quando outro jogador da mesma mesa salva o mesmo resultado. O Jogo rápido é diferente: bots que ocupam lugares vazios não mudam nada, o jogo conta por inteiro.',
     pRewards: 'Desbloqueia:', pDone: '✓ Desbloqueado', pProgress: (a, b) => `${a} / ${b}`,
     pWins: 'Vitórias online', pGames: 'Jogos online', pBotGames: 'Jogos com bots', pXpTotal: 'XP total', pLevel: 'Nível',
     pDeals: 'Contas passadas adiante', pBelt: 'Cintos apertados', pMember: 'Membro desde',
@@ -311,7 +316,7 @@ export default {
     leaveQLocal: 'Este jogo vai acabar e não dá pra continuar.',
     leaveYes: 'Sair', stay: 'Ficar',
     afterPay: 'Sobra depois de pagar', shortBy: m => `faltam ${m}`,
-    pRankedNote: 'Feitos de um jogo só (Magnata, Casa Cheia, Lenda das Voltas, Bolso Fundo) só contam em partidas ranqueadas: mesas de Jogo rápido com 3 ou mais pessoas e sem bots.',
+    pRankedNote: 'Feitos de um jogo só (Magnata, Casa Cheia, Lenda das Voltas, Bolso Fundo) só contam em partidas ranqueadas: mesas de Jogo rápido com 3 ou mais jogadores (bots em lugares vazios também contam).',
 
     // i18n-v110.js
     dinnerAt: p => `Jantar de hoje: ${venueName(p.v)}`,
