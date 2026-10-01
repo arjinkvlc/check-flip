@@ -23,7 +23,11 @@ async function load(tab, force) {
   if (AD.busy || (!force && AD.data[tab])) return;
   AD.busy = true; AD.err = '';
   try {
-    if (tab === 'metrics') AD.data.metrics = await adminMetrics(14);
+    if (tab === 'metrics') {
+      // players connected to a table right now: the real number, also below the home screen's threshold of 5
+      AD.online = await fetch('/api/online', {cache: 'no-store'}).then(r => r.json()).then(j => +j.n || 0).catch(() => null);
+      AD.data.metrics = await adminMetrics(14);
+    }
     else if (tab === 'reports') AD.data.reports = await adminReports(AD.status);
     else AD.data.bans = await adminSanctions();
   } catch (e) { AD.err = (e && (e.key || e.message)) || 'error'; }
@@ -34,11 +38,12 @@ function metricsHTML(rows) {
   if (!rows) return `<p class="note">${esc(t('aLoading'))}</p>`;
   const tot = k => rows.reduce((s, r) => s + (r[k] || 0), 0);
   return `<div class="admsum">
+      <div class="stat"><b>${AD.online == null ? '–' : AD.online}</b><small>${esc(t('admOnline'))}</small></div>
       <div class="stat"><b>${tot('visitors')}</b><small>${esc(t('admVisitors'))}</small></div>
       <div class="stat"><b>${tot('new_visitors')}</b><small>${esc(t('admNew'))}</small></div>
       <div class="stat"><b>${tot('games_started')}</b><small>${esc(t('admStarted'))}</small></div>
       <div class="stat"><b>${tot('games_finished')}</b><small>${esc(t('admFinished'))}</small></div></div>
-    <p class="note">${esc(t('admLast14'))}</p>
+    <p class="note">${esc(t('admOnlineNote'))} ${esc(t('admLast14'))}</p>
     <div class="admtable"><table><thead><tr><th>${esc(t('admDay'))}</th><th>${esc(t('admVisitors'))}</th><th>${esc(t('admNew'))}</th><th>${esc(t('admPlayers'))}</th>
       <th>${esc(t('admStarted'))}</th><th>${esc(t('admFinished'))}</th><th>${esc(t('admKinds'))}</th><th>D1</th><th>D7</th></tr></thead><tbody>
       ${rows.map(r => `<tr><td>${esc(String(r.day).slice(5))}</td><td>${r.visitors}</td><td>${r.new_visitors}</td><td>${r.players}</td><td>${r.games_started}</td><td>${r.games_finished}</td>

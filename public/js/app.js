@@ -22,6 +22,7 @@ import './i18n-v19.js';
 import './i18n-v110.js';
 import './i18n-v111.js';
 import './i18n-v112.js';
+import './i18n-v114.js';
 import {renderAdmin, adminClick, initAdminUI} from './admin-ui.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
@@ -31,11 +32,12 @@ import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
 import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck, onAccount, logEvent, reportChat, isAdmin} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
+import {ico} from './icons.js';
 import {LANGS, LANG_NAMES, locale, i18nReady, getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 // the chosen language's texts must be ready before the first screen is drawn
 await i18nReady;
 
-setVenueIconFn(key => VICON[key] || '');
+setVenueIconFn(() => '');   // v1.14: venue icons are drawn (js/icons.js), the log stays plain text
 const $ = s => document.querySelector(s);
 const rid = n => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; const r = crypto.getRandomValues(new Uint32Array(n)); for (const x of r) s += c[x % c.length]; return s; };
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -45,7 +47,11 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const cellName = p => BOARD[p] === 'mekan' ? venueName(VENUES[p]) : sqName(BOARD[p]);
 const cellDesc = p => sqDesc(BOARD[p]);
 const vname = p => venueName(VENUES[p]);
-const vfull = p => venueIconAt(p) + ' ' + vname(p);
+const vfull = p => vname(p);
+// drawn square icon for board position p (venues use the restaurant's icon)
+const cellKey = p => BOARD[p] === 'mekan' ? VENUES[p] : BOARD[p] === 'bos' ? '' : BOARD[p];
+const cellIco = (p, cls) => ico(cellKey(p), cls);
+const vIco = p => ico(VENUES[p], 'in');
 const pct = r => Math.round(r * 100);
 
 /* ================= networking (MQTT) ================= */
@@ -527,7 +533,7 @@ function deltas(prev, nx) {
 }
 const POP_KEYS = ['lap', 'half', 'out', 'won', 'teamWon', 'teamHelp', 'dayStart', 'order', 'paid', 'belt', 'handFull', 'waits', 'commission', 'freed', 'daysOver', 'rent', 'gotBelt', 'dutch', 'startMoney'];
 function popHTML(prev, nx, fx) {
-  if (fx.quiet || fx.t === 'roll') return ''; const dr = deltas(prev, nx); let head, hc, title, sub;
+  if (fx.quiet || fx.t === 'roll') return ''; const dr = deltas(prev, nx); let head, hc, title, sub, tIco = '';
   if (fx.card) {
     const c = fx.card; const deck = c[0] === 'A' ? t('popChance') : c[0] === 'B' ? t('popEvent') : t('popSpecial');
     hc = c[0] === 'A' ? '#b87808' : c[0] === 'B' ? 'var(--teal)' : 'var(--tomato)'; head = fx.t === 'use' ? t('popPlayed') : deck; title = cardName(c); sub = cardDesc(c);
@@ -537,7 +543,7 @@ function popHTML(prev, nx, fx) {
     hc = fx.bill ? 'var(--tomato)' : ['deal', 'dealr'].includes(fx.t) ? '#6b4bc4' : ['buy', 'offer', 'owr', 'home'].includes(fx.t) ? '#7a4fa8' : 'var(--ink)';
     title = tx(fx.title); sub = fx.sub ? tx(fx.sub) : '';
   } else if (fx.sq != null) {
-    const k = BOARD[fx.sq]; head = t('popSquare', fx.sq); title = (cellIcon(fx.sq) ? cellIcon(fx.sq) + ' ' : '') + cellName(fx.sq);
+    const k = BOARD[fx.sq]; head = t('popSquare', fx.sq); title = cellName(fx.sq); tIco = cellIco(fx.sq, 'in');
     if (k === 'mekan') { hc = '#7a4fa8'; const o = nx.own[fx.sq]; sub = o ? t('ownerIs', nx.pl[o.o].n, o.pr) : t('forSaleM', CFG.VPRICE); }
     else { hc = k === 'bos' ? '#6f7a86' : 'var(--ink)'; sub = cellDesc(fx.sq); }
   } else return '';
@@ -550,7 +556,7 @@ function popHTML(prev, nx, fx) {
   if (nx.bn) extra.push(t('exAgain'));
   const msgs = fx.msgs.filter(m => m && typeof m === 'object' && POP_KEYS.includes(m.k)).slice(-4).map(m => tx(maskE(nx, m)));
   return `<div class="popcard" style="--hc:${hc}"><div class="pophead">${esc(head)}</div><div class="popbody">
-    <div class="poptitle">${esc(title)}</div>${sub ? `<div class="popsub">${esc(sub)}</div>` : ''}
+    <div class="poptitle">${tIco}${esc(title)}</div>${sub ? `<div class="popsub">${esc(sub)}</div>` : ''}
     ${dr.length ? `<div class="deltas">${dr.join('')}</div>` : ''}
     ${extra.length ? `<div class="popsub"><b>${esc(extra.join(' · '))}</b></div>` : ''}
     ${msgs.length ? `<ul class="popmsgs">${msgs.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
@@ -602,20 +608,20 @@ function rc(p) { if (p <= 10) return [11, 11 - p]; if (p <= 20) return [11 - (p 
   for (let p = 0; p < N; p++) {
     const k = BOARD[p], [r, c] = rc(p); const el = document.createElement('div');
     el.className = 'cell k-' + k; el.style.gridRow = r; el.style.gridColumn = c;
-    el.innerHTML = `<span class="no">${p}</span>${cellIcon(p) ? `<span class="ic" aria-hidden="true">${cellIcon(p)}</span><span class="lb"></span>` : ''}${k === 'mekan' ? '<span class="own"></span>' : ''}<div class="toks"></div>`;
+    el.innerHTML = `<span class="no">${p}</span>${cellKey(p) ? `<span class="ic">${cellIco(p)}</span><span class="lb"></span>` : ''}${k === 'mekan' ? '<span class="own"></span>' : ''}<div class="toks"></div>`;
     b.appendChild(el); cells.push(el);
   }
 })();
 // home screen picture: the same board around the table (icons only)
 (function buildHomeBoard() {
   const ring = $('#hRing'); if (!ring) return;
-  ring.innerHTML = BOARD.map((k, p) => { const [r, c] = rc(p); const ic = cellIcon(p);
+  ring.innerHTML = BOARD.map((k, p) => { const [r, c] = rc(p); const ic = cellIco(p);
     return `<i class="hc k-${k}" style="grid-row:${r};grid-column:${c}">${ic ? `<span>${ic}</span>` : ''}</i>`; }).join('');
 })();
 function labelBoard() {
   cells.forEach((el, p) => { el.title = `${p} · ${cellName(p)}: ${cellDesc(p)}`; const lb = el.querySelector('.lb'); if (lb) lb.textContent = cellName(p); });
   const seen = new Set(); const kl = BOARD.filter(k => !seen.has(k) && seen.add(k));
-  const kinds = `<div><h4>${esc(t('squares'))}</h4><ol style="list-style:none;padding:0">${kl.map(k => `<li>${KICON[k] || '⬜'} <b>${esc(sqName(k))}</b> · ${esc(sqDesc(k))}</li>`).join('')}<li>${esc(t('restaurants'))}: ${Object.keys(VENUES).map(p => esc(vfull(+p))).join(', ')}</li></ol></div>`;
+  const kinds = `<div><h4>${esc(t('squares'))}</h4><ol style="list-style:none;padding:0">${kl.map(k => `<li>${ico(k, 'in') || '<span class="sqi in"></span>'}<b>${esc(sqName(k))}</b> · ${esc(sqDesc(k))}</li>`).join('')}<li>${esc(t('restaurants'))}: ${Object.keys(VENUES).map(p => vIco(+p) + esc(vname(+p))).join(', ')}</li></ol></div>`;
   const list = d => CARD_IDS.filter(k => k[0] === d && k !== 'A13').map(k => `<li><b>${esc(cardName(k))}${k === 'A12' ? ' ×2' : ''}</b>: ${esc(cardDesc(k))}${KEEP(k) ? `<span class="keep">${esc(t('kept'))}</span>` : ''}</li>`).join('');
   const decks = `<div><h4>${esc(t('decksA'))}</h4><ol>${list('A')}</ol></div><div><h4>${esc(t('decksB'))}</h4><ol>${list('B')}</ol><p class="note" style="margin-top:8px">${t('beltNote', esc(cardName('K')))}</p></div>`;
   $('#legend').innerHTML = kinds + decks; $('#cardLists').innerHTML = kinds + decks;
@@ -685,6 +691,10 @@ function chatLockUI() {
   lk.hidden = !(ban || guest); lk.textContent = ban ? t('chatBannedMsg', banDate(ui.chatBan)) : guest ? t('chatGuestPub') : '';
   inp.disabled = ban || guest; btn.disabled = ban || guest;
 }
+// v1.14 computers: quick messages open as a list from the button next to Send (phones keep the scrolling row)
+function qcMenu(on) { document.body.classList.toggle('qcopen', on); const b = document.querySelector('.qcbtn'); if (b) b.setAttribute('aria-expanded', String(on)); }
+document.addEventListener('pointerdown', e => { if (document.body.classList.contains('qcopen') && !e.target.closest('#quickChat, .qcbtn')) qcMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('qcopen')) qcMenu(false); }, true);
 function renderQuick() { const el = $('#quickChat'); if (el && el.dataset.lang !== getLang()) { el.dataset.lang = getLang(); el.innerHTML = QUICK.map(k => `<button type="button" class="qchip" data-a="quick1" data-k="${k}">${esc(t('qc_' + k))}</button>`).join(''); } }
 function mutePlayer(pid, on) {
   if (on) ui.muted.add(pid); else ui.muted.delete(pid);
@@ -764,7 +774,7 @@ document.addEventListener('input', e => { if (e.target.id) e.target.dataset.touc
 
 function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
-  if (code) $('#roomChip').innerHTML = S && S.pub ? esc(t('chipPub')) : `${esc(t('chipRoom'))} <b>${esc(code)}</b>`;
+  if (code) $('#roomChip').innerHTML = S && S.pub ? esc(t('quickTitle')) : `${esc(t('chipRoom'))} <b>${esc(code)}</b>`;
   $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); 
   $('#musicBtn').classList.toggle('on', Music.on); $('#musicBtn').setAttribute('aria-checked', String(Music.on));
   { const sel = $('#setLangSel'); if (sel && sel.value !== getLang()) sel.value = getLang(); }
@@ -930,7 +940,7 @@ function renderGame(V, prev) {
   drawCells(V, targets);
   const d = V.dice;
   if (!animating) { skinDice(V, V.ph === 'play' ? V.ord[V.cur] : -1); setDice(d ? d[0] : 1, d ? d[1] : 1); $('#dice').classList.toggle('dbl', !!(d && d[0] === d[1])); }
-  const din = $('#cDin'); din.hidden = !(V.ph === 'play' && V.dv != null && VENUES[V.dv]); if (!din.hidden) din.textContent = t('dinnerTonight', vfull(V.dv));
+  const din = $('#cDin'); din.hidden = !(V.ph === 'play' && V.dv != null && VENUES[V.dv]); if (!din.hidden) din.innerHTML = esc(t('dinnerTonight', '\u0001')).replace('\u0001', vIco(V.dv) + esc(vname(V.dv)));
   $('#cDay').textContent = V.ph === 'feast' ? t('dayFeast', V.day) : V.ph === 'over' ? t('gameOver') : t('dayMove', V.day, V.cfg && V.cfg.days, Math.min(V.rd + 1, 2));
   const whoI = V.ph === 'over' ? V.win : A;
   if (!animating) {
@@ -961,12 +971,12 @@ function renderGame(V, prev) {
     else if (P.k === 'move') {
       const pos = V.pl[P.i].p; const lbl = v => `${esc(t('squaresLbl', v))}${P.o.length > 1 && v === V.dice[0] + V.dice[1] ? `<small class="tp">${esc(t('sumLbl'))}</small>` : ''}`;
       h += you ? `<p class="status">${esc(t('moveQ', V.dice[0], V.dice[1]))}</p><p class="note mhint">${esc(t('moveHint'))}</p><div class="choices">${P.o.map(v => { const tg = (pos + v) % N;
-        return `<button class="btn choice" data-a="mv" data-v="${v}" ${dis}><b>${lbl(v)}</b><span>${cellIcon(tg) || '⬜'} ${esc(cellName(tg))}${BOARD[tg] === 'mekan' && V.own[tg] ? ' · ' + nm(V.own[tg].o) : ''}</span></button>`; }).join('')}</div>`
+        return `<button class="btn choice" data-a="mv" data-v="${v}" ${dis}><b>${lbl(v)}</b><span>${cellIco(tg, 'in')}${esc(cellName(tg))}${BOARD[tg] === 'mekan' && V.own[tg] ? ' · ' + nm(V.own[tg].o) : ''}</span></button>`; }).join('')}</div>`
         : `<p class="status">${esc(t('isChoosing', Q.n))}</p>`;
     } else if (P.k === 'tgt') {
       h += you ? `<p class="status">${esc(cardName(P.c))}: ${esc(cardDesc(P.c))}</p><div class="targets">${rivals(V, A).map(j => `<button class="btn" data-a="tgt" data-to="${j}" ${dis}>${dot(j)}${nm(j)}</button>`).join('')}</div>` : `<p class="status">${esc(t('isTargeting', Q.n))}</p>`;
     } else if (P.k === 'swap') {
-      h += you ? `<div class="swapbox"><p class="status">${esc(t('swapQ'))}</p><div class="swapnew"><span class="card newc">${esc(cardName(P.c))}</span><small>${esc(cardDesc(P.c))}</small></div>
+      h += you ? `<div class="swapbox" data-still="swap"><p class="status">${esc(t('swapQ'))}</p><div class="swapnew"><span class="card newc">${esc(cardName(P.c))}</span><small>${esc(cardDesc(P.c))}</small></div>
         <div class="choices">${Q.c.map((c, k) => `<button class="btn choice" data-a="swap" data-drop="${k}" ${dis}><b>${esc(t('swapDrop', cardName(c)))}</b><span>${esc(t('swapKeepNew', cardName(P.c)))}</span></button>`).join('')}
         <button class="btn choice ghost" data-a="swap" data-drop="new" ${dis}><b>${esc(t('swapBurn', cardName(P.c)))}</b><span>${esc(t('swapKeepOld'))}</span></button></div></div>`
         : `<p class="status">${esc(t('isSwapping', Q.n))}</p>`;
@@ -1029,7 +1039,8 @@ function renderGame(V, prev) {
     }
   }
   // first-game guide
-  if (!hot() && !ui.sel && !lock) { const tk = tipFor(V, myIdx(V)); if (tk) h = tipHTML(tk) + h; }
+  // v1.14: tips no longer vanish while something animates; they stay until "Got it" or until the moment passes
+  if (!hot() && !ui.sel) { const tk = tipFor(V, myIdx(V)); if (tk) h = tipHTML(tk) + h; }
   if ((V.ph === 'play' || V.ph === 'feast') && !ui.sel) {
     const tf = timerFrac(); const lbl = V.ph === 'feast' ? (V.fe.off ? t('replyTime') : t('payTime')) : P && P.k === 'ow' ? t('replyTime') : t('timeLbl');
     h = `<div class="tline"><span>${esc(lbl)}</span><span id="tsec">${animating ? '' : esc(t('sec', Math.ceil(tf * limitOf(V) / 1000)))}</span></div><div class="timer${tf < .2 ? ' crit' : tf < .5 ? ' warn' : ''}"${animating ? ' hidden' : ''}><i style="width:${(tf * 100).toFixed(1)}%"></i></div>` + h;
@@ -1039,7 +1050,10 @@ function renderGame(V, prev) {
   if (busy()) h += `<p class="note">${esc(t('sending'))}</p>`;
   if (lost) h = `<p class="status">${esc(t('reconnecting'))}</p>` + h;
   else if (ui.fbAt && Date.now() - ui.fbAt < 8000) h = `<p class="okmsg" role="status">${esc(t('netFallback'))}</p>` + h;
+  const still = new Set([...$('#actions').querySelectorAll('[data-still]')].map(e => e.dataset.still));
   keepInputs($('#actions'), () => { $('#actions').innerHTML = `<button class="sheethandle" data-a="sheetmin" aria-label="${esc(t('sheetAria'))}"><span></span><em data-open="${esc(t('sheetOpen'))}">${esc(t('sheetHandle'))}</em></button>` + h + kbdHintHTML(); });
+  // boxes that were already on screen don't pop in again on every redraw (no flicker)
+  $('#actions').querySelectorAll('[data-still]').forEach(e => { if (still.has(e.dataset.still)) e.classList.add('still'); });
   keyNumbers();
   requestAnimationFrame(fitSheet);
 
@@ -1048,7 +1062,7 @@ function renderGame(V, prev) {
     const q = V.pl[i], o = prev && prev.pl[i];
     const meter = Array.from({length: CFG.HMAX}, (_, k) => `<i class="${k < q.h ? 'on' : ''}${k < q.h && q.h >= 7 ? ' hi' : ''}"></i>`).join('');
     const canUse = q.a && mine(V, i) && !lock && (V.ph === 'play' || V.ph === 'feast');
-    const hand = !canSee(V, i) ? q.c.map(() => `<span class="card hid" title="${esc(t('hiddenCardT'))}">?</span>`).join('') : q.c.map(c => { const any = HOLD[c] === 'any', ok = canUse && (any ? rivals(V, i).length > 0 : V.ph === 'feast' && V.fe.w === i && !V.fe.off);
+    const hand = !canSee(V, i) ? q.c.map(() => `<span class="card hid" title="${esc(t('hiddenCardT'))}">${ico('sans')}</span>`).join('') : q.c.map(c => { const any = HOLD[c] === 'any', ok = canUse && (any ? rivals(V, i).length > 0 : V.ph === 'feast' && V.fe.w === i && !V.fe.off);
       const cls = 'card' + (any ? '' : ' feastc'), tl = esc(cardDesc(c));
       return ok ? `<button class="${cls}" data-a="${any ? 'sel' : 'use'}" data-i="${i}" data-c="${c}" title="${tl}">${esc(cardName(c))}</button>` : `<span class="${cls}" title="${tl}">${esc(cardName(c))}</span>`; }).join('');
     const vs = ownedBy(V, i).map(p => `<span class="card venue" title="${esc(t('value', V.own[p].pr, pct(COMS[V.own[p].lv || 1])))}">${esc(vfull(p))} ${'★'.repeat(V.own[p].lv || 1)}</span>`).join('');
@@ -1060,7 +1074,7 @@ function renderGame(V, prev) {
       <div class="phead">${dot(i)}<span class="pn">${esc(q.n)}</span>${pfTag(q)}</div>${pfTitle(q)}${tags ? `<div class="tags">${tags}</div>` : ''}
       <div class="pstats"><span class="money${fl('m')}">${M(q.m)}</span><span class="mult${fl('x')}">×${q.x}</span></div>
       <div class="hrow${fl('h')}"><span class="meter" aria-label="${esc(t('hungerN', q.h))}">${meter}</span><span>${esc(t('hungerN', q.h))}</span></div>
-      ${q.a ? `<div class="ploc">${esc(t('squareN', q.p, (cellIcon(q.p) || '⬜') + ' ' + cellName(q.p)))}</div>` : ''}
+      ${q.a ? `<div class="ploc">${esc(t('squareN', q.p, '\u0001')).replace('\u0001', cellIco(q.p, 'in') + esc(cellName(q.p)))}</div>` : ''}
       ${vs ? `<div class="hand">${vs}</div>` : ''}${hand ? `<div class="hand">${hand}</div>` : ''}</li>`;
   }).join('');
   $('#log').innerHTML = V.log.slice().reverse().map(e => `<li>${esc(tx(maskE(V, e)))}</li>`).join('');
@@ -1141,7 +1155,8 @@ document.addEventListener('click', e => {
     case 'addbot': { const sel = $('#botLvSel'); if (sel) { ui.botLv = sel.value; lsSet('cf-botlv', ui.botLv); } addBot(); break; }
     case 'kick': { const q = S && S.pl.find(x => x.id === b.dataset.id); if (q && confirm(t('kickQ', q.n))) kickPlayer(b.dataset.id); break; }
     case 'soloDiff': ui.botLv = b.dataset.l; lsSet('cf-botlv', ui.botLv); render(); break;
-    case 'quick1': sendQuick(b.dataset.k); break;
+    case 'quick1': sendQuick(b.dataset.k); qcMenu(false); break;
+    case 'qcmenu': qcMenu(!document.body.classList.contains('qcopen')); break;
     case 'nshare': navigator.share && navigator.share({title: 'Check Flip', text: t('waText', code), url: inviteLink()}).catch(() => {}); break;
     case 'mute': mutePlayer(b.dataset.pid, true); break;
     case 'unmute': mutePlayer(b.dataset.pid, false); b.closest('li') && b.closest('li').remove(); break;
@@ -1174,6 +1189,10 @@ document.addEventListener('click', e => {
     case 'chatopen':
       if (mobileQ.matches) { document.body.classList.remove('showlog'); document.body.classList.add('showchat'); updChat(); const l = $('#chatList'); l.scrollTop = l.scrollHeight; setTimeout(() => $('#chatIn').focus(), 50); }
       else { setTab('chat'); $('#chatbox').scrollIntoView({behavior: 'smooth', block: 'nearest'}); setTimeout(() => $('#chatIn').focus({preventScroll: true}), 300); }
+      break;
+    case 'logopen':   // E key: the events list (mobile: the events sheet, computer: the Events tab)
+      if (mobileQ.matches) { document.body.classList.remove('showchat'); document.body.classList.add('showlog'); updChat(); }
+      else { setTab('log'); const sb = $('#sideTabs'); if (sb) sb.scrollIntoView({behavior: 'smooth', block: 'nearest'}); }
       break;
     case 'chatclose': document.body.classList.remove('showchat'); updChat(); break;
     case 'rxopen': { const l = $('#rxlist'); l.hidden = !l.hidden; b.setAttribute('aria-expanded', String(!l.hidden)); break; }
@@ -1232,7 +1251,7 @@ async function changeLang(l) {
   await setLang(l); pickNick(); applyStatic(); render();
 }
 { const sel = $('#setLangSel'); if (sel) { sel.innerHTML = LANGS.map(l => `<option value="${l}" lang="${l}">${LANG_NAMES[l]}</option>`).join(''); sel.value = getLang(); sel.addEventListener('change', () => changeLang(sel.value)); } }
-/* ---- keyboard (computers): Space / Enter = roll, continue or the main button; 1–9 = the choices; C = chat ---- */
+/* ---- keyboard (computers): Space / Enter = roll, continue or the main button; 1–9 = the choices; C = chat; E = events ---- */
 const typing = el => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
 const keyChoices = () => { const a = $('#actions'); if (!a) return []; const c = [...a.querySelectorAll('.choices button:not([disabled])')]; return c.length ? c : [...a.querySelectorAll('.targets button:not([disabled])')]; };
 function keyNumbers() { keyChoices().slice(0, 9).forEach((b, k) => { if (!b.querySelector('.kn')) b.insertAdjacentHTML('afterbegin', `<span class="kn" aria-hidden="true">${k + 1}</span>`); }); }
@@ -1247,6 +1266,7 @@ document.addEventListener('keydown', e => {
   if (ui.screen !== 'game' || !shown || shown.ph === 'lobby') return;
   const k = e.key.toLowerCase();
   if (k === 'c' && mode === 'online') { e.preventDefault(); act_('chatopen'); return; }
+  if (k === 'e') { e.preventDefault(); act_('logopen'); return; }
   if (k === ' ' || k === 'enter') {
     if (e.target && e.target.closest && e.target.closest('#actions button')) return;   // a focused action button handles it itself
     if (e.target && e.target.blur && e.target !== document.body) e.target.blur();

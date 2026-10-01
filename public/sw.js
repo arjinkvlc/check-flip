@@ -12,8 +12,8 @@ const VERSION = new URL(self.location).searchParams.get('v') || 'dev';
 const CACHE = 'checkflip-' + VERSION;
 const SHELL = [
   '/', '/manifest.webmanifest', '/css/style.css', '/assets/logo.svg',
-  '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/i18n-v13.js', '/js/i18n-v15.js', '/js/i18n-v16.js', '/js/i18n-v17.js', '/js/i18n-v18.js', '/js/i18n-v19.js', '/js/i18n-v110.js', '/js/i18n-v111.js', '/js/i18n-v112.js', '/js/admin-ui.js', '/js/lang/es.js', '/js/lang/pt.js', '/js/lang/fr.js', '/js/lang/de.js', '/js/seo-text.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
-  '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js',
+  '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/i18n-v11.js', '/js/i18n-v13.js', '/js/i18n-v15.js', '/js/i18n-v16.js', '/js/i18n-v17.js', '/js/i18n-v18.js', '/js/i18n-v19.js', '/js/i18n-v110.js', '/js/i18n-v111.js', '/js/i18n-v112.js', '/js/i18n-v114.js', '/js/admin-ui.js', '/js/lang/es.js', '/js/lang/pt.js', '/js/lang/fr.js', '/js/lang/de.js', '/js/seo-text.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
+  '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js', '/js/icons.js', '/assets/sfx/dice-roll.mp3', '/assets/sfx/dice-land.mp3',
   '/js/pwa.js', '/js/version.js', '/vendor/mqtt-5.10.1.min.js', '/vendor/supabase-js-2.117.2.js', '/vendor/fonts/fonts.css',
   ...['figtree-latin-400-normal', 'figtree-latin-600-normal', 'figtree-latin-700-normal', 'baloo-2-latin-700-normal', 'baloo-2-latin-800-normal'].map(f => `/vendor/fonts/${f}.woff2`),
   ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic', 'barista', 'sommelier'].map(k => `/assets/avatars/${k}.svg`)

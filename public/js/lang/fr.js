@@ -46,8 +46,8 @@ export default {
     // v1.12
     pubSearching: 'Recherche de joueurs…',
     ePubOnly: 'C’est une table de partie rapide : on ne la rejoint qu’avec Partie rapide, pas avec un code ou un lien.',
-    kbdHint: '<kbd>Espace</kbd> lancer / continuer · <kbd>1</kbd>–<kbd>9</kbd> choisir · <kbd>C</kbd> chat',
-    kbdHelp: 'Clavier : <kbd>Espace</kbd> lancer, continuer ou le bouton principal · <kbd>1</kbd>–<kbd>9</kbd> choisir une option · <kbd>C</kbd> chat · <kbd>Échap</kbd> quitter le chat',
+    kbdHint: '<kbd>Espace</kbd> lancer / continuer · <kbd>1</kbd>–<kbd>9</kbd> choisir · <kbd>C</kbd> chat · <kbd>E</kbd> événements',
+    kbdHelp: 'Clavier : <kbd>Espace</kbd> lancer, continuer ou le bouton principal · <kbd>1</kbd>–<kbd>9</kbd> choisir une option · <kbd>C</kbd> chat · <kbd>E</kbd> événements · <kbd>Échap</kbd> quitter le chat',
     // i18n.js
     title: 'Check Flip – Jeu de plateau gratuit en ligne entre amis',
     metaDesc: 'Jeu de plateau multijoueur gratuit dans ton navigateur : lance les dés, pioche des cartes, reste affamé et fais payer l’addition à tes amis. 2 à 6 joueurs, en ligne ou contre des bots, sans téléchargement.',
@@ -84,7 +84,7 @@ export default {
     roomCode: 'Code du salon', copy: '📋 Copier', copied: '✓ Copié', selectedCopy: 'Sélectionné, copie-le', copyInvite: 'Copier le lien d’invitation', inviteCopied: 'Copié', noLateJoin: 'Plus personne ne peut rejoindre une fois la partie lancée.',
     pickAvatarTitle: 'Choisis ton avatar', avatarNote: 'Les avatars déjà pris ne peuvent pas être choisis. Les avatars verrouillés s’ouvrent avec les niveaux et les succès (connecte-toi pour les utiliser). Sans avatar, tu joues avec une lettre en couleur.',
     settings: 'Réglages', auto: 'Auto', pubTable: 'Table publique', ready: 'Je suis prêt', readyUndo: '✓ Prêt (annuler)',
-    pubNote: (n, max) => `${n}/${max} joueurs. La partie démarre quand au moins 2 sont assis et que tout le monde est prêt.`,
+    pubNote: (n, max) => `${n}/${max} joueurs (bots compris). La partie démarre quand tout le monde est prêt.`,
     moneyCustom: m => `Argent de départ ${M(m)}.`, moneyAuto: (n, m) => `Auto : ${M(m)} pour ${n} joueurs (2 joueurs ¤100, 3 joueurs ¤150, 4+ joueurs ¤200)`,
     daysOn: d => `Après ${d} jours, le plus riche gagne`, daysOff: 'Non : le dernier à table gagne',
     you: 'toi', hostTag: 'hôte', readyTag: '✓ prêt', waitingTag: 'en attente', seatsFree: n => `${n} place${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}`,
@@ -203,7 +203,7 @@ export default {
 
     // i18n-v11.js
     modeLbl: 'Mode de jeu', m_classic: 'Classique', m_quick: 'Rapide', m_teams: 'Équipes 2v2',
-    mShort_classic: 'le dernier gagne', mShort_quick: '10 jours · ~15 min', mShort_teams: '4 joueurs',
+    mShort_classic: 'le dernier gagne', mShort_quick: 'le plus riche après 10 jours gagne', mShort_teams: '4 joueurs',
     mNote_classic: 'Le dernier à table gagne.',
     mNote_quick: '10 jours avec des tours plus courts ; le plus riche (argent + restaurants) gagne. Environ 15 minutes.',
     mNote_teams: 'Exactement 4 joueurs (les bots comptent). Les places 1 et 3 jouent contre 2 et 4. Les coéquipiers couvrent l’addition l’un de l’autre ; élimine les deux rivaux pour gagner.',
@@ -295,7 +295,7 @@ export default {
     aw_up: 'Rénovateur', aw_up_v: v => `${v} amélioration${v > 1 ? 's' : ''}`,
     lbSeason: n => `Saison ${n}`,
     lbSeasonNote: (n, d) => `Victoires en ligne de la saison ${n} (ce mois-ci, égalités départagées par l’XP). Le top 3 gagne une médaille à la fin · ${d} jour${d > 1 ? 's' : ''} restant${d > 1 ? 's' : ''}.`,
-    medalTitle: (s, p) => `Saison ${s} · ${['', '1re', '2e', '3e'][p]} place`, medalLive: (s, p) => `Saison ${s} : ${['', '1er', '2e', '3e'][p]} pour l’instant`,
+    medalTitle: (s, p) => `${['', 'Médaille d’or', 'Médaille d’argent', 'Médaille de bronze'][p]} · a fini la saison ${s} à la ${['', '1re', '2e', '3e'][p]} place`, medalLive: (s, p) => `Saison ${s} : ${['', '1er', '2e', '3e'][p]} du classement pour l’instant (la médaille est remise en fin de saison)`,
     waText: c => `Rejoins ma table Check Flip ! Code du salon : ${c}`, shareLink: 'Partager',
     shapesAria: 'Formes sur les pions (adapté aux daltoniens)',
 
@@ -336,6 +336,7 @@ export default {
     aCaptchaNeeded: 'Termine d’abord la vérification ci-dessous.',
     adminTitle: 'Admin', admOnly: 'Réservé aux admins.', admRefresh: 'Actualiser',
     admTabMetrics: 'Chiffres', admTabReports: 'Signalements', admTabBans: 'Bannissements',
+    admOnline: 'Aux tables maintenant', admOnlineNote: '« Aux tables maintenant » est le nombre réel de personnes connectées à une table (l’écran d’accueil ne l’affiche qu’à partir de 5).',
     admVisitors: 'Visiteurs', admNew: 'Nouveaux', admPlayers: 'Joueurs', admStarted: 'Parties lancées', admFinished: 'Terminées', admKinds: 'R/S/B/A', admDay: 'Jour',
     admLast14: 'Totaux des 14 derniers jours (UTC).',
     admKindsNote: 'R/S/B/A = parties lancées par type : partie Rapide / Salon / contre des Bots / même Appareil.',

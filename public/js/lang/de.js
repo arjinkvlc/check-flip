@@ -45,8 +45,8 @@ export default {
     // v1.12
     pubSearching: 'Suche Mitspieler…',
     ePubOnly: 'Das ist ein Tisch für schnelle Spiele: Beitritt nur über „Schnelles Spiel“, nicht per Code oder Link.',
-    kbdHint: '<kbd>Leertaste</kbd> würfeln / weiter · <kbd>1</kbd>–<kbd>9</kbd> wählen · <kbd>C</kbd> Chat',
-    kbdHelp: 'Tastatur: <kbd>Leertaste</kbd> würfeln, weiter oder der Hauptknopf · <kbd>1</kbd>–<kbd>9</kbd> Option wählen · <kbd>C</kbd> Chat · <kbd>Esc</kbd> Chat verlassen',
+    kbdHint: '<kbd>Leertaste</kbd> würfeln / weiter · <kbd>1</kbd>–<kbd>9</kbd> wählen · <kbd>C</kbd> Chat · <kbd>E</kbd> Ereignisse',
+    kbdHelp: 'Tastatur: <kbd>Leertaste</kbd> würfeln, weiter oder der Hauptknopf · <kbd>1</kbd>–<kbd>9</kbd> Option wählen · <kbd>C</kbd> Chat · <kbd>E</kbd> Ereignisse · <kbd>Esc</kbd> Chat verlassen',
     // i18n.js
     title: 'Check Flip – Kostenloses Online-Brettspiel mit Freunden',
     metaDesc: 'Kostenloses Multiplayer-Brettspiel im Browser: Würfle, zieh Karten, bleib hungrig und lass deine Freunde die Rechnung zahlen. 2–6 Spieler, online oder gegen Bots, ohne Download.',
@@ -85,7 +85,7 @@ export default {
     roomCode: 'Raumcode', copy: '📋 Kopieren', copied: '✓ Kopiert', selectedCopy: 'Markiert, jetzt kopieren', copyInvite: 'Einladungslink kopieren', inviteCopied: 'Kopiert', noLateJoin: 'Nach dem Start kann niemand mehr beitreten.',
     pickAvatarTitle: 'Wähl deinen Avatar', avatarNote: 'Avatare anderer Spieler sind vergeben. Gesperrte schaltest du mit Level und Erfolgen frei (dafür einloggen). Ohne Avatar spielst du mit einem farbigen Buchstaben.',
     settings: 'Einstellungen', auto: 'Auto', pubTable: 'Offener Tisch', ready: 'Bin bereit', readyUndo: '✓ Bereit (zurück)',
-    pubNote: (n, max) => `${n}/${max} Spieler. Das Spiel startet, wenn mindestens 2 sitzen und alle bereit sind.`,
+    pubNote: (n, max) => `${n}/${max} Spieler (Bots mitgezählt). Das Spiel startet, wenn alle bereit sind.`,
     moneyCustom: m => `Startgeld ${M(m)}.`, moneyAuto: (n, m) => `Auto: ${M(m)} für ${n} Spieler (2 Spieler ¤100, 3 Spieler ¤150, 4+ Spieler ¤200)`,
     daysOn: d => `Nach ${d} Tagen gewinnt der Reichste`, daysOff: 'Aus: Wer übrig bleibt, gewinnt',
     you: 'du', hostTag: 'Gastgeber', readyTag: '✓ bereit', waitingTag: 'wartet', seatsFree: n => `${n} Platz${n > 1 ? 'e' : ''} frei`,
@@ -204,7 +204,7 @@ export default {
 
     // i18n-v11.js
     modeLbl: 'Spielmodus', m_classic: 'Klassisch', m_quick: 'Schnell', m_teams: '2v2-Teams',
-    mShort_classic: 'wer übrig bleibt', mShort_quick: '10 Tage · ~15 Min.', mShort_teams: '4 Spieler',
+    mShort_classic: 'wer übrig bleibt', mShort_quick: 'nach 10 Tagen gewinnt der Reichste', mShort_teams: '4 Spieler',
     mNote_classic: 'Wer als Letzter am Tisch sitzt, gewinnt.',
     mNote_quick: '10 Tage mit kürzeren Zugzeiten; der Reichste (Geld + Restaurants) gewinnt. Etwa 15 Minuten.',
     mNote_teams: 'Genau 4 Spieler (Bots zählen). Plätze 1 & 3 spielen gegen 2 & 4. Teammitglieder springen bei der Rechnung füreinander ein; wirf beide Gegner raus, um zu gewinnen.',
@@ -295,7 +295,7 @@ export default {
     aw_up: 'Renovierer', aw_up_v: v => `${v}× ausgebaut`,
     lbSeason: n => `Saison ${n}`,
     lbSeasonNote: (n, d) => `Online-Siege in Saison ${n} (dieser Monat, Gleichstand nach XP). Die Top 3 bekommen am Ende eine Medaille · noch ${d} Tag${d === 1 ? '' : 'e'}.`,
-    medalTitle: (s, p) => `Saison ${s} · ${p}. Platz`, medalLive: (s, p) => `Saison ${s}: gerade ${p}. Platz`,
+    medalTitle: (s, p) => `${['', 'Goldmedaille', 'Silbermedaille', 'Bronzemedaille'][p]} · Saison ${s} auf Platz ${p} beendet`, medalLive: (s, p) => `Saison ${s}: gerade Platz ${p} der Rangliste (die Medaille gibt es am Saisonende)`,
     waText: c => `Komm an meinen Check-Flip-Tisch! Raumcode: ${c}`, shareLink: 'Teilen',
     shapesAria: 'Formen auf Spielfiguren (farbenblind-freundlich)',
 
@@ -336,6 +336,7 @@ export default {
     aCaptchaNeeded: 'Bitte schließ zuerst die Prüfung unten ab.',
     adminTitle: 'Admin', admOnly: 'Nur für Admins.', admRefresh: 'Aktualisieren',
     admTabMetrics: 'Zahlen', admTabReports: 'Meldungen', admTabBans: 'Sperren',
+    admOnline: 'Gerade an Tischen', admOnlineNote: '„Gerade an Tischen“ ist die echte Zahl der Leute, die mit einem Tisch verbunden sind (der Startbildschirm zeigt sie erst ab 5).',
     admVisitors: 'Besucher', admNew: 'Neu', admPlayers: 'Spieler', admStarted: 'Spiele gestartet', admFinished: 'Beendet', admKinds: 'S/R/B/G', admDay: 'Tag',
     admLast14: 'Summen der letzten 14 Tage (UTC).',
     admKindsNote: 'S/R/B/G = gestartete Spiele nach Art: Schnelles Spiel / Raum / gegen Bots / ein Gerät.',

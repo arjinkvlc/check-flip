@@ -231,7 +231,7 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
       <ul class="chatlist" id="chatList"><li class="chatempty"></li></ul>
       <div class="quickchat" id="quickChat" role="group" data-ia="quickAria"></div>
       <p class="chatlock note" id="chatLock" hidden></p>
-      <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn primary" type="submit" data-i="send"></button></form>
+      <form class="chatform" id="chatForm" autocomplete="off"><input id="chatIn" maxlength="200" data-ip="chatPh" data-ia="chatPh"><button class="btn qcbtn" type="button" data-a="qcmenu" data-ia="quickAria" aria-expanded="false" aria-controls="quickChat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button class="btn primary" type="submit" data-i="send"></button></form>
     </section>
   </section>
   <button class="chatfab" id="chatFab" data-a="chatopen" data-ia="openChat" hidden>💬<span class="chatbadge" id="chatBadge" hidden>0</span></button>

@@ -23,7 +23,7 @@ const en = {
   aw_up: 'Renovator', aw_up_v: v => `${v} upgrade${v === 1 ? '' : 's'}`,
   lbSeason: n => `Season ${n}`,
   lbSeasonNote: (n, d) => `Online wins in season ${n} (this month, ties by XP). Top 3 get a medal when it ends · ${d} day${d === 1 ? '' : 's'} left.`,
-  medalTitle: (s, p) => `Season ${s} · ${['', '1st', '2nd', '3rd'][p]} place`, medalLive: (s, p) => `Season ${s}: ${['', '1st', '2nd', '3rd'][p]} for now`,
+  medalTitle: (s, p) => `${['', 'Gold', 'Silver', 'Bronze'][p]} medal · finished season ${s} in ${['', '1st', '2nd', '3rd'][p]} place`, medalLive: (s, p) => `Season ${s}: ${['', '1st', '2nd', '3rd'][p]} on the leaderboard for now (the medal is given when the season ends)`,
   waText: c => `Join my Check Flip table! Room code: ${c}`, shareLink: 'Share',
   shapesAria: 'Shapes on tokens (colour-blind friendly)'
 };
@@ -47,7 +47,7 @@ const tr = {
   aw_up: 'Dekoratör', aw_up_v: v => `${v} yükseltme`,
   lbSeason: n => `Sezon ${n}`,
   lbSeasonNote: (n, d) => `${n}. sezondaki çevrim içi galibiyetler (bu ay; eşitlikte XP’ye bakılır). Sezon sonunda ilk 3 oyuncu madalya kazanır · ${d} gün kaldı.`,
-  medalTitle: (s, p) => `Sezon ${s} · ${p}.`, medalLive: (s, p) => `Sezon ${s}: şimdilik ${p}.`,
+  medalTitle: (s, p) => `${['', 'Altın', 'Gümüş', 'Bronz'][p]} madalya · Sezon ${s} sıralamasını ${p}. sırada bitirdi`, medalLive: (s, p) => `Sezon ${s} sıralamasında şu an ${p}. sırada (madalya sezon bitince verilir)`,
   waText: c => `Check Flip masama gel! Oda kodu: ${c}`, shareLink: 'Paylaş',
   shapesAria: 'Piyonlarda şekiller (renk körlüğü için)'
 };

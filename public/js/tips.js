@@ -5,6 +5,10 @@
  */
 import {actor} from './engine.js';
 import {t} from './i18n.js';
+import {ico} from './icons.js';
+// square emojis in tip texts → the drawn board icons
+const SQ_EMO = {'💰': 'gelir', '🥨': 'atis', '🏋️': 'spor', '🏋': 'spor'};
+const withIcons = h => h.replace(/💰|🥨|🏋️|🏋/g, e => ico(SQ_EMO[e], 'in'));
 
 const LS = 'cp-tips';
 let st = {seen: {}, off: false};
@@ -30,7 +34,7 @@ export function tipFor(V, me) {
   return null;
 }
 export function tipHTML(k) {
-  return `<div class="tip" role="note"><span class="tipi">💡</span><div class="tipt">${t('tip_' + k)}</div>
+  return `<div class="tip" role="note" data-still="tip-${esc(k)}"><span class="tipi">💡</span><div class="tipt">${withIcons(t('tip_' + k))}</div>
     <div class="tipb"><button class="btn small" data-a="tipok" data-k="${esc(k)}">${esc(t('tipOk'))}</button><button class="linkbtn" data-a="tipoff">${esc(t('tipOff'))}</button></div></div>`;
 }
 export const tipSeen = k => { st.seen[k] = 1; save(); };

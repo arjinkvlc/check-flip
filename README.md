@@ -76,7 +76,7 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 - **Connection resilience:** A dropped player rejoins with the same link. If the host drops, another player takes over the room.
 - **Privacy:** A bilingual privacy notice (KVKK / GDPR), consent at sign-up and self-service account deletion.
 - **Social:** Chat and emoji reactions.
-- **Look and sound:** Dice and token animations, sound effects synthesized with WebAudio (no audio files).
+- **Look and sound:** Hand-drawn board icons, dice and token animations, a recorded dice roll and other sound effects synthesized with WebAudio.
 - **Mobile:** On phones the game fits one screen. Large content (the check, offers) opens in a bottom sheet.
 
 ### Progression
@@ -147,7 +147,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │   ├── sw.js               # service worker (offline cache)
 │   ├── manifest.webmanifest
 │   ├── css/style.css
-│   ├── assets/             # logo, screenshot, og.png (link preview), icons/ (app icons), avatars/
+│   ├── assets/             # logo, screenshot, og.png (link preview), icons/ (app icons), avatars/, sfx/ (dice sounds)
 │   └── js/
 │       ├── engine.js       # rules, balance values, bot AI (no DOM; runs in Node too)
 │       ├── app.js          # networking, animation, UI, chat
@@ -158,7 +158,8 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── lang/           # language packs: es.js, pt.js, fr.js, de.js (loaded when chosen)
 │       ├── i18n-account.js # English + Turkish account texts
 │       ├── config.js       # Supabase URL + publishable key (public values)
-│       ├── sound.js        # WebAudio sound effects
+│       ├── sound.js        # sound effects (WebAudio, recorded dice)
+│       ├── icons.js        # board square icons (SVG, built by tools/icons/gen.py)
 │       ├── music.js        # generated background music (menu + game tracks)
 │       ├── social-ui.js    # friends, leaderboards, profile cards, invites
 │       ├── tips.js         # first-game guide
@@ -183,6 +184,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 ├── tests/belt-deal.mjs     # Tighten the Belt + passing the check on
 ├── public/vendor/          # fonts and libraries served from the site itself (Fontsource fonts, mqtt.js, supabase-js)
 ├── tools/seo-pages/        # builds the search landing pages (public/*.html, public/tr/*.html)
+├── tools/icons/gen.py      # draws the board square icons into public/js/icons.js
 ├── tools/coin-font/        # builds the coin sign (a one-glyph colour font, embedded in style.css)
 ├── tools/avatars/          # generator for the avatar illustrations (Python, no dependencies)
 ├── tools/email-templates/  # password-reset e-mail for Supabase
@@ -302,6 +304,19 @@ To add a language: copy a pack to `public/js/lang/<code>.js`, translate it, add 
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.14.0
+- New board icons: every square has its own drawing (thick-outline style) instead of emoji, so the board looks the same on every phone and computer. Also in the rules, move choices, square cards and tonight's dinner; other players' hidden cards show the Chance card drawing
+- Real dice sound: a recorded dice roll on a wooden table replaces the synthesized one
+- First-game tips (and the card swap box) stay still until their button is pressed or the moment passes; they no longer blink while something animates
+- Quick mode on the home screen reads "richest after 10 days wins" instead of "10 days · ~15 min"
+- Admin panel shows the real number of people at tables right now (the home screen still shows it only from 5)
+- E opens Events like C opens chat; computers show the keys on the tabs, "Chat (C)" and "Events (E)", in every language
+- Computers: quick chat messages open as a list from a small button next to Send (they no longer get cut off); phones keep the scrolling row
+- Quick play tables say "Quick play" next to the logo instead of "Public table"
+- Quick play note: "3/6 players (bots included). The game starts when everyone is ready."
+- Season medals explain themselves on hover, e.g. "Silver medal · finished season 1 in 2nd place"
+- Fix: leaving a game could play the game music over the menu music for a moment
 
 ### 1.13.1
 - Quick play starts only when everyone at the table is ready, also when the table is full (bots no longer start the game on their own)
@@ -446,6 +461,11 @@ The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Ch
 - First public release: online rooms and quick play, single player with bots, accounts with XP, achievements and cosmetics, illustrated avatars, board styles, Cloudflare hosting and relay
 
 Updating the version: change `public/js/version.js` (and `package.json`). The service worker cache is named after it, so players get the new files.
+
+## Credits
+
+- Dice sounds: mixed from the hit recordings in [@3d-dice/dice-box-threejs](https://github.com/3d-dice/dice-box-threejs) (MIT License, © 2022 3D Dice).
+- Fonts: Figtree and Baloo 2 via Fontsource (SIL Open Font License).
 
 ## Author
 

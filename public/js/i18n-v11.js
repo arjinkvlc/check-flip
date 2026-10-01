@@ -19,7 +19,7 @@ const q = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => ['q_' + k,
 const en = {
   // modes
   modeLbl: 'Game mode', m_classic: 'Classic', m_quick: 'Quick', m_teams: '2v2 teams',
-  mShort_classic: 'last one standing', mShort_quick: '10 days · ~15 min', mShort_teams: '4 players',
+  mShort_classic: 'last one standing', mShort_quick: 'richest after 10 days wins', mShort_teams: '4 players',
   mNote_classic: 'Last one at the table wins.',
   mNote_quick: '10 days with shorter turn timers; the richest player (money + restaurants) wins. About 15 minutes.',
   mNote_teams: 'Exactly 4 players (bots count). Seats 1 & 3 play against 2 & 4. Teammates cover each other’s checks; knock out both rivals to win.',
@@ -69,7 +69,7 @@ const en = {
 
 const tr = {
   modeLbl: 'Oyun modu', m_classic: 'Klasik', m_quick: 'Hızlı', m_teams: '2v2 takım',
-  mShort_classic: 'son kalan kazanır', mShort_quick: '10 gün · ~15 dk', mShort_teams: '4 oyuncu',
+  mShort_classic: 'son kalan kazanır', mShort_quick: '10 gün sonunda en zengin kazanır', mShort_teams: '4 oyuncu',
   mNote_classic: 'Masada son kalan kazanır.',
   mNote_quick: '10 gün, daha kısa hamle süreleri; en zengin oyuncu (para + mekânlar) kazanır. Yaklaşık 15 dakika sürer.',
   mNote_teams: 'Tam 4 oyuncu (botlar dahil). 1. ve 3. sıradakiler, 2. ve 4. sıradakilere karşı oynar. Takım arkadaşları birbirinin hesabındaki eksiği kapatır; iki rakibi de eleyen takım kazanır.',

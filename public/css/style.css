@@ -529,6 +529,13 @@ body[data-board="chalk"] .board{padding:5px}
 /* first-game tip */
 .tip{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;background:#fff4d6;border:1.5px solid var(--mustard);border-radius:12px;padding:8px 10px;font-size:14px;font-weight:600;animation:popin .3s ease}
 .tipi{font-size:20px;line-height:1.2}
+.still{animation:none!important}
+/* v1.14 drawn square icons (js/icons.js) */
+.sqi{display:inline-block;width:1.3em;height:1.3em;vertical-align:-.3em;color:#131a26;flex:none}
+.sqi svg{width:100%;height:100%;display:block;overflow:visible}
+.sqi.in{margin-right:.3em}
+.cell .ic .sqi{width:1.4em;height:1.4em;vertical-align:0}
+:root[data-theme="dark"] .sqi svg{filter:drop-shadow(0 0 .6px rgba(255,255,255,.75)) drop-shadow(0 0 .6px rgba(255,255,255,.5))}
 .tipb{grid-column:2;display:flex;gap:10px;align-items:center}
 body.ingame .tip{font-size:12.5px;padding:6px 8px}
 /* daily quest on home */
@@ -1090,6 +1097,7 @@ input,select,textarea{font-family:inherit}
 .hc.k-start,.hc.k-half{background:var(--k-start)}.hc.k-mekan{background:var(--k-mekan)}.hc.k-kemer{background:var(--tomato)}
 .hc span{display:block;transform:scale(.9)}
 .hc img,.hc svg{width:1em;height:1em}
+.hc .sqi svg{width:100%;height:100%}
 .hfelt .hrec,.hfelt .hav{z-index:1}
 .hav{box-shadow:0 0 0 4px var(--felt),0 0 0 7px var(--c,#e2483d)}
 .hav.a1{left:17%;top:18%}.hav.a2{right:17%;top:20%}.hav.a3{left:18%;bottom:17%}.hav.a4{right:17%;bottom:16%}
@@ -1097,7 +1105,7 @@ input,select,textarea{font-family:inherit}
 /* ---------- v1.10: tonight's dinner venue ---------- */
 .c-din{font-weight:700;font-size:max(11px,1.9cqi);color:var(--ink);background:var(--card);padding:.3cqi 1.6cqi;border-radius:999px;border:max(1.5px,.3cqi) dashed #7a4fa8}
 .cell.dinner{box-shadow:inset 0 0 0 max(2px,.5cqi) #7a4fa8}
-.cell.dinner::after{content:"🍽";position:absolute;bottom:-.4cqi;right:.2cqi;font-size:max(10px,2cqi);line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.cell.dinner::after{content:"";position:absolute;bottom:.2cqi;right:.2cqi;width:max(12px,2.6cqi);height:max(12px,2.6cqi);background:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle fill='%23c9d1dc' cx='24' cy='15.5' r='3' stroke='%23131a26' stroke-width='2.4' stroke-linejoin='round'/><path fill='%23e9eef4' d='M8 34 A16 16 0 0 1 40 34 Z' stroke='%23131a26' stroke-width='2.4' stroke-linejoin='round'/><path d='M14 29 A10.5 10.5 0 0 1 20 21' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' /><rect fill='%23c9d1dc' x='4' y='33.5' width='40' height='5' rx='2.5' stroke='%23131a26' stroke-width='2.4' stroke-linejoin='round'/></svg>") center/contain no-repeat;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
 .cell.dinner.owned{box-shadow:inset 0 0 0 max(2px,.55cqi) var(--oc),0 0 0 max(2px,.4cqi) #7a4fa8}
 .endbtns{display:grid;gap:8px;margin-top:10px}
 .endbtns .note{margin:0;text-align:center}
@@ -1116,7 +1124,7 @@ input,select,textarea{font-family:inherit}
 .tswrap{display:flex;justify-content:center;margin-top:12px}
 .tswrap[hidden]{display:none}
 /* admin screen */
-.admsum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:6px}
+.admsum{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:6px}
 .admsum .stat{background:var(--paper);border-radius:12px;padding:10px;display:grid;gap:2px}
 .admsum .stat b{font-family:var(--display);font-size:22px}
 .admsum .stat small{color:var(--muted)}
@@ -1135,7 +1143,7 @@ input,select,textarea{font-family:inherit}
 .admform{margin-bottom:8px}
 .admform input{width:100%;max-width:280px}
 #adminBtn{margin-top:6px;justify-self:start}
-@media (max-width:759px){.admsum{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:759px){.admsum{grid-template-columns:repeat(2,minmax(0,1fr))}.admsum .stat:first-child{grid-column:1/-1}}
 .seoabout a{color:var(--sky);font-weight:700}
 /* v1.11: language list in Settings */
 .langsel{min-width:170px;height:40px;border-radius:12px;padding:0 12px;font-weight:700;font-size:15px}
@@ -1164,3 +1172,22 @@ input,select,textarea{font-family:inherit}
 .setcredit{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);justify-content:flex-start;flex-wrap:wrap}
 .setrow label{font:inherit;font-weight:700;letter-spacing:0;text-transform:none;color:inherit;margin:0}
 .setrow .langsel{margin-left:auto;width:auto;flex:0 0 auto}
+
+/* v1.14: keyboard letters on the Chat / Events tabs (computers only; same keys in every language) */
+@media (hover:hover) and (pointer:fine){.sidetabs .stab[data-t=chat]>span:first-child::after{content:" (C)";opacity:.6;font-weight:600}.sidetabs .stab[data-t=log]::after{content:" (E)";opacity:.6;font-weight:600}}
+/* v1.14: quick messages on computers — a button next to Send opens them as a list */
+.qcbtn{display:none;padding:8px 10px}
+@media (hover:hover) and (pointer:fine) and (min-width:760px){.chatform{gap:6px}.chatform input{min-width:0}.chatform .btn{padding:8px 12px}.chatform .btn.primary{padding:8px 14px}}
+.qcbtn .ic{width:20px;height:20px}
+@media (hover:hover) and (pointer:fine) and (min-width:760px){
+  .chatbox{position:relative}
+  .qcbtn{display:inline-flex;align-items:center}
+  .quickchat{display:none;position:absolute;right:12px;bottom:58px;z-index:20;flex-direction:column;align-items:stretch;gap:4px;overflow:auto;max-height:min(320px,60vh);
+    background:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:6px;box-shadow:0 10px 28px rgba(0,0,0,.25);min-width:200px}
+  body.qcopen .quickchat{display:flex}
+  .quickchat .qchip{text-align:left;border-radius:10px;border-color:transparent;padding:7px 10px}
+  .quickchat .qchip:hover,.quickchat .qchip:focus-visible{border-color:var(--ink);background:var(--card)}
+}
+/* v1.14: other players' hidden cards show the Chance card drawing instead of a ? box */
+.card.hid{padding:0 1px;background:none;border-color:transparent;min-width:0}
+.card.hid .sqi{width:26px;height:26px;vertical-align:middle}

@@ -45,8 +45,8 @@ export default {
     // v1.12
     pubSearching: 'Procurando jogadores…',
     ePubOnly: 'Esta é uma mesa de Jogo rápido: só dá para entrar pelo Jogo rápido, não com código ou link.',
-    kbdHint: '<kbd>Espaço</kbd> rolar / continuar · <kbd>1</kbd>–<kbd>9</kbd> escolher · <kbd>C</kbd> chat',
-    kbdHelp: 'Teclado: <kbd>Espaço</kbd> rolar, continuar ou o botão principal · <kbd>1</kbd>–<kbd>9</kbd> escolher uma opção · <kbd>C</kbd> chat · <kbd>Esc</kbd> sair do chat',
+    kbdHint: '<kbd>Espaço</kbd> rolar / continuar · <kbd>1</kbd>–<kbd>9</kbd> escolher · <kbd>C</kbd> chat · <kbd>E</kbd> eventos',
+    kbdHelp: 'Teclado: <kbd>Espaço</kbd> rolar, continuar ou o botão principal · <kbd>1</kbd>–<kbd>9</kbd> escolher uma opção · <kbd>C</kbd> chat · <kbd>E</kbd> eventos · <kbd>Esc</kbd> sair do chat',
     // i18n.js
     title: 'Check Flip – Jogo de Tabuleiro Online Grátis para Jogar com Amigos',
     metaDesc: 'Jogo de tabuleiro multiplayer grátis no navegador: role os dados, tire cartas, fique com fome e faça seus amigos pagarem a conta. 2–6 jogadores, online ou contra bots, sem download.',
@@ -85,7 +85,7 @@ export default {
     roomCode: 'Código da sala', copy: '📋 Copiar', copied: '✓ Copiado', selectedCopy: 'Selecionado, copie', copyInvite: 'Copiar link de convite', inviteCopied: 'Copiado', noLateJoin: 'Ninguém novo pode entrar depois que o jogo começa.',
     pickAvatarTitle: 'Escolha seu avatar', avatarNote: 'Avatares já escolhidos por outros não podem ser usados. Os bloqueados abrem com níveis e conquistas (entre na conta para usá-los). Sem avatar, você joga com uma letra colorida.',
     settings: 'Configurações', auto: 'Auto', pubTable: 'Mesa pública', ready: 'Tô pronto', readyUndo: '✓ Pronto (desfazer)',
-    pubNote: (n, max) => `${n}/${max} jogadores. O jogo começa quando tiver pelo menos 2 e todos estiverem prontos.`,
+    pubNote: (n, max) => `${n}/${max} jogadores (bots incluídos). O jogo começa quando todos estiverem prontos.`,
     moneyCustom: m => `Dinheiro inicial ${M(m)}.`, moneyAuto: (n, m) => `Auto: ${M(m)} para ${n} jogadores (2 jogadores ¤100, 3 jogadores ¤150, 4+ jogadores ¤200)`,
     daysOn: d => `Depois de ${d} dias, o mais rico vence`, daysOff: 'Desligado: o último que sobrar vence',
     you: 'você', hostTag: 'anfitrião', readyTag: '✓ pronto', waitingTag: 'esperando', seatsFree: n => `${n} lugar${n > 1 ? 'es' : ''} livre${n > 1 ? 's' : ''}`,
@@ -204,7 +204,7 @@ export default {
 
     // i18n-v11.js
     modeLbl: 'Modo de jogo', m_classic: 'Clássico', m_quick: 'Rápido', m_teams: 'Equipes 2v2',
-    mShort_classic: 'o último que sobrar', mShort_quick: '10 dias · ~15 min', mShort_teams: '4 jogadores',
+    mShort_classic: 'o último que sobrar', mShort_quick: 'após 10 dias, o mais rico vence', mShort_teams: '4 jogadores',
     mNote_classic: 'O último na mesa vence.',
     mNote_quick: '10 dias com tempos de vez mais curtos; o mais rico (dinheiro + restaurantes) vence. Uns 15 minutos.',
     mNote_teams: 'Exatamente 4 jogadores (bots contam). Os lugares 1 e 3 jogam contra 2 e 4. Colegas de equipe cobrem as contas um do outro; elimine os dois rivais para vencer.',
@@ -295,7 +295,7 @@ export default {
     aw_up: 'Reformador', aw_up_v: v => `${v} melhoria${s_(v)}`,
     lbSeason: n => `Temporada ${n}`,
     lbSeasonNote: (n, d) => `Vitórias online na temporada ${n} (este mês, desempate por XP). Os 3 primeiros ganham medalha no fim · falta${d === 1 ? '' : 'm'} ${d} dia${s_(d)}.`,
-    medalTitle: (s, p) => `Temporada ${s} · ${p}º lugar`, medalLive: (s, p) => `Temporada ${s}: ${p}º por enquanto`,
+    medalTitle: (s, p) => `Medalha de ${['', 'ouro', 'prata', 'bronze'][p]} · terminou a temporada ${s} em ${p}º lugar`, medalLive: (s, p) => `Temporada ${s}: ${p}º no ranking por enquanto (a medalha vem no fim da temporada)`,
     waText: c => `Vem pra minha mesa no Check Flip! Código da sala: ${c}`, shareLink: 'Compartilhar',
     shapesAria: 'Formas nas peças (para daltônicos)',
 
@@ -336,6 +336,7 @@ export default {
     aCaptchaNeeded: 'Complete a verificação abaixo primeiro.',
     adminTitle: 'Admin', admOnly: 'Só para admins.', admRefresh: 'Atualizar',
     admTabMetrics: 'Números', admTabReports: 'Denúncias', admTabBans: 'Banimentos',
+    admOnline: 'Nas mesas agora', admOnlineNote: '“Nas mesas agora” é o número real de pessoas conectadas a uma mesa (a tela inicial só mostra a partir de 5).',
     admVisitors: 'Visitantes', admNew: 'Novos', admPlayers: 'Jogadores', admStarted: 'Jogos iniciados', admFinished: 'Terminados', admKinds: 'R/S/B/A', admDay: 'Dia',
     admLast14: 'Totais dos últimos 14 dias (UTC).',
     admKindsNote: 'R/S/B/A = jogos iniciados por tipo: Jogo rápido / sala / contra bots / um aparelho.',

@@ -3,7 +3,7 @@
 globalThis.localStorage = {getItem: () => 'en', setItem() {}};
 const base = new URL('../public/js/', import.meta.url);
 const I = await import(new URL('i18n.js', base));
-for (const f of ['i18n-account.js', 'i18n-v11.js', 'i18n-v13.js', 'i18n-v15.js', 'i18n-v16.js', 'i18n-v17.js', 'i18n-v18.js', 'i18n-v19.js', 'i18n-v110.js', 'i18n-v111.js', 'i18n-v112.js'])
+for (const f of ['i18n-account.js', 'i18n-v11.js', 'i18n-v13.js', 'i18n-v15.js', 'i18n-v16.js', 'i18n-v17.js', 'i18n-v18.js', 'i18n-v19.js', 'i18n-v110.js', 'i18n-v111.js', 'i18n-v112.js', 'i18n-v114.js'])
   await import(new URL(f, base));
 const {C, U, LOG, TXT} = I.__I18N;
 const P = new Proxy({}, {get: (o, k) => k === Symbol.toPrimitive ? () => 'X' : k === 'length' ? 1 : k === 'map' ? f => ['X'].map(f) : 'X'});

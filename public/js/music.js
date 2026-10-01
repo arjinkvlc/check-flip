@@ -34,7 +34,7 @@ const M_MEL = [
   [69, null, 68, null, 67, 65, 64, 61]
 ];
 
-let ctx = null, master = null, dry = null, wet = null, noise = null, timer = null, nextBar = 0, barNo = 0;
+let ctx = null, master = null, dry = null, wet = null, lpN = null, rvN = null, noise = null, timer = null, nextBar = 0, barNo = 0;
 let scene = 'menu', want = 'menu', switching = false;
 let on = true;
 try { on = localStorage.getItem(LS) !== '0'; } catch (e) {}
@@ -50,16 +50,28 @@ function setup() {
   ctx = new AC();
   master = ctx.createGain(); master.gain.value = 0.0001;
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = .3;
-  dry = ctx.createGain(); dry.gain.value = .75;
-  wet = ctx.createGain(); wet.gain.value = .4;
   const rv = reverb(2.4);
-  dry.connect(lp); wet.connect(rv); rv.connect(lp); lp.connect(master); master.connect(ctx.destination);
+  rv.connect(lp); lp.connect(master); master.connect(ctx.destination);
+  lpN = lp; rvN = rv; newBus();
   const n = ctx.createBuffer(1, ctx.sampleRate * .2, ctx.sampleRate), d = n.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   noise = n;
   return true;
 }
 const out = (g, w = true) => { g.connect(dry); if (w) g.connect(wet); };
+// each scene plays through its own pair of gains; on a switch the old pair is faded out and cut off,
+// so long notes of the old scene (pads, reverb tails) can't ring on under the new one (v1.14 fix)
+function newBus() {
+  dry = ctx.createGain(); dry.gain.value = .75; wet = ctx.createGain(); wet.gain.value = .4;
+  dry.connect(lpN); wet.connect(rvN);
+}
+function dropBus() {
+  if (!dry) return;
+  const d = dry, w = wet, t = ctx.currentTime;
+  for (const g of [d, w]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + .5); }
+  setTimeout(() => { try { d.disconnect(); w.disconnect(); } catch (e) {} }, 700);
+  newBus();
+}
 
 /* ---- instruments ---- */
 function pad(t, m, dur, vel) {
@@ -144,6 +156,7 @@ function crossTo(sc) {
   master.gain.cancelScheduledValues(t); master.gain.setTargetAtTime(0.0001, t, .35);
   setTimeout(() => {
     scene = sc; barNo = 0; switching = false;
+    dropBus();
     if (!timer) return;
     nextBar = ctx.currentTime + .15;
     master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(VOL(), ctx.currentTime, 1.2);
@@ -166,6 +179,7 @@ function stop() {
   clearInterval(timer); timer = null; switching = false;
   master.gain.cancelScheduledValues(ctx.currentTime);
   master.gain.setTargetAtTime(0.0001, ctx.currentTime, .25);
+  setTimeout(() => { if (!timer) dropBus(); }, 600);   // notes already scheduled must not come back on the next start
 }
 
 export const Music = {
