@@ -48,7 +48,7 @@ export default {
     ePubOnly: 'C’est une table de partie rapide : on ne la rejoint qu’avec Partie rapide, pas avec un code ou un lien.',
     kbdHint: '<kbd>Espace</kbd> lancer / continuer · <kbd>1</kbd>–<kbd>9</kbd> choisir · <kbd>C</kbd> chat · <kbd>E</kbd> événements',
     kbdHelp: 'Clavier : <kbd>Espace</kbd> lancer, continuer ou le bouton principal · <kbd>1</kbd>–<kbd>9</kbd> choisir une option · <kbd>C</kbd> chat · <kbd>E</kbd> événements · <kbd>Échap</kbd> quitter le chat',
-    // i18n.js
+    // the game: home screen, lobby, board, check, deals, results
     title: 'Check Flip – Jeu de plateau gratuit en ligne entre amis',
     metaDesc: 'Jeu de plateau multijoueur gratuit dans ton navigateur : lance les dés, pioche des cartes, reste affamé et fais payer l’addition à tes amis. 2 à 6 joueurs, en ligne ou contre des bots, sans téléchargement.',
     tagline: 'Retourne l’addition. Fais-les payer.',
@@ -134,7 +134,7 @@ export default {
     letterAvatar: 'Avatar lettre', none: 'aucun', ownerTitle: n => `Propriétaire : ${n}`,
     langName: 'Français',
 
-    // i18n-account.js
+    // accounts: log in / sign up, profile & looks, end-of-game progress
     aGuest: 'Tu joues en invité',
     aGuestNote: 'Crée un compte gratuit pour gagner de l’XP, monter de niveau et débloquer des succès, des cadres d’avatar, des styles de plateau et des bulles de chat.',
     aLogin: 'Se connecter', aSignup: 'S’inscrire', aLogout: 'Se déconnecter', aProfile: '🎨 Profil et look',
@@ -201,7 +201,7 @@ export default {
     lvTag: n => `Niv. ${n}`,
     rulesAcc: '<b>Comptes (facultatifs) :</b> les joueurs connectés gagnent de l’XP et des niveaux, débloquent des succès, des cadres d’avatar, des styles de plateau et des bulles de chat. <b>Les parties avec des bots (solo ou bots ajoutés à un salon) rapportent moitié d’XP et ne comptent pas pour les succès</b> ; victoires et succès viennent des parties en ligne, une fois qu’un autre joueur de la table a confirmé le résultat. Les parties de moins de 3 jours ou 4 minutes ne comptent pas.',
 
-    // i18n-v11.js
+    // v1.1 modes, rematch, sharing, guide, music, app install, leaderboards, friends, invites, daily quest
     modeLbl: 'Mode de jeu', m_classic: 'Classique', m_quick: 'Rapide', m_teams: 'Équipes 2v2',
     mShort_classic: 'le dernier gagne', mShort_quick: 'le plus riche après 10 jours gagne', mShort_teams: '4 joueurs',
     mNote_classic: 'Le dernier à table gagne.',
@@ -245,7 +245,7 @@ export default {
     q_buy2: 'Achète 2 restaurants dans une partie', q_upgrade: 'Améliore un restaurant', q_cards3: 'Joue 3 cartes dans une partie',
     q_survive10: 'Reste à table pendant 10 jours', q_payer: 'Paie une addition et reste à table',
 
-    // i18n-v13.js
+    // v1.3 new home screen, light/dark theme, side tabs
     heroQ: 'Qui va se retrouver avec l’addition ce soir ?',
     quickTitle: 'Partie rapide', quickSub: 'Installe-toi à une table ouverte et joue tout de suite',
     tFriends: 'Entre amis', tFriendsSub: 'Crée un salon ou rejoins avec un code',
@@ -263,7 +263,7 @@ export default {
     outShort: 'éliminé', resultNote: d => `Classement par argent + valeur des restaurants à la fin du jour ${d}.`,
     netFallback: 'Serveur de jeu injoignable, passage à la connexion de secours.',
 
-    // i18n-v15.js
+    // v1.5 private hands, full-hand choice, dice skins, word filter
     hiddenCardT: 'Une carte pour la main', hiddenCardS: n => `${n} la garde secrète jusqu’à ce qu’elle soit jouée.`,
     exSwapMe: 'Ta main est pleine : choisis la carte à garder', exSwap: n => `La main de ${n} est pleine, choix de la carte à garder`,
     sSwap: 'main pleine, choisit', swapQ: 'Ta main est pleine (2 cartes). Garde la nouvelle carte à la place d’une des tiennes, ou laisse-la.',
@@ -275,7 +275,7 @@ export default {
     aErrNameBlocked: 'Ce nom d’utilisateur n’est pas autorisé. Choisis-en un autre.',
     moreAria: 'Plus de réglages', aNameNo: 'non autorisé',
 
-    // i18n-v16.js
+    // v1.6 bot levels, bot takeover, quick chat, mute / kick, awards, seasons, sharing, shapes
     botLvLbl: 'Niveau du bot', botLvAria: 'Niveau du prochain bot',
     bot_easy: 'Facile', bot_normal: 'Normal', bot_hard: 'Difficile',
     botNote_easy: 'fait des erreurs', botNote_normal: 'joue fair-play', botNote_hard: 'sans pitié',
@@ -299,7 +299,7 @@ export default {
     waText: c => `Rejoins ma table Check Flip ! Code du salon : ${c}`, shareLink: 'Partager',
     shapesAria: 'Formes sur les pions (adapté aux daltoniens)',
 
-    // i18n-v17.js
+    // v1.7 season-over message, games with friends, username change, settings
     fmTitle: 'Parties récentes avec tes amis', fmNone: 'Pas encore de partie en ligne avec tes amis. Invites-en un depuis un salon privé !',
     fmWon: 'a gagné', fmPlace: (p, n) => `${p}/${n}`,
     seTitle: n => `La saison ${n} est terminée !`, sePlace: p => p === 1 ? 'Tu as fini 1er 🏆' : `Tu as fini ${p}e`,
@@ -310,7 +310,7 @@ export default {
     aErrNameWait: 'Tu as changé ton nom d’utilisateur il y a moins d’une semaine.',
     settingsTitle: 'Réglages', setMusic: 'Musique', setLang: 'Langue', setTheme: 'Thème', themeLight: 'Clair', themeDark: 'Sombre', setSound: 'Sons du jeu',
 
-    // i18n-v19.js
+    // v1.9 leave question, money after paying, ranked games
     leaveQ: 'Quitter la partie ?',
     leaveQOnline: 'La partie continue sans toi et un bot joue à ta place.',
     leaveQLocal: 'Cette partie va se terminer et ne pourra pas être reprise.',
@@ -318,7 +318,7 @@ export default {
     afterPay: 'Reste après paiement', shortBy: m => `il manque ${m}`,
     pRankedNote: 'Les exploits sur une seule partie (Magnat, Carré, Légende du tour, Poches pleines) ne comptent que dans les parties classées : tables de partie rapide à 3 joueurs ou plus (les bots qui occupent les places libres comptent aussi).',
 
-    // i18n-v110.js
+    // v1.10 dinner venue, new game, online count, chat reports, bans, admin, captcha
     dinnerAt: p => `Dîner de ce soir : ${venueName(p.v)}`,
     dinnerTonight: v => `Dîner de ce soir : ${v}`,
     newGameBtn: 'Lancer une nouvelle partie', backToMenu: 'Retour au menu',
@@ -336,6 +336,8 @@ export default {
     aCaptchaNeeded: 'Termine d’abord la vérification ci-dessous.',
     adminTitle: 'Admin', admOnly: 'Réservé aux admins.', admRefresh: 'Actualiser',
     admTabMetrics: 'Chiffres', admTabReports: 'Signalements', admTabBans: 'Bannissements',
+    rulesShort: ['<b>Lance les dés</b> et avance sur le plateau. La case où tu t’arrêtes donne de l’argent, une carte ou un restaurant à acheter.', 'Chaque jour, tout le monde a <b>1 de faim en plus</b>.', 'En fin de journée, celui dont c’est le tour <b>paie l’addition de toute la table</b> : plus la table a faim, plus l’addition est salée.', '<b>Achète des restaurants</b> : tu gagnes de l’argent quand quelqu’un s’y arrête ou quand on y dîne.', 'Impossible de payer l’addition ? Tu es éliminé. <b>Le dernier à table gagne</b> (en mode Rapide : le plus riche après 10 jours).'],
+    rulesMore: 'Règles complètes', rulesBtn: 'Règles',
     admOnline: 'Aux tables maintenant', admOnlineNote: '« Aux tables maintenant » est le nombre réel de personnes connectées à une table (l’écran d’accueil ne l’affiche qu’à partir de 5).',
     admVisitors: 'Visiteurs', admNew: 'Nouveaux', admPlayers: 'Joueurs', admStarted: 'Parties lancées', admFinished: 'Terminées', admKinds: 'R/S/B/A', admDay: 'Jour',
     admLast14: 'Totaux des 14 derniers jours (UTC).',
@@ -349,12 +351,12 @@ export default {
     admSt_open: 'Ouverts', admSt_auto: 'Bannis auto', admSt_actioned: 'Traités', admSt_dismissed: 'Ignorés', admSt_all: 'Tous',
     admBanQ: (u, k, d) => `Bannissement ${k} pour ${u} : ${d} ?`, admDone: 'Fait.',
 
-    // i18n-v111.js
+    // v1.11 bubble preview, admin badge, friends list errors
     bubblePreview: 'C’est pour toi ! 😋', adminBadge: 'Admin', adminBadgeT: 'Équipe Check Flip', frLoadErr: c => `Impossible de charger tes amis (${c}).`, frRetry: 'Réessayer',
 
     // seo-text.js
     seoH1: 'Check Flip – un jeu de plateau gratuit en ligne à jouer entre amis',
-    seoAbout: '<h2>C’est quoi, Check Flip ?</h2><p>Check Flip est un jeu de plateau multijoueur gratuit qui se joue dans le navigateur, sur téléphone ou ordinateur, sans téléchargement ni inscription. De 2 à 6 joueurs se déplacent sur un plateau rempli de restaurants, lancent les dés, piochent des cartes Chance et Événement et essaient de rester affamés, car à la fin de chaque jour, un joueur paie l’addition de toute la table. Achète des restaurants, touche des commissions, conclus des marchés pour refiler l’addition, et sois le dernier à table.</p><p>Joue en ligne entre amis avec un code de salon, rejoins une partie rapide avec d’autres joueurs, affronte des bots (facile, normal ou difficile) ou jouez chacun votre tour sur un seul appareil. Modes Classique, Rapide (10 jours) et équipes 2 contre 2. Avec un compte gratuit, tu gagnes de l’XP, débloques des avatars, des dés et des plateaux, grimpes au classement de la saison mensuelle et gagnes des médailles. Disponible en français, en anglais, en turc et dans d’autres langues.</p><p>En savoir plus (en anglais) : <a href="/online-board-game-with-friends">jouer en ligne entre amis</a> · <a href="/monopoly-alternative-online">un jeu en ligne façon Monopoly</a></p>'
+    seoAbout: '<h2>C’est quoi, Check Flip ?</h2><p>Check Flip est un jeu de plateau multijoueur gratuit qui se joue dans le navigateur, sur téléphone ou ordinateur, sans téléchargement ni inscription. De 2 à 6 joueurs se déplacent sur un plateau rempli de restaurants, lancent les dés, piochent des cartes Chance et Événement et essaient de rester affamés, car à la fin de chaque jour, un joueur paie l’addition de toute la table. Achète des restaurants, touche des commissions, conclus des marchés pour refiler l’addition, et sois le dernier à table.</p><p>Joue en ligne entre amis avec un code de salon, rejoins une partie rapide avec d’autres joueurs, affronte des bots (facile, normal ou difficile) ou jouez chacun votre tour sur un seul appareil. Modes Classique, Rapide (10 jours) et équipes 2 contre 2. Avec un compte gratuit, tu gagnes de l’XP, débloques des avatars, des dés et des plateaux, grimpes au classement de la saison mensuelle et gagnes des médailles. Disponible en français, en anglais, en turc et dans d’autres langues.</p><h2>Comment jouer à Check Flip en ligne</h2><p>Pour jouer entre amis, touche Entre amis, crée un salon et partage le code ou le lien d’invitation dans ton groupe. Chacun rejoint depuis son téléphone ou son ordinateur, puis l’hôte lance la partie. Personne de dispo ? Partie rapide t’installe à une table publique, et des bots prennent les places libres.</p><p>À ton tour, tu lances deux dés et tu choisis d’avancer de leur somme ou d’un seul dé, ce qui permet de viser la case qui t’intéresse. Un double, et tu rejoues. Chaque matin, tout le monde a un peu plus faim, et chaque tour de plateau te creuse encore l’appétit et fait grimper ton multiplicateur.</p><p>À la fin de la journée, le joueur suivant dans l’ordre paie le dîner de toute la table, le sien compris, et l’addition gonfle avec la faim de chacun. Celui qui doit payer n’a qu’une offre pour s’en sortir (« Je te donne tant, tu paies l’addition ») ou peut jouer une carte comme Refile l’addition ou Serrer la ceinture.</p><p>Les restaurants, c’est le jeu sur la durée : achètes-en un, encaisse un droit de passage quand les autres s’y arrêtent, vide la caisse ou améliore-le, et touche une part de l’addition chaque fois que le dîner a lieu chez toi. Celui qui ne peut pas payer quitte la table, et le dernier encore assis gagne.</p><p>En savoir plus : <a href="/fr/jeu-de-societe-en-ligne-entre-amis">jouer en ligne entre amis</a> · <a href="/fr/jeu-type-monopoly-en-ligne">un jeu en ligne façon Monopoly</a></p>'
   },
 
   LOG: {

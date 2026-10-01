@@ -1,0 +1,61 @@
+# Weekly backup of the Supabase database (the free plan has no backups of its own).
+# pg_dump of the public and auth schemas (players, results, friends, reports, accounts), encrypted
+# with a passphrase only you know, kept as a workflow artifact for 90 days.
+#
+# Needs two repository secrets:
+#   SUPABASE_DB_URL    the same Session pooler URI the "Apply database schema" workflow uses
+#   BACKUP_PASSPHRASE  a long random passphrase; keep a copy somewhere safe (password manager).
+#                      Without it a backup can't be opened, by anyone.
+# The repository is public, so the file is downloadable by others, but it is unreadable without the passphrase.
+#
+# Restore (on your computer, with gpg and the PostgreSQL 17 tools):
+#   gpg -d check-flip-db-YYYY-MM-DD.dump.gpg > db.dump
+#   pg_restore --no-owner --no-privileges -d "<database url>" db.dump
+name: Back up database
+
+on:
+  schedule:
+    - cron: '17 2 * * 0'   # Sundays 02:17 UTC (05:17 Istanbul)
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+      - name: Dump and encrypt
+        env:
+          RAW_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: '20'
+        run: |
+          DATABASE_URL="$(printf '%s' "$RAW_URL" | tr -d '\r\n' | sed -e 's/^[[:space:]"`'"'"']*//' -e 's/[[:space:]"`'"'"']*$//')"
+          echo "::add-mask::$DATABASE_URL"
+          if [ -z "$DATABASE_URL" ]; then echo "::error::Repository secret SUPABASE_DB_URL is not set"; exit 1; fi
+          if [ -z "$PASS" ]; then echo "::error::Repository secret BACKUP_PASSPHRASE is not set"; exit 1; fi
+          mkdir -p out
+          F="out/check-flip-db-$(date -u +%F).dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" -Fc --no-owner --no-privileges -n public -n auth -f "$F"
+          printf '%s' "$PASS" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 -o "$F.gpg" "$F"
+          rm -f "$F"
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: out/*.gpg
+          retention-days: 90
+          if-no-files-found: error

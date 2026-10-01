@@ -3,3 +3,5 @@ node_modules/
 .dev.vars
 .DS_Store
 *.log
+tests/e2e/.shots/
+tests/e2e/.server.pid

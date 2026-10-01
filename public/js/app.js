@@ -12,17 +12,6 @@ import {
 import {SFX} from './sound.js';
 import {nameBlocked, censor} from './filter.js';
 import {HubClient, MultiClient, hubUrl, hubAvailable} from './net.js';
-import './i18n-v11.js';
-import './i18n-v13.js';
-import './i18n-v15.js';
-import './i18n-v16.js';
-import './i18n-v17.js';
-import './i18n-v18.js';
-import './i18n-v19.js';
-import './i18n-v110.js';
-import './i18n-v111.js';
-import './i18n-v112.js';
-import './i18n-v114.js';
 import {renderAdmin, adminClick, initAdminUI} from './admin-ui.js';
 import {Music} from './music.js';
 import {VERSION} from './version.js';
@@ -624,7 +613,7 @@ function labelBoard() {
   const kinds = `<div><h4>${esc(t('squares'))}</h4><ol style="list-style:none;padding:0">${kl.map(k => `<li>${ico(k, 'in') || '<span class="sqi in"></span>'}<b>${esc(sqName(k))}</b> · ${esc(sqDesc(k))}</li>`).join('')}<li>${esc(t('restaurants'))}: ${Object.keys(VENUES).map(p => vIco(+p) + esc(vname(+p))).join(', ')}</li></ol></div>`;
   const list = d => CARD_IDS.filter(k => k[0] === d && k !== 'A13').map(k => `<li><b>${esc(cardName(k))}${k === 'A12' ? ' ×2' : ''}</b>: ${esc(cardDesc(k))}${KEEP(k) ? `<span class="keep">${esc(t('kept'))}</span>` : ''}</li>`).join('');
   const decks = `<div><h4>${esc(t('decksA'))}</h4><ol>${list('A')}</ol></div><div><h4>${esc(t('decksB'))}</h4><ol>${list('B')}</ol><p class="note" style="margin-top:8px">${t('beltNote', esc(cardName('K')))}</p></div>`;
-  $('#legend').innerHTML = kinds + decks; $('#cardLists').innerHTML = kinds + decks;
+  $('#legend').innerHTML = kinds + decks; $('#cardLists').innerHTML = kinds + decks; $('#rulesLegend').innerHTML = kinds + decks;
 }
 function applyStatic() {
   document.documentElement.lang = getLang();
@@ -633,7 +622,10 @@ function applyStatic() {
   document.querySelectorAll('[data-ih]').forEach(el => { el.innerHTML = t(el.dataset.ih); });
   document.querySelectorAll('[data-ip]').forEach(el => { el.placeholder = t(el.dataset.ip); });
   document.querySelectorAll('[data-ia]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.ia)); });
-  $('#rulesList').innerHTML = t('rules').concat([t('rulesModes')], ACC.enabled ? [t('rulesAcc')] : []).map(r => `<li>${r}</li>`).join('');
+  const fullRules = t('rules').concat([t('rulesModes')], ACC.enabled ? [t('rulesAcc')] : []).map(r => `<li>${r}</li>`).join('');
+  $('#rulesList').innerHTML = fullRules; $('#rulesListG').innerHTML = fullRules;
+  // v1.15: the five-step version first; the full rules open on request
+  const short = t('rulesShort').map(r => `<li><span>${r}</span></li>`).join(''); $('#rulesShort').innerHTML = short; $('#rulesShortG').innerHTML = short;
   document.querySelectorAll('.optOff').forEach(o => { o.textContent = t('off'); });
   document.querySelectorAll('.optDays').forEach(o => { o.textContent = t('nDays', +o.value); });
   document.querySelectorAll('.optMode').forEach(o => { o.textContent = t('m_' + o.dataset.m); });
@@ -775,7 +767,7 @@ document.addEventListener('input', e => { if (e.target.id) e.target.dataset.touc
 function render(prev, forceV) {
   $('#roomChip').hidden = !(mode === 'online' && code);
   if (code) $('#roomChip').innerHTML = S && S.pub ? esc(t('quickTitle')) : `${esc(t('chipRoom'))} <b>${esc(code)}</b>`;
-  $('#leaveBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); 
+  $('#leaveBtn').hidden = !mode; $('#rulesBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); 
   $('#musicBtn').classList.toggle('on', Music.on); $('#musicBtn').setAttribute('aria-checked', String(Music.on));
   { const sel = $('#setLangSel'); if (sel && sel.value !== getLang()) sel.value = getLang(); }
   document.querySelectorAll('[data-a=setTheme]').forEach(b => b.classList.toggle('on', b.dataset.t === (document.documentElement.dataset.theme || 'light')));
@@ -1114,6 +1106,8 @@ document.addEventListener('click', e => {
     case 'settings': $('#adminBtn').hidden = !isAdmin(); $('#setModal').hidden = false; render(); break;
     case 'admin': $('#setModal').hidden = true; ui.screen = 'admin'; render(); break;
     case 'setClose': $('#setModal').hidden = true; break;
+    case 'rulesOpen': $('#rulesModal').hidden = false; setTimeout(() => $('#rulesModal .mclose').focus(), 30); break;
+    case 'rulesClose': $('#rulesModal').hidden = true; break;
     case 'setLang': if (b.dataset.l !== getLang()) changeLang(b.dataset.l); break;
     case 'setTheme': setTheme(b.dataset.t); render(); break;
     case 'stab': setTab(b.dataset.t); break;
@@ -1262,7 +1256,7 @@ function kbdHintHTML() {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape' && typing(e.target)) { e.target.blur(); return; }
-  if (typing(e.target) || !$('#askModal').hidden || !$('#setModal').hidden || !$('#modal').hidden) return;
+  if (typing(e.target) || !$('#askModal').hidden || !$('#setModal').hidden || !$('#rulesModal').hidden || !$('#modal').hidden) return;
   if (ui.screen !== 'game' || !shown || shown.ph === 'lobby') return;
   const k = e.key.toLowerCase();
   if (k === 'c' && mode === 'online') { e.preventDefault(); act_('chatopen'); return; }
@@ -1292,5 +1286,5 @@ function askUser(title, text, yes, no) {
 // leaving the page in the middle of an online game asks the browser to confirm
 addEventListener('beforeunload', e => { if (mode === 'online' && S && S.ph !== 'over' && S.ph !== 'lobby' && !$('#game').hidden) { e.preventDefault(); e.returnValue = ''; } });
 // settings panel: close on the backdrop or Escape
-document.addEventListener('click', e => { if (e.target && e.target.id === 'setModal') $('#setModal').hidden = true; });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#setModal').hidden) $('#setModal').hidden = true; });
+document.addEventListener('click', e => { if (e.target && e.target.id === 'setModal') $('#setModal').hidden = true; if (e.target && e.target.id === 'rulesModal') $('#rulesModal').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#setModal').hidden) $('#setModal').hidden = true; if (e.key === 'Escape' && !$('#rulesModal').hidden) $('#rulesModal').hidden = true; });

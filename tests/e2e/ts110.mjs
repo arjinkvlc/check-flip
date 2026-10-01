@@ -1,0 +1,16 @@
+import {LAUNCH, SHOTS, stopServer} from './lib.mjs';
+import {chromium} from 'playwright';
+import {handle, pool} from './mocksb.mjs';
+const ok = (c, m) => { console.log((c ? 'ok: ' : 'FAIL: ') + m); if (!c) process.exitCode = 1; };
+const b = await chromium.launch({...LAUNCH, args: ['--host-resolver-rules=MAP checkflip.test 127.0.0.1']});
+const p = await (await b.newContext()).newPage(); p.on('pageerror', e => console.log('PAGEERROR', e.message));
+const bodies = [];
+await p.route('https://dwygwflbzxrqworyikzw.supabase.co/**', async r => { if (r.request().url().includes('/auth/v1/')) bodies.push(r.request().postData() || ''); r.fulfill(await handle(r.request())); });
+await p.route('https://challenges.cloudflare.com/**', r => r.fulfill({contentType: 'application/javascript', body: "window.turnstile={render(el,o){el.textContent='[turnstile]';setTimeout(()=>o.callback('tok-xyz'),50);return 'w1'},reset(){}};"}));
+await p.goto('http://checkflip.test:8787/'); await p.waitForTimeout(800);
+await p.click('[data-a=authSignup]'); await p.waitForTimeout(500);
+ok((await p.textContent('#tsWrap')).includes('turnstile') && await p.isVisible('#tsWrap'), 'captcha widget shown on sign up');
+await p.fill('#auName', 'Capt' + Date.now() % 10000); await p.fill('#auPw', 'hunter22'); await p.fill('#auPw2', 'hunter22'); await p.check('#auConsent');
+await p.click('form[data-form=signup] button[type=submit]'); await p.waitForTimeout(1500);
+ok(bodies.some(x => x.includes('tok-xyz')), 'captcha token sent with sign up');
+await b.close(); await pool.end();

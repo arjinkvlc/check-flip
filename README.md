@@ -154,9 +154,9 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── net.js          # client for the Cloudflare relay (mqtt.js-compatible subset)
 │       ├── account.js      # Supabase client: auth, XP/levels, achievements, cosmetics
 │       ├── account-ui.js   # log in / sign up / reset, Profile & looks, end-of-game progress
-│       ├── i18n.js         # English + Turkish game texts, language list and loading
-│       ├── lang/           # language packs: es.js, pt.js, fr.js, de.js (loaded when chosen)
-│       ├── i18n-account.js # English + Turkish account texts
+│       ├── i18n.js         # language list, detection and loading, t() / tx() and text helpers
+│       ├── lang/           # en.js, tr.js, es.js, pt.js, fr.js, de.js: all texts, one file per language
+│       ├── i18n-account.js # item and achievement names (itemName / achName / achDesc) from each language's NAMES
 │       ├── config.js       # Supabase URL + publishable key (public values)
 │       ├── sound.js        # sound effects (WebAudio, recorded dice)
 │       ├── icons.js        # board square icons (SVG, built by tools/icons/gen.py)
@@ -165,15 +165,7 @@ Game-based counters (restaurants, cards, checks, deals, days, mode wins) only gr
 │       ├── tips.js         # first-game guide
 │       ├── share.js        # result card image
 │       ├── pwa.js          # install prompt + service worker registration
-│       ├── i18n-v11.js     # texts added in v1.1
-│       ├── i18n-v13.js     # texts added in v1.3 (home screen, theme)
-│       ├── i18n-v15.js     # texts added in v1.5 (private hands, dice, filter)
-│       ├── i18n-v16.js     # texts added in v1.6 (bots, chat, awards, seasons)
-│       ├── i18n-v17.js     # texts added in v1.7 (settings, username, seasons, friends)
-│       ├── i18n-v110.js    # texts added in v1.10 (dinner venue, new game, chat reports, admin)
 │       ├── admin-ui.js     # admin screen: numbers, chat reports, bans
-│       ├── i18n-v19.js     # texts added in v1.9 (leave question, money after paying, ranked games)
-│       ├── i18n-v18.js     # texts added in v1.8 (page title and description per language)
 │       ├── seo-text.js     # search engine texts (title, description, "What is Check Flip?"), also used by the Worker for /tr
 │       ├── filter.js       # word filter for names and chat (same lists as public.name_blocked in SQL)
 │       └── version.js      # version number (shown in the footer)
@@ -273,6 +265,24 @@ All simulations passed.
 
 Run it after changing balance values (the constants at the top of `public/js/engine.js`).
 
+### Browser tests
+
+`tests/e2e/` drives the real game in headless Chromium against a local Worker (`wrangler dev`) and a throwaway Postgres loaded with `sql/schema.sql` (a small stand-in plays Supabase Auth and the REST API): accounts, rooms, Quick play with bots, the relay going down, reports and bans, all six languages, the rules window, the language landing pages.
+
+```
+npm install
+npx playwright install chromium          # once
+node tests/e2e/run-all.mjs               # all tests, or e.g.: node tests/e2e/run-all.mjs v115 run
+```
+
+Database connection: `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE` (an empty database is fine; `tests/e2e/setup-db.mjs` prepares it). Screenshots and the Worker log land in `tests/e2e/.shots/`.
+
+On GitHub the **Tests** workflow (`.github/workflows/e2e.yml`) runs `npm test` and all browser tests on every push and pull request, with its own Postgres; it uses no secrets.
+
+## Database backup
+
+The **Back up database** workflow (`.github/workflows/db-backup.yml`) dumps the Supabase database every Sunday (and on demand from the Actions tab), encrypts it with a passphrase and keeps it as a workflow artifact for 90 days. It needs the repository secrets `SUPABASE_DB_URL` (the same one the schema workflow uses) and `BACKUP_PASSPHRASE` (a long random passphrase: keep a copy in your password manager, without it the backups can't be opened). Restore: `gpg -d check-flip-db-YYYY-MM-DD.dump.gpg > db.dump`, then `pg_restore --no-owner --no-privileges -d "<database url>" db.dump`.
+
 ## Security
 
 - Passwords are handled by Supabase Auth (bcrypt); the browser only has the *publishable* key.
@@ -293,9 +303,9 @@ Run it after changing balance values (the constants at the top of `public/js/eng
 
 ## Languages
 
-English and Turkish are built in (`public/js/i18n.js`, `i18n-account.js` and the `i18n-v*.js` files add texts per release). Spanish, Portuguese, French and German are packs in `public/js/lang/<code>.js` with the same keys (`C`, `U`, `LOG`, `TXT`, `NAMES`), loaded when chosen; a missing text falls back to English.
+All texts live in `public/js/lang/<code>.js`, one file per language, each with the same keys (`C` board and cards, `U` interface, `LOG` game log, `TXT` popups, `NAMES` items and achievements). `en.js` and `tr.js` are imported by `public/js/i18n.js` (English is the fallback for any missing text); Spanish, Portuguese, French and German are loaded when chosen. Inside `U`, texts are grouped by topic and release (`// ---- v1.10 …`): add new texts as a new group at the end. The page title, description and the "What is Check Flip?" text come from `public/js/seo-text.js`, which the Worker uses too.
 
-**Every new text must be added in all six languages.** `node tools/check-langs.mjs` (also part of `npm test`) lists missing or extra texts and wrong function signatures in the packs.
+**Every new text must be added in all six languages.** `node tools/check-langs.mjs` (also part of `npm test`) compares every language with `en.js` and lists missing or extra texts and wrong function signatures.
 
 To add a language: copy a pack to `public/js/lang/<code>.js`, translate it, add the code to `LANGS`, `LANG_NAMES`, `LOCALES` and `PACKS` in `i18n.js`, and to the `SHELL` list in `sw.js`.
 
@@ -304,6 +314,14 @@ To add a language: copy a pack to `public/js/lang/<code>.js`, translate it, add 
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.15.0
+- How to play in five short steps on the home screen; the full rules, squares, cards and the longer "What is Check Flip?" text open with "Full rules"
+- In-game rules: a ? button next to Settings opens the five steps, with "Squares and cards" and "Full rules" folded underneath
+- Search: a longer "What is Check Flip?" text with a "How to play" part in all six languages; landing pages in Spanish, Portuguese, French and German (two topics each, with hreflang across all six languages); VideoGame data on every landing page; the Turkish Monopoly page now mentions who pays the check ("hesap")
+- All texts now live in one file per language (`public/js/lang/en.js`, `tr.js`, `es.js`, `pt.js`, `fr.js`, `de.js`)
+- Browser tests are part of the repository (`tests/e2e`) and run on GitHub for every push
+- Weekly encrypted database backup (GitHub Actions)
 
 ### 1.14.0
 - New board icons: every square has its own drawing (thick-outline style) instead of emoji, so the board looks the same on every phone and computer. Also in the rules, move choices, square cards and tonight's dinner; other players' hidden cards show the Chance card drawing

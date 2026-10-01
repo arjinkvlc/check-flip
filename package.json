@@ -1,6 +1,6 @@
 {
   "name": "check-flip",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "private": true,
   "description": "Check Flip — a multiplayer browser board game about dice, cards and who picks up the check",
   "type": "module",
@@ -8,9 +8,15 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "start": "npx serve public -l 5173",
-    "test": "node tests/simulate.mjs && node tests/belt-deal.mjs && node tools/check-langs.mjs"
+    "test": "node tests/simulate.mjs && node tests/belt-deal.mjs && node tools/check-langs.mjs",
+    "test:e2e": "node tests/e2e/run-all.mjs"
   },
   "devDependencies": {
+    "aedes": "^0.51.3",
+    "aedes-server-factory": "^0.2.1",
+    "mqtt": "^5.16.0",
+    "pg": "^8.23.1",
+    "playwright": "^1.63.0",
     "wrangler": "^4.0.0"
   },
   "author": "Arjin Kavalcı (https://github.com/arjinkvlc)",

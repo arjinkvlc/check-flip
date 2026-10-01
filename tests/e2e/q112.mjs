@@ -1,0 +1,24 @@
+import {LAUNCH, SHOTS, stopServer} from './lib.mjs';
+import {chromium} from 'playwright';
+import {handle, pool} from './mocksb.mjs';
+const ok = (c, m) => { console.log((c ? 'ok: ' : 'FAIL: ') + m); if (!c) process.exitCode = 1; };
+await pool.query('delete from public.game_results; delete from auth.users;');
+const b = await chromium.launch(LAUNCH);
+const ctx = await b.newContext({viewport: {width: 1300, height: 850}}); await ctx.addInitScript(() => { localStorage.setItem('hs-lang', 'en'); localStorage.setItem('cf-tips', 'off'); });
+const p = await ctx.newPage(); p.on('pageerror', e => console.log('PAGEERROR', e.message));
+await p.route('https://dwygwflbzxrqworyikzw.supabase.co/**', async r => r.fulfill(await handle(r.request())));
+await p.goto('http://127.0.0.1:8787/?debug=1'); await p.waitForTimeout(700);
+await p.waitForSelector('#acct .acctguest'); await p.click('[data-a=authSignup]');
+await p.fill('#auName', 'Solo' + Date.now() % 1000); await p.fill('#auPw', 'hunter22'); await p.fill('#auPw2', 'hunter22'); await p.check('#auConsent');
+await p.click('form[data-form=signup] button[type=submit]'); await p.waitForSelector('#acctChip .chipbtn', {timeout: 8000});
+await pool.query("update public.profiles set xp = 3000");   // level ~22 → bots should be 'hard'
+await p.reload(); await p.waitForTimeout(1200);
+await p.click('[data-a=quick]'); await p.waitForSelector('#lobby:not([hidden])', {timeout: 20000});
+await p.waitForFunction(() => window.__cf.state() && window.__cf.state().pl.length === 4, null, {timeout: 60000}); await p.click('#readyBtn');
+await p.waitForFunction(() => window.__cf.state() && window.__cf.state().ph !== 'lobby', null, {timeout: 60000});
+const lv = await p.evaluate(() => window.__cf.state().pl.filter(q => q.bot).map(q => q.bd));
+ok(lv.length === 3 && lv.every(x => x === 'hard'), 'bots match a high-level player: ' + lv.join(','));
+await p.waitForTimeout(1500); await p.evaluate(() => window.__cf.endGame()); await p.waitForTimeout(3000);
+const r = (await pool.query('select mode, counted from public.game_results')).rows;
+ok(r.length === 1 && r[0].mode === 'quick', 'Quick play with bots saved as mode quick (not a bot game): ' + JSON.stringify(r));
+await b.close(); await pool.end();

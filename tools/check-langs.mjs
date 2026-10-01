@@ -1,11 +1,10 @@
-// Checks the language packs (public/js/lang/*.js) against English: missing or extra texts,
+// Checks every language file (public/js/lang/*.js) against English (lang/en.js): missing or extra texts,
 // functions with a different number of arguments, and texts that throw. Run: node tools/check-langs.mjs
 globalThis.localStorage = {getItem: () => 'en', setItem() {}};
 const base = new URL('../public/js/', import.meta.url);
-const I = await import(new URL('i18n.js', base));
-for (const f of ['i18n-account.js', 'i18n-v11.js', 'i18n-v13.js', 'i18n-v15.js', 'i18n-v16.js', 'i18n-v17.js', 'i18n-v18.js', 'i18n-v19.js', 'i18n-v110.js', 'i18n-v111.js', 'i18n-v112.js', 'i18n-v114.js'])
-  await import(new URL(f, base));
-const {C, U, LOG, TXT} = I.__I18N;
+const I = await import(new URL('i18n.js', base));   // i18n.js first: it imports lang/en.js and lang/tr.js (circular import)
+const EN = (await import(new URL('lang/en.js', base))).default;
+const {C, U, LOG, TXT} = EN;
 const P = new Proxy({}, {get: (o, k) => k === Symbol.toPrimitive ? () => 'X' : k === 'length' ? 1 : k === 'map' ? f => ['X'].map(f) : 'X'});
 let problems = 0;
 const say = m => { problems++; console.log('  ' + m); };
@@ -28,14 +27,14 @@ function compare(name, en, xx) {
   }
   for (const k of Object.keys(xx)) if (!(k in en)) say(`${name}.${k}: not in English (typo?)`);
 }
-// names of items and achievements (i18n-account.js keeps NAMES private; compare through itemName/achName)
-for (const l of I.PACKS) {
+const NAMES_EN = EN.NAMES;
+for (const l of I.LANGS.filter(l => l !== 'en')) {
   console.log(`[${l}] ${I.LANG_NAMES[l]}`);
   let pk; try { pk = (await import(new URL(`lang/${l}.js`, base))).default; } catch (e) { say('pack missing or broken: ' + e.message); continue; }
-  const UE = Object.fromEntries(Object.entries(U.en).filter(([k]) => !['itemName', 'achName', 'achDesc'].includes(k)));   // made by code (i18n-account.js onPack)
-  compare('C', C.en, pk.C || {}); compare('U', UE, pk.U || {}); compare('LOG', LOG.en, pk.LOG || {}); compare('TXT', TXT.en, pk.TXT || {});
+  compare('C', C, pk.C || {}); compare('U', U, pk.U || {}); compare('LOG', LOG, pk.LOG || {}); compare('TXT', TXT, pk.TXT || {});
   const NE = pk.NAMES || {};
   for (const kind of ['frame', 'dice', 'board', 'bubble', 'title', 'ach']) if (!NE[kind]) say(`NAMES.${kind}: missing`);
+  else if (kind !== 'title') for (const k of Object.keys(NAMES_EN[kind])) if (!(k in NE[kind])) say(`NAMES.${kind}.${k}: missing`);
 }
-console.log(problems ? `${problems} problem(s)` : 'All language packs complete.');
+console.log(problems ? `${problems} problem(s)` : 'All languages complete.');
 process.exitCode = problems ? 1 : 0;

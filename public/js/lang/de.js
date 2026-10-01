@@ -47,11 +47,11 @@ export default {
     ePubOnly: 'Das ist ein Tisch für schnelle Spiele: Beitritt nur über „Schnelles Spiel“, nicht per Code oder Link.',
     kbdHint: '<kbd>Leertaste</kbd> würfeln / weiter · <kbd>1</kbd>–<kbd>9</kbd> wählen · <kbd>C</kbd> Chat · <kbd>E</kbd> Ereignisse',
     kbdHelp: 'Tastatur: <kbd>Leertaste</kbd> würfeln, weiter oder der Hauptknopf · <kbd>1</kbd>–<kbd>9</kbd> Option wählen · <kbd>C</kbd> Chat · <kbd>E</kbd> Ereignisse · <kbd>Esc</kbd> Chat verlassen',
-    // i18n.js
+    // the game: home screen, lobby, board, check, deals, results
     title: 'Check Flip – Kostenloses Online-Brettspiel mit Freunden',
     metaDesc: 'Kostenloses Multiplayer-Brettspiel im Browser: Würfle, zieh Karten, bleib hungrig und lass deine Freunde die Rechnung zahlen. 2–6 Spieler, online oder gegen Bots, ohne Download.',
     seoH1: 'Check Flip – ein kostenloses Online-Brettspiel für dich und deine Freunde',
-    seoAbout: '<h2>Was ist Check Flip?</h2><p>Check Flip ist ein kostenloses Multiplayer-Brettspiel für den Browser, auf Handy oder Computer, ohne Download und ohne Anmeldung. 2 bis 6 Spieler ziehen über ein Brett voller Restaurants, würfeln, ziehen Glücks- und Ereigniskarten und versuchen, hungrig zu bleiben, denn am Ende jedes Tages zahlt einer die Rechnung für den ganzen Tisch. Kauf Restaurants, verdien Provision, schieb die Rechnung per Deal weiter und bleib als Letzter am Tisch.</p><p>Spiel online mit Freunden per Raumcode, spring in ein schnelles Spiel mit anderen, spiel gegen Bots (leicht, normal oder schwer) oder abwechselnd an einem Gerät. Modi: Klassisch, Schnell (10 Tage) und 2 gegen 2. Mit einem kostenlosen Konto sammelst du XP, schaltest Avatare, Würfel und Bretter frei, kletterst in der monatlichen Saison-Rangliste nach oben und gewinnst Medaillen. Auch auf Deutsch.</p><p>Mehr: <a href="/online-board-game-with-friends">online mit Freunden spielen</a> · <a href="/monopoly-alternative-online">ein Spiel wie Monopoly online</a></p>',
+    seoAbout: '<h2>Was ist Check Flip?</h2><p>Check Flip ist ein kostenloses Multiplayer-Brettspiel für den Browser, auf Handy oder Computer, ohne Download und ohne Anmeldung. 2 bis 6 Spieler ziehen über ein Brett voller Restaurants, würfeln, ziehen Glücks- und Ereigniskarten und versuchen, hungrig zu bleiben, denn am Ende jedes Tages zahlt einer die Rechnung für den ganzen Tisch. Kauf Restaurants, verdien Provision, schieb die Rechnung per Deal weiter und bleib als Letzter am Tisch.</p><p>Spiel online mit Freunden per Raumcode, spring in ein schnelles Spiel mit anderen, spiel gegen Bots (leicht, normal oder schwer) oder abwechselnd an einem Gerät. Modi: Klassisch, Schnell (10 Tage) und 2 gegen 2. Mit einem kostenlosen Konto sammelst du XP, schaltest Avatare, Würfel und Bretter frei, kletterst in der monatlichen Saison-Rangliste nach oben und gewinnst Medaillen. Auch auf Deutsch.</p><h2>So spielst du Check Flip online</h2><p>Um mit Freunden zu spielen, tippst du auf Mit Freunden, erstellst einen Raum und teilst den Code oder den Einladungslink in eurer Gruppe. Alle steigen vom eigenen Handy oder Computer ein, und der Gastgeber startet das Spiel. Gerade hat niemand Zeit? Mit Schnelles Spiel setzt du dich an einen öffentlichen Tisch, freie Plätze übernehmen Bots.</p><p>Wenn du dran bist, würfelst du mit zwei Würfeln und entscheidest, ob du die Summe oder nur die Augen eines Würfels ziehst. So kannst du gezielt ein Feld ansteuern. Bei einem Pasch würfelst du noch einmal. Jeden Morgen werden alle ein bisschen hungriger, und jede Runde über das Brett macht dich noch hungriger und erhöht deinen Multiplikator.</p><p>Am Ende des Tages zahlt der nächste Spieler in der Reihe das Abendessen für den ganzen Tisch, sein eigenes inklusive, und die Rechnung wächst mit dem Hunger aller. Wer zahlen muss, hat ein einziges Angebot, um sich freizukaufen („Ich geb dir so viel, du zahlst die Rechnung“), oder spielt eine Karte wie Rechnung weitergeben oder Gürtel enger.</p><p>Restaurants sind das langfristige Spiel: Kauf eins, kassier eine Gebühr, wenn andere darauf landen, leere die Kasse oder bau es aus, und streich einen Teil der Rechnung ein, wann immer dort zu Abend gegessen wird. Wer nicht zahlen kann, verlässt den Tisch, und wer zuletzt noch sitzt, gewinnt.</p><p>Mehr: <a href="/de/online-brettspiel-mit-freunden">online mit Freunden spielen</a> · <a href="/de/spiel-wie-monopoly-online">ein Spiel wie Monopoly online</a></p>',
     tagline: 'Dreh die Rechnung um. Lass sie zahlen.',
     lede: 'Würfle, zieh übers Brett, zieh Karten. Am Ende jedes Tages zahlt, wer dran ist, das Abendessen für den ganzen Tisch – und hungrige Spieler sind teuer. Du kannst die Rechnung nicht zahlen? Dann bist du raus. Wer als Letzter am Tisch sitzt, gewinnt.',
     nickLabel: 'Dein Spitzname', nickPh: n => `Spitzname (leer lassen für: ${n})`,
@@ -135,7 +135,7 @@ export default {
     letterAvatar: 'Buchstaben-Avatar', none: 'keiner', ownerTitle: n => `Gehört ${n}`,
     langName: 'Deutsch',
 
-    // i18n-account.js
+    // accounts: log in / sign up, profile & looks, end-of-game progress
     aGuest: 'Du spielst als Gast',
     aGuestNote: 'Erstelle ein kostenloses Konto: Sammle XP, steig im Level auf und schalte Erfolge, Avatar-Rahmen, Brettdesigns und Chatblasen frei.',
     aLogin: 'Einloggen', aSignup: 'Registrieren', aLogout: 'Ausloggen', aProfile: '🎨 Profil & Looks',
@@ -202,7 +202,7 @@ export default {
     lvTag: n => `Lv ${n}`,
     rulesAcc: '<b>Konten (optional):</b> Eingeloggte Spieler sammeln XP und Level und schalten Erfolge, Avatar-Rahmen, Brettdesigns und Chatblasen frei. <b>Spiele mit Bots (Einzelspieler oder Bots im Raum) geben halbe XP und zählen nicht für Erfolge</b>; Siege und Erfolge kommen aus Online-Spielen, sobald ein anderer Spieler am Tisch das Ergebnis bestätigt. Spiele unter 3 Tagen oder 4 Minuten zählen nicht.',
 
-    // i18n-v11.js
+    // v1.1 modes, rematch, sharing, guide, music, app install, leaderboards, friends, invites, daily quest
     modeLbl: 'Spielmodus', m_classic: 'Klassisch', m_quick: 'Schnell', m_teams: '2v2-Teams',
     mShort_classic: 'wer übrig bleibt', mShort_quick: 'nach 10 Tagen gewinnt der Reichste', mShort_teams: '4 Spieler',
     mNote_classic: 'Wer als Letzter am Tisch sitzt, gewinnt.',
@@ -246,7 +246,7 @@ export default {
     q_buy2: 'Kauf 2 Restaurants in einem Spiel', q_upgrade: 'Bau ein Restaurant aus', q_cards3: 'Spiel 3 Karten in einem Spiel',
     q_survive10: 'Bleib 10 Tage am Tisch', q_payer: 'Zahl eine Rechnung und bleib am Tisch',
 
-    // i18n-v13.js
+    // v1.3 new home screen, light/dark theme, side tabs
     heroQ: 'Wer bleibt heute auf der Rechnung sitzen?',
     quickTitle: 'Schnelles Spiel', quickSub: 'An einen offenen Tisch setzen und sofort loslegen',
     tFriends: 'Mit Freunden', tFriendsSub: 'Raum erstellen oder mit Code beitreten',
@@ -263,7 +263,7 @@ export default {
     outShort: 'raus', resultNote: d => `Gewertet nach Geld + Restaurantwert am Ende von Tag ${d}.`,
     netFallback: 'Spielserver nicht erreichbar, auf Ersatzverbindung umgeschaltet.',
 
-    // i18n-v15.js
+    // v1.5 private hands, full-hand choice, dice skins, word filter
     hiddenCardT: 'Eine Karte für die Hand', hiddenCardS: n => `${n} hält sie geheim, bis sie gespielt wird.`,
     exSwapMe: 'Deine Hand ist voll: Wähl, welche Karte du behältst', exSwap: n => `${n} hat eine volle Hand und wählt eine Karte`,
     sSwap: 'Hand voll, wählt', swapQ: 'Deine Hand ist voll (2 Karten). Tausch die neue Karte gegen eine deiner Karten oder lass sie liegen.',
@@ -275,7 +275,7 @@ export default {
     aErrNameBlocked: 'Dieser Benutzername ist nicht erlaubt. Bitte wähl einen anderen.',
     moreAria: 'Weitere Einstellungen', aNameNo: 'nicht erlaubt',
 
-    // i18n-v16.js
+    // v1.6 bot levels, bot takeover, quick chat, mute / kick, awards, seasons, sharing, shapes
     botLvLbl: 'Bot-Level', botLvAria: 'Level des nächsten Bots',
     bot_easy: 'Leicht', bot_normal: 'Normal', bot_hard: 'Schwer',
     botNote_easy: 'macht Fehler', botNote_normal: 'spielt fair', botNote_hard: 'gnadenlos',
@@ -299,7 +299,7 @@ export default {
     waText: c => `Komm an meinen Check-Flip-Tisch! Raumcode: ${c}`, shareLink: 'Teilen',
     shapesAria: 'Formen auf Spielfiguren (farbenblind-freundlich)',
 
-    // i18n-v17.js
+    // v1.7 season-over message, games with friends, username change, settings
     fmTitle: 'Letzte Spiele mit Freunden', fmNone: 'Noch keine Online-Spiele mit Freunden. Lade jemanden in einen privaten Raum ein!',
     fmWon: 'gewonnen', fmPlace: (p, n) => `${p}/${n}`,
     seTitle: n => `Saison ${n} ist vorbei!`, sePlace: p => p === 1 ? 'Du bist Erster geworden 🏆' : `Du bist ${p}. geworden`,
@@ -310,7 +310,7 @@ export default {
     aErrNameWait: 'Du hast deinen Benutzernamen vor weniger als einer Woche geändert.',
     settingsTitle: 'Einstellungen', setMusic: 'Musik', setLang: 'Sprache', setTheme: 'Design', themeLight: 'Hell', themeDark: 'Dunkel', setSound: 'Spielsounds',
 
-    // i18n-v19.js
+    // v1.9 leave question, money after paying, ranked games
     leaveQ: 'Spiel verlassen?',
     leaveQOnline: 'Das Spiel geht ohne dich weiter, ein Bot spielt deine Züge.',
     leaveQLocal: 'Dieses Spiel endet und kann nicht fortgesetzt werden.',
@@ -318,7 +318,7 @@ export default {
     afterPay: 'Rest nach dem Zahlen', shortBy: m => `${m} fehlen`,
     pRankedNote: 'Einzelspiel-Erfolge (Gastro-Mogul, Volles Haus, Rundenlegende, Tiefe Taschen) zählen nur in Ranglistenspielen: schnelle Spiele mit mindestens 3 Spielern (Bots auf freien Plätzen zählen mit).',
 
-    // i18n-v110.js
+    // v1.10 dinner venue, new game, online count, chat reports, bans, admin, captcha
     dinnerAt: p => `Abendessen heute: ${venueName(p.v)}`,
     dinnerTonight: v => `Abendessen heute: ${v}`,
     newGameBtn: 'Neues Spiel starten', backToMenu: 'Zurück zum Menü',
@@ -336,6 +336,8 @@ export default {
     aCaptchaNeeded: 'Bitte schließ zuerst die Prüfung unten ab.',
     adminTitle: 'Admin', admOnly: 'Nur für Admins.', admRefresh: 'Aktualisieren',
     admTabMetrics: 'Zahlen', admTabReports: 'Meldungen', admTabBans: 'Sperren',
+    rulesShort: ['<b>Würfle</b> und zieh über das Brett. Das Feld, auf dem du landest, bringt Geld, eine Karte oder ein Restaurant zum Kaufen.', 'Jeden Tag bekommen alle <b>1 Hunger mehr</b>.', 'Am Ende des Tages <b>zahlt, wer dran ist, die Rechnung für den ganzen Tisch</b>: Je hungriger der Tisch, desto höher die Rechnung.', '<b>Kauf Restaurants</b>: Du verdienst, wenn jemand dort landet oder dort zu Abend gegessen wird.', 'Kannst du die Rechnung nicht zahlen, bist du raus. <b>Wer zuletzt am Tisch sitzt, gewinnt</b> (im Schnell-Modus: der Reichste nach 10 Tagen).'],
+    rulesMore: 'Alle Regeln', rulesBtn: 'Regeln',
     admOnline: 'Gerade an Tischen', admOnlineNote: '„Gerade an Tischen“ ist die echte Zahl der Leute, die mit einem Tisch verbunden sind (der Startbildschirm zeigt sie erst ab 5).',
     admVisitors: 'Besucher', admNew: 'Neu', admPlayers: 'Spieler', admStarted: 'Spiele gestartet', admFinished: 'Beendet', admKinds: 'S/R/B/G', admDay: 'Tag',
     admLast14: 'Summen der letzten 14 Tage (UTC).',
@@ -349,7 +351,7 @@ export default {
     admSt_open: 'Offen', admSt_auto: 'Auto-gesperrt', admSt_actioned: 'Erledigt', admSt_dismissed: 'Verworfen', admSt_all: 'Alle',
     admBanQ: (u, k, d) => `${k}-Sperre für ${u}: ${d}?`, admDone: 'Erledigt.',
 
-    // i18n-v111.js
+    // v1.11 bubble preview, admin badge, friends list errors
     bubblePreview: 'Du zahlst! 😋', adminBadge: 'Admin', adminBadgeT: 'Check-Flip-Team', frLoadErr: c => `Deine Freunde konnten nicht geladen werden (${c}).`, frRetry: 'Nochmal versuchen'
   },
 

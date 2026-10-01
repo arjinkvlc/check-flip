@@ -137,7 +137,7 @@ export function publicCard() {
 }
 
 /* ---------------- errors ---------------- */
-// Maps Supabase / database errors to i18n keys (see js/i18n-account.js)
+// Maps Supabase / database errors to i18n keys (the aErr* texts in js/lang/<code>.js)
 // Supabase Auth error codes → specific messages (https://supabase.com/docs/guides/auth/debugging/error-codes)
 const AUTH_CODES = {
   same_password: 'aErrSamePw', weak_password: 'aErrPwWeak', otp_expired: 'aErrLinkExpired', flow_state_expired: 'aErrLinkExpired',
