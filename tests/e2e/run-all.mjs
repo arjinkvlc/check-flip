@@ -11,7 +11,7 @@ import {spawn, spawnSync} from 'child_process';
 import {PIDFILE} from './lib.mjs';
 const HERE = new URL('./', import.meta.url).pathname, ROOT = new URL('../../', import.meta.url).pathname;
 // order matters a little: run.mjs starts from an empty user table
-const ALL = ['run', 'bots', 'mp', 'six', 'taxi', 'ts110', 'v11', 'v13', 'v14', 'v15', 'v16', 'v18', 'v110', 'v112', 'q112', 'v114', 'v114-hidden-card', 'v114-dice-sound', 'lang111', 'fallback', 'fallback2', 'v115'];
+const ALL = ['run', 'bots', 'mp', 'six', 'taxi', 'ts110', 'v11', 'v13', 'v14', 'v15', 'v16', 'v18', 'v110', 'v112', 'q112', 'v114', 'v114-hidden-card', 'v114-dice-sound', 'lang111', 'fallback', 'fallback2', 'v115', 'v116'];
 const args = process.argv.slice(2), only = args.filter(a => !a.startsWith('--'));
 const list = only.length ? only : ALL;
 const BASE = 'http://127.0.0.1:8787/';

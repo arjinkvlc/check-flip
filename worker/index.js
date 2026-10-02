@@ -63,6 +63,8 @@ export default {
       return env.HUB.get(env.HUB.idFromName(hub)).fetch(req);
     }
     if (url.pathname === '/api/online') return online(req, env, ctx);
+    // v1.16: one-click unsubscribe from the season e-mails (mail apps POST here; a click opens the page)
+    if (url.pathname === '/api/unsubscribe') return unsubscribe(req, env, url);
     // the visitor's country (from Cloudflare, no permission needed): picks Turkish for visitors from Türkiye
     if (url.pathname === '/api/geo') return new Response(JSON.stringify({c: (req.cf && req.cf.country) || null}), {headers: {'Content-Type': 'application/json', 'Cache-Control': 'private, no-store'}});
     if (url.pathname === '/tr/') return Response.redirect(url.origin + '/tr' + url.search, 301);
@@ -73,6 +75,18 @@ export default {
     ctx.waitUntil(keepSupabaseAwake(env));
   }
 };
+
+// List-Unsubscribe target: POST = one-click unsubscribe (RFC 8058), GET = the page that does the same and says so
+async function unsubscribe(req, env, url) {
+  const t = url.searchParams.get('t') || '', l = url.searchParams.get('l') || 'en';
+  if (req.method === 'POST') {
+    if (!/^[0-9a-f-]{36}$/i.test(t)) return new Response('bad token', {status: 400});
+    const r = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/email_unsubscribe', {method: 'POST',
+      headers: {'Content-Type': 'application/json', apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + env.SUPABASE_KEY}, body: JSON.stringify({p_token: t})}).catch(() => null);
+    return new Response(r && r.ok ? 'unsubscribed' : 'try again later', {status: r && r.ok ? 200 : 502});
+  }
+  return Response.redirect(`${url.origin}/unsubscribe?t=${encodeURIComponent(t)}&l=${encodeURIComponent(l)}`, 302);
+}
 
 // Players online right now (people connected to a table). Cached for 30 s so the home screen costs little.
 async function online(req, env, ctx) {

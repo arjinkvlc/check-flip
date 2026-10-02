@@ -42,8 +42,10 @@ await G.click('[data-a=solo]'); await G.click('[data-a=soloN][data-n="3"]'); awa
 ok(await G.isVisible('#cDin') && (await G.textContent('#cDin')).includes('Bu akşamki yemek'), 'tonight\'s dinner shown in the centre: ' + await G.textContent('#cDin'));
 ok(await G.$('.cell.dinner') != null, 'dinner venue marked on the board');
 const gid1 = await G.evaluate(() => window.__cf.state().gid);
-await G.evaluate(() => window.__cf.endGame()); await G.waitForTimeout(2500);
-ok((await G.textContent('#actions')).includes('Yeni oyuna başla') && (await G.textContent('#actions')).includes('Menüye dön'), 'end of game: new game + back to menu');
+await G.evaluate(() => window.__cf.endGame());
+// slower machines (GitHub runners) need more than a fixed 2.5 s for the end screen: wait for it, up to 15 s
+const endOk = await G.waitForFunction(() => { const t = document.querySelector('#actions').textContent; return t.includes('Yeni oyuna başla') && t.includes('Menüye dön'); }, null, {timeout: 15000}).then(() => true, () => false);
+ok(endOk, 'end of game: new game + back to menu' + (endOk ? '' : ': ' + (await G.textContent('#actions')).slice(0, 160)));
 await G.click('#actions [data-a=restart]'); await G.waitForTimeout(800);
 ok(await G.evaluate(g => { const s = window.__cf.state(); return s.gid && s.gid !== g && s.ph !== 'over'; }, gid1), 'new game with the same settings started');
 await G.evaluate(() => window.__cf.endGame()); await G.waitForTimeout(2500);

@@ -1202,3 +1202,17 @@ input,select,textarea{font-family:inherit}
 .rulescard .h2{margin:0 36px 4px 0}
 .rulescard ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 .rulescard .cols{display:grid;gap:10px}
+/* v1.16: shrinking timer on the info cards */
+.popbar{height:max(4px,.7cqi);background:color-mix(in srgb,var(--hc,var(--ink)) 18%,transparent)}
+.popbar i{display:block;height:100%;background:var(--hc,var(--ink));transform-origin:left;animation:popbar linear forwards}
+@keyframes popbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* v1.16: feedback in Settings */
+.fbbox{border-top:1px solid var(--line);padding-top:10px}
+.fbbox>summary{font-weight:700;cursor:pointer}
+.fbbox[open]{display:grid;gap:8px}
+.fbbox textarea{font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px 12px;width:100%;resize:vertical;min-height:90px}
+.fbrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.admh{font-size:15px;margin:18px 0 6px}
+.admtable small{color:var(--muted);font-size:11px}
+.segtabs{flex-wrap:wrap}
+.setlbl{display:grid;gap:2px}.setlbl small{font-size:12px}

@@ -4,7 +4,7 @@
  * titles, achievements, stats) and the end-of-game progress box.
  */
 import {
-  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, titleCls, updateEmail, EMAIL_RE, changeUsername, USERNAME_RE as UNAME_RE,
+  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, setPrefs, titleCls, updateEmail, EMAIL_RE, changeUsername, USERNAME_RE as UNAME_RE,
   signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount, isAdmin
 } from './account.js';
 import {t, getLang, locale} from './i18n.js';
@@ -119,6 +119,7 @@ export function renderAuth(el) {
       <label for="auPw2">${esc(t('aPassword2'))}</label><input id="auPw2" type="password" autocomplete="new-password" maxlength="72" required>
       <label for="auEmail">${esc(t('aEmailOpt'))}</label><input id="auEmail" type="email" autocomplete="email" maxlength="120">
       <p class="note">${esc(t('aEmailHint'))}</p>
+      <label class="consent"><input type="checkbox" id="auNews"><span>${esc(t('aNews'))}</span></label>
       <label class="consent"><input type="checkbox" id="auConsent" required><span>${t('aConsent')}</span></label>
       <button class="btn primary big" type="submit" ${dis}>${esc(AU.busy ? t('aWorking') : t('aSignup'))}</button>
       <p class="note">${esc(t('aSignupNote'))}</p></form>`;
@@ -162,6 +163,7 @@ async function runForm(kind) {
   if (AU.busy) return;
   const keep = {auId: val('auId'), auName: val('auName'), auEmail: val('auEmail'), auFEmail: val('auFEmail')};
   const cb = document.getElementById('auConsent'); keep.consent = !!(cb && cb.checked);
+  const nb = document.getElementById('auNews'); keep.news = !!(nb && nb.checked);
   const pw = val('auPw'), npw = val('auNewPw');
   // the two password boxes must match (sign-up and reset)
   if ((kind === 'signup' && pw !== val('auPw2')) || (kind === 'reset' && npw !== val('auNewPw2'))) { AU.err = t('aErrPwMatch'); rerenderAuth(keep); return; }
@@ -171,7 +173,12 @@ async function runForm(kind) {
   if (CAPTCHA_TABS.includes(kind)) captchaReset();   // a token works once
   try {
     if (kind === 'login') { await signIn(keep.auId, pw, cap); done('welcome'); return; }
-    if (kind === 'signup') { await signUp(keep.auName, pw, keep.auEmail, cap); done('welcome'); return; }
+    if (kind === 'signup') {
+      await signUp(keep.auName, pw, keep.auEmail, cap);
+      // v1.16: language for e-mails, and the season e-mail consent (only with an e-mail and the box ticked)
+      setPrefs(getLang(), !!(keep.news && String(keep.auEmail || '').trim())).catch(() => {});
+      done('welcome'); return;
+    }
     if (kind === 'forgot') { await sendReset(keep.auFEmail, cap); AU.msg = t('aLinkSent'); }
     if (kind === 'reset') { await setNewPassword(npw); done('pw'); return; }
   } catch (e) { AU.err = errText(e); if (e && e.key === 'aErrLinkExpired' && kind === 'reset') AU.tab = 'forgot'; }
@@ -183,6 +190,7 @@ function rerenderAuth(keep) {
   const el = document.getElementById('authBox'); if (!el) return; renderAuth(el);
   for (const id in keep || {}) { const e = document.getElementById(id); if (e && keep[id]) e.value = keep[id]; }
   const cb = document.getElementById('auConsent'); if (cb && keep && keep.consent) cb.checked = true;
+  const nb = document.getElementById('auNews'); if (nb && keep && keep.news) nb.checked = true;
 }
 let nameTimer = null, nameSeq = 0;
 function checkName() {

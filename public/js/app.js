@@ -19,7 +19,7 @@ import {tipFor, tipHTML, tipSeen, tipsOff, tipsReset} from './tips.js';
 import {shareResult} from './share.js';
 import {initSocialUI, renderFriends, renderLeaders, renderInviteBox, updateToast, socialClick} from './social-ui.js';
 import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
-import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck, onAccount, logEvent, reportChat, isAdmin} from './account.js';
+import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck, onAccount, logEvent, reportChat, isAdmin, reportClientError, sendFeedback, setPrefs, syncLang, hasRealEmail} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {ico} from './icons.js';
 import {LANGS, LANG_NAMES, locale, i18nReady, getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
@@ -299,7 +299,7 @@ function teardown() {
 }
 function failJoin(msg, retryQuick) { const q = ui.quick; teardown(); if (retryQuick && q && q < 3) { S = null; shown = null; animQ.length = 0; code = null; quickPlay(); return; } reset(); showErr(msg); }
 function reset() { ui.result = null; clearChat(); solo = false; clearTimeout(botTimer); botTimer = null; S = null; shown = null; animQ.length = 0; mode = null; code = null; ui.screen = 'home'; ui.sel = null; ui.quick = 0; myN = 0; render(); }
-function leave() { try { localStorage.removeItem('hs-last'); } catch (e) {} teardown(); reset(); }
+function leave() { try { localStorage.removeItem('hs-last'); } catch (e) {} trackQuit(false); closePop(); teardown(); reset(); }
 function showErr(m) { ui.err = m; ui.screen = 'home'; render(); }
 
 function send(a, i) {
@@ -372,15 +372,34 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let waiters = [];
 const wait = ms => skip ? Promise.resolve() : new Promise(r => { const tm = setTimeout(r, reduce ? Math.min(ms, 250) : ms); waiters.push(() => { clearTimeout(tm); r(); }); });
 function skipNow() { skip = true; const w = waiters; waiters = []; w.forEach(f => f()); }
+/* v1.16: info cards stay up to 8 s (cards, bills, dinner) or 5 s (squares) with a shrinking bar, but they only hold
+   the game for the first 1.5 s: after that the buttons work, the next move replaces the card and a tap closes it. */
+const POP_LONG = 8000, POP_SHORT = 5000, POP_HOLD = 1500;
+let popTimer = null;
+function closePop() { clearTimeout(popTimer); popTimer = null; const pop = $('#pop'); if (!pop) return; pop.hidden = true; pop.innerHTML = ''; cells.forEach(c => c.classList.remove('pick')); }
+function lingerPop(ms) { clearTimeout(popTimer); popTimer = ms > 0 ? setTimeout(closePop, ms) : null; if (ms <= 0) closePop(); }
+const popBar = ms => `<div class="popbar" aria-hidden="true"><i style="animation-duration:${reduce ? Math.min(ms, 4000) : ms}ms"></i></div>`;
 function sync() { if (!S) return; maybeSubmit(S); trackGame(S); animQ.push(clone(S)); pump(); }
 // anonymous counts: a game started / finished on this device, by kind
 function trackGame(V) {
   if (!V.gid || V.ph === 'lobby' || myIdx(V) < 0) return;
   const kind = mode === 'local' ? (solo ? 'solo' : 'local') : V.pub ? 'quick' : 'room';
   const seen = k => { try { const v = localStorage.getItem('cf-tg' + k); if (v === V.gid) return true; localStorage.setItem('cf-tg' + k, V.gid); } catch (e) {} return false; };   // once per game, also after a reload
-  if (ui.trackStart !== V.gid) { ui.trackStart = V.gid; if (!seen('s')) logEvent('game_start', kind); }
-  if (V.ph === 'over' && ui.trackEnd !== V.gid) { ui.trackEnd = V.gid; if (!seen('e')) logEvent('game_end', kind); }
+  if (ui.trackStart !== V.gid) { ui.trackStart = V.gid; if (!seen('s')) logEvent('game_start', kind, {game: V.gid, day: V.day || 1}); }
+  if (V.ph === 'over' && ui.trackEnd !== V.gid) { ui.trackEnd = V.gid; if (!seen('e')) logEvent('game_end', kind, {game: V.gid, day: V.day || 1}); }
 }
+// v1.16: leaving a game that isn't over while still in it (button, closing the tab): counted with the game day, for the admin screen
+function trackQuit(closing) {
+  const V = S || shown; if (!V || !V.gid || (V.ph !== 'play' && V.ph !== 'feast')) return;
+  const i = myIdx(V); if (mode === 'online' && (i < 0 || !V.pl[i] || !V.pl[i].a)) return;   // already out: that's a loss, not a quit
+  try { if (localStorage.getItem('cf-tq') === V.gid) return; localStorage.setItem('cf-tq', V.gid); } catch (e) {}
+  const kind = mode === 'local' ? (solo ? 'solo' : 'local') : V.pub ? 'quick' : 'room';
+  logEvent('game_quit', kind, {game: V.gid, day: V.day || 1, keepalive: closing});
+}
+addEventListener('pagehide', () => { if (ui.screen === 'game') trackQuit(true); });
+// v1.16: browser errors from our own files go to the admin screen
+addEventListener('error', e => { if (!e || !e.filename || !e.filename.startsWith(location.origin)) return; reportClientError(e.message, `${e.filename.replace(location.origin, '')}:${e.lineno}:${e.colno}`, ui.screen + (shown ? '/' + shown.ph : '')); });
+addEventListener('unhandledrejection', e => { const r = e && e.reason; const m = r && (r.message || r.key || String(r)); if (!m || /fetch|network|load failed|abort/i.test(m)) return; reportClientError('(promise) ' + m, r && r.stack ? String(r.stack).split('\n')[1] || '' : '', ui.screen); });
 async function pump() {
   if (animating) return; animating = true;
   while (animQ.length) {
@@ -449,6 +468,8 @@ const skinDice = (V, i) => { $('#dice').dataset.skin = diceSkin(V, i); };
 function setDice(a, b) { const ds = document.querySelectorAll('#dice .die'); [a, b].forEach((n, k) => { const on = PIPS[n] || []; ds[k].innerHTML = Array.from({length: 9}, (_, j) => `<span class="${on.includes(j) ? 'pip' : ''}"></span>`).join(''); }); }
 async function play(prev, nx) {
   const fx = nx.fx; skip = false; waiters = []; setAVM(nx);
+  const html = popHTML(prev, nx, fx);
+  if (html || fx.d || (fx.path && fx.path.length) || fx.venue != null) closePop();   // a new move replaces a card still on screen
   const base = prev.ph === 'lobby' ? nx : prev; render(null, base);
   const dice = $('#dice');
   if (fx.d) {
@@ -470,12 +491,12 @@ async function play(prev, nx) {
   };
   await hop(path.slice(0, cut));
   const rest = path.slice(cut);
-  const html = popHTML(prev, nx, fx);
   if (html) {
-    const pop = $('#pop'); pop.innerHTML = html; pop.hidden = false; outcomeSound(prev, nx, fx);
-    let ms = fx.card ? 5000 : fx.bill ? 5000 : path.length ? 3800 : 3200;
-    if (rest.length) { await wait(1600); await hop(rest); ms = Math.max(1200, ms - 1600 - rest.length * 210); }
-    await wait(ms); pop.hidden = true; pop.innerHTML = '';
+    const total = fx.card || fx.bill ? POP_LONG : POP_SHORT, t0 = Date.now();
+    const pop = $('#pop'); pop.innerHTML = html.replace('<!--bar-->', popBar(total)); pop.hidden = false; outcomeSound(prev, nx, fx);
+    if (rest.length) { await wait(1600); await hop(rest); }
+    await wait(Math.max(0, POP_HOLD - (Date.now() - t0)));
+    if (skip) closePop(); else lingerPop(total - (Date.now() - t0));
   } else {
     await hop(rest);
     if (!fx.quiet && fx.t !== 'roll') outcomeSound(prev, nx, fx);
@@ -483,17 +504,19 @@ async function play(prev, nx) {
   if (fx.venue != null && nx.ph === 'feast') await venueReveal(nx, fx.venue);
 }
 async function venueReveal(V, v) {
+  clearTimeout(popTimer); popTimer = null;
   const pop = $('#pop'); const ks = Object.keys(VENUES).map(Number); pop.hidden = false;
   const cardHtml = (p, fin) => {
     const o = V.own[p];
     return `<div class="popcard" style="--hc:#7a4fa8"><div class="pophead">${esc(t('dinnerHd', V.day))}</div><div class="popbody">
     <div class="poptitle">${esc(vfull(p))}</div>${fin ? `<div class="popsub">${o ? t('venueOwner', esc(V.pl[o.o].n), pct(COMS[o.lv || 1])) : esc(t('venueNoOwner'))}</div>
-    <div class="popsub">${t('checkIs', esc(V.pl[V.fe.w].n))}</div><div class="popskip">${esc(t('tapToContinue'))}</div>` : `<div class="popsub">${esc(t('pickingVenue'))}</div>`}</div></div>`;
+    <div class="popsub">${t('checkIs', esc(V.pl[V.fe.w].n))}</div><div class="popskip">${esc(t('tapToContinue'))}</div>` : `<div class="popsub">${esc(t('pickingVenue'))}</div>`}</div>${fin ? popBar(POP_LONG) : ''}</div>`;
   };
   let k = 0; const end = Date.now() + (reduce ? 200 : 1400);
   while (Date.now() < end && !skip) { const p = ks[k++ % ks.length]; pop.innerHTML = cardHtml(p, false); cells.forEach((c, j) => c.classList.toggle('pick', j === p)); SFX.play('tick'); await wait(140); }
   pop.innerHTML = cardHtml(v, true); cells.forEach((c, j) => c.classList.toggle('pick', j === v)); SFX.play('pay');
-  await wait(3200); pop.hidden = true; pop.innerHTML = ''; cells.forEach(c => c.classList.remove('pick'));
+  const t0 = Date.now(); await wait(POP_HOLD);
+  if (skip) closePop(); else lingerPop(POP_LONG - (Date.now() - t0));
 }
 function outcomeSound(prev, nx, fx) {
   if (nx.ph === 'over' && prev.ph !== 'over') return SFX.play('win');
@@ -549,9 +572,9 @@ function popHTML(prev, nx, fx) {
     ${dr.length ? `<div class="deltas">${dr.join('')}</div>` : ''}
     ${extra.length ? `<div class="popsub"><b>${esc(extra.join(' · '))}</b></div>` : ''}
     ${msgs.length ? `<ul class="popmsgs">${msgs.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
-    <div class="popskip">${esc(t('tapToContinue'))}</div></div></div>`;
+    <div class="popskip">${esc(t('tapToContinue'))}</div></div><!--bar--></div>`;
 }
-$('#center').addEventListener('click', () => { if (animating) skipNow(); });
+$('#center').addEventListener('click', () => { if (animating) skipNow(); else if (!$('#pop').hidden) closePop(); });
 
 /* ================= turn timer ================= */
 let turnKey = '', turnAt = 0, lastTickSec = -1;
@@ -1103,9 +1126,17 @@ document.addEventListener('click', e => {
     case 'hmode': ui.hmode = b.dataset.m; lsSet('cf-hmode', ui.hmode); render(); break;
     case 'friendsPlay': ui.roomOpen = !ui.roomOpen; render(); if (ui.roomOpen) setTimeout(() => $('#code').focus(), 30); break;
     case 'howto': { const d = $('#rulesBox'); d.open = true; d.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'}); break; }
-    case 'settings': $('#adminBtn').hidden = !isAdmin(); $('#setModal').hidden = false; render(); break;
+    case 'settings': $('#adminBtn').hidden = !isAdmin(); mailRow(); $('#setModal').hidden = false; render(); break;
+    case 'mailOpt': if (ACC.prefs) { b.disabled = true; setPrefs(null, !ACC.prefs.opt_in).then(mailRow, () => {}).finally(() => { b.disabled = false; }); } break;
     case 'admin': $('#setModal').hidden = true; ui.screen = 'admin'; render(); break;
     case 'setClose': $('#setModal').hidden = true; break;
+    case 'fbSend': {   // v1.16: feedback from Settings
+      const txt = $('#fbText').value.trim(), msg = $('#fbMsg'), say = (k, ok) => { msg.hidden = false; msg.textContent = t(k); msg.className = ok ? 'okmsg' : 'err'; };
+      if (txt.length < 3) { say('fbTooShort'); break; }
+      b.disabled = true;
+      sendFeedback($('#fbKind').value, txt).then(() => { $('#fbText').value = ''; $('#fbCount').textContent = '0/500'; say('fbThanks', true); }, e => say((e && e.key) || 'fbFail')).finally(() => { b.disabled = false; });
+      break;
+    }
     case 'rulesOpen': $('#rulesModal').hidden = false; setTimeout(() => $('#rulesModal .mclose').focus(), 30); break;
     case 'rulesClose': $('#rulesModal').hidden = true; break;
     case 'setLang': if (b.dataset.l !== getLang()) changeLang(b.dataset.l); break;
@@ -1242,7 +1273,12 @@ setInterval(pollOnline, 60000); document.addEventListener('visibilitychange', po
 onAccount(() => { if (ACC.banned && ui.bannedShown !== ACC.banned) { ui.bannedShown = ACC.banned; const ms = ACC.banned === 'infinity' ? Infinity : Date.parse(ACC.banned); askUser(t('accountBannedT'), t('accountBanned', banDate(ms)), t('ok'), t('close')); } });
 // language switch (Settings): loads the language's texts if needed, then redraws everything
 async function changeLang(l) {
-  await setLang(l); pickNick(); applyStatic(); render();
+  await setLang(l); pickNick(); applyStatic(); render(); syncLang();
+}
+// v1.16: the season e-mail switch in Settings (accounts with an e-mail only)
+function mailRow() {
+  const row = $('#mailRow'); if (!row) return; row.hidden = !(loggedIn() && hasRealEmail() && ACC.prefs);
+  const on = !!(ACC.prefs && ACC.prefs.opt_in); $('#mailBtn').classList.toggle('on', on); $('#mailBtn').setAttribute('aria-checked', String(on));
 }
 { const sel = $('#setLangSel'); if (sel) { sel.innerHTML = LANGS.map(l => `<option value="${l}" lang="${l}">${LANG_NAMES[l]}</option>`).join(''); sel.value = getLang(); sel.addEventListener('change', () => changeLang(sel.value)); } }
 /* ---- keyboard (computers): Space / Enter = roll, continue or the main button; 1–9 = the choices; C = chat; E = events ---- */
@@ -1264,7 +1300,7 @@ document.addEventListener('keydown', e => {
   if (k === ' ' || k === 'enter') {
     if (e.target && e.target.closest && e.target.closest('#actions button')) return;   // a focused action button handles it itself
     if (e.target && e.target.blur && e.target !== document.body) e.target.blur();
-    const pop = $('#pop'); if (pop && !pop.hidden) { e.preventDefault(); $('#center').click(); return; }
+    const pop = $('#pop'); if (pop && !pop.hidden && animating) { e.preventDefault(); $('#center').click(); return; }   // after the first 1.5 s Space goes straight to the main button
     const b = $('#actions') && $('#actions').querySelector('button.btn.primary:not([disabled])');
     if (b) { e.preventDefault(); b.click(); }
     return;
@@ -1286,5 +1322,6 @@ function askUser(title, text, yes, no) {
 // leaving the page in the middle of an online game asks the browser to confirm
 addEventListener('beforeunload', e => { if (mode === 'online' && S && S.ph !== 'over' && S.ph !== 'lobby' && !$('#game').hidden) { e.preventDefault(); e.returnValue = ''; } });
 // settings panel: close on the backdrop or Escape
+{ const ta = $('#fbText'); if (ta) ta.addEventListener('input', () => { $('#fbCount').textContent = ta.value.length + '/500'; $('#fbMsg').hidden = true; }); }
 document.addEventListener('click', e => { if (e.target && e.target.id === 'setModal') $('#setModal').hidden = true; if (e.target && e.target.id === 'rulesModal') $('#rulesModal').hidden = true; });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#setModal').hidden) $('#setModal').hidden = true; if (e.key === 'Escape' && !$('#rulesModal').hidden) $('#rulesModal').hidden = true; });

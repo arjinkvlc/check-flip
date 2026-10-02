@@ -727,6 +727,8 @@ begin
   delete from public.game_results where created_at < now() - interval '90 days';
   get diagnostics n = row_count;
   delete from public.login_attempts where at < now() - interval '1 day';
+  delete from public.client_errors where created_at < now() - interval '30 days';
+  delete from public.feedback where created_at < now() - interval '365 days';
   return jsonb_build_object('ok', true, 'results_removed', n);
 end $$;
 
@@ -910,6 +912,11 @@ create table if not exists public.metric_events (
   mode       text check (mode in ('quick', 'room', 'solo', 'local')),
   created_at timestamptz not null default now()
 );
+-- v1.16: game id (random, from the game) + the game day for game events; the referring site for visits; 'game_quit'
+alter table public.metric_events add column if not exists game text, add column if not exists info smallint, add column if not exists src text;
+alter table public.metric_events drop constraint if exists metric_events_kind_check;
+alter table public.metric_events add constraint metric_events_kind_check check (kind in ('visit', 'game_start', 'game_end', 'game_quit'));
+create index if not exists metric_events_game on public.metric_events (game) where game is not null;
 create unique index if not exists metric_events_visit on public.metric_events (day, device) where kind = 'visit';
 create index if not exists metric_events_day on public.metric_events (day, kind);
 create index if not exists metric_events_device on public.metric_events (device, day);
@@ -924,6 +931,7 @@ create table if not exists public.metric_devices (
   back1     boolean not null default false,
   back7     boolean not null default false
 );
+alter table public.metric_devices add column if not exists source text;   -- v1.16: where the first visit came from
 create index if not exists metric_devices_first on public.metric_devices (first_day);
 create index if not exists metric_devices_last on public.metric_devices (last_day);
 alter table public.metric_devices enable row level security;
@@ -977,23 +985,31 @@ begin
   end loop;
 end $$;
 
-create or replace function public.log_event(p_device uuid, p_kind text, p_mode text default null)
+drop function if exists public.log_event(uuid, text, text);
+-- p_game: the game's random id; p_day: the game day reached (game events); p_src: the site the visit came from
+create or replace function public.log_event(p_device uuid, p_kind text, p_mode text default null,
+                                            p_game text default null, p_day int default null, p_src text default null)
 returns void language plpgsql volatile security definer set search_path = '' as $$
 declare v_day date := (now() at time zone 'utc')::date; v_n int;
 begin
-  if p_device is null or p_kind not in ('visit', 'game_start', 'game_end') then return; end if;
+  if p_device is null or p_kind not in ('visit', 'game_start', 'game_end', 'game_quit') then return; end if;
   if p_mode is not null and p_mode not in ('quick', 'room', 'solo', 'local') then p_mode := null; end if;
+  if p_game is not null and p_game !~ '^[A-Za-z0-9_-]{1,24}$' then p_game := null; end if;
+  if p_day is not null and (p_day < 0 or p_day > 999) then p_day := null; end if;
+  p_src := nullif(left(lower(regexp_replace(coalesce(p_src, ''), '[^a-zA-Z0-9.-]', '', 'g')), 40), '');
   if p_kind = 'visit' then
-    insert into public.metric_events (day, device, kind) values (v_day, p_device, 'visit') on conflict do nothing;
-    -- first / last day per device, and whether it came back 1 and 7 days after the first visit
-    insert into public.metric_devices as d (device, first_day, last_day) values (p_device, v_day, v_day)
+    insert into public.metric_events (day, device, kind, src) values (v_day, p_device, 'visit', p_src) on conflict do nothing;
+    -- first / last day per device, where it first came from, and whether it came back 1 and 7 days after the first visit
+    insert into public.metric_devices as d (device, first_day, last_day, source) values (p_device, v_day, v_day, coalesce(p_src, 'direct'))
       on conflict (device) do update set last_day = v_day,
         back1 = d.back1 or v_day = d.first_day + 1, back7 = d.back7 or v_day = d.first_day + 7;
     return;
   end if;
   select count(*) into v_n from public.metric_events where day = v_day and device = p_device;
   if v_n >= 200 then return; end if;   -- flood guard
-  insert into public.metric_events (day, device, kind, mode) values (v_day, p_device, p_kind, p_mode);
+  -- a quit is counted once per device and game
+  if p_kind = 'game_quit' and p_game is not null and exists (select 1 from public.metric_events where device = p_device and game = p_game and kind in ('game_quit', 'game_end')) then return; end if;
+  insert into public.metric_events (day, device, kind, mode, game, info) values (v_day, p_device, p_kind, p_mode, p_game, p_day);
 end $$;
 
 -- Daily numbers for the admin screen: visitors, new visitors, games, and how many came back 1 and 7 days later
@@ -1210,13 +1226,252 @@ grant execute on function public.change_username(text) to authenticated;
 grant execute on function public.delete_my_account() to authenticated;
 -- v1.10
 revoke execute on function public.metric_day(date), public.metric_rollup() from public, anon, authenticated;
-revoke execute on function public.is_admin(uuid), public.log_event(uuid, text, text), public.admin_metrics(int), public.sanction_until(uuid, text),
+revoke execute on function public.is_admin(uuid), public.log_event(uuid, text, text, text, int, text), public.admin_metrics(int), public.sanction_until(uuid, text),
   public.account_banned(uuid), public.my_status(), public.auto_sanction(uuid, text), public.report_chat(jsonb), public.admin_reports(text, int),
   public.admin_sanctions(), public.admin_sanction(text, text, int, bigint, text), public.admin_lift(bigint), public.admin_dismiss(bigint),
   public.guard_not_banned() from public, anon, authenticated;
-grant execute on function public.log_event(uuid, text, text) to anon, authenticated;
+grant execute on function public.log_event(uuid, text, text, text, int, text) to anon, authenticated;
 grant execute on function public.my_status(), public.report_chat(jsonb), public.admin_metrics(int), public.admin_reports(text, int),
   public.admin_sanctions(), public.admin_sanction(text, text, int, bigint, text), public.admin_lift(bigint), public.admin_dismiss(bigint) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- v1.16: where players come from, where they stop, browser errors, feedback
+-- ---------------------------------------------------------------------
+-- new visitors by the site they first came from, and how far they got (last p_days days)
+create or replace function public.admin_sources(p_days int default 14)
+returns table (source text, new_visitors int, played int, finished int, back1 int)
+language plpgsql stable security definer set search_path = '' as $$
+declare v_from date := (now() at time zone 'utc')::date - (least(greatest(p_days, 1), 14) - 1);
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query
+  select coalesce(d.source, 'unknown'), count(*)::int,
+         count(*) filter (where exists (select 1 from public.metric_events e where e.device = d.device and e.kind = 'game_start'))::int,
+         count(*) filter (where exists (select 1 from public.metric_events e where e.device = d.device and e.kind = 'game_end'))::int,
+         count(*) filter (where d.back1)::int
+    from public.metric_devices d where d.first_day >= v_from
+   group by 1 order by 2 desc, 1;
+end $$;
+
+-- per mode: games started / finished / left unfinished, and on which game day people left
+create or replace function public.admin_dropoff(p_days int default 14)
+returns table (mode text, started int, finished int, quit int, q1 int, q2 int, q3 int, q4_5 int, q6_9 int, q10 int)
+language plpgsql stable security definer set search_path = '' as $$
+declare v_from date := (now() at time zone 'utc')::date - (least(greatest(p_days, 1), 14) - 1);
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query
+  with g as (
+    select e.game, max(e.mode) as mode, bool_or(e.kind = 'game_end') as fin, bool_or(e.kind = 'game_quit') as q,
+           max(e.info) filter (where e.kind = 'game_quit') as qday
+      from public.metric_events e where e.game is not null and e.day >= v_from group by e.game
+  )
+  select coalesce(g.mode, '?'), count(*)::int, count(*) filter (where g.fin)::int, count(*) filter (where g.q and not g.fin)::int,
+         count(*) filter (where g.q and not g.fin and g.qday <= 1)::int, count(*) filter (where g.q and not g.fin and g.qday = 2)::int,
+         count(*) filter (where g.q and not g.fin and g.qday = 3)::int, count(*) filter (where g.q and not g.fin and g.qday between 4 and 5)::int,
+         count(*) filter (where g.q and not g.fin and g.qday between 6 and 9)::int, count(*) filter (where g.q and not g.fin and g.qday >= 10)::int
+    from g group by 1 order by 2 desc;
+end $$;
+
+-- the latest games seen on players' devices
+create or replace function public.admin_games(p_limit int default 40)
+returns table (game text, mode text, started_at timestamptz, devices int, day_reached int, finished boolean, quit boolean)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query
+  select e.game, max(e.mode), min(e.created_at), count(distinct e.device)::int, max(e.info)::int,
+         bool_or(e.kind = 'game_end'), bool_or(e.kind = 'game_quit')
+    from public.metric_events e where e.game is not null
+   group by e.game order by min(e.created_at) desc limit least(greatest(coalesce(p_limit, 40), 1), 100);
+end $$;
+
+-- JavaScript errors from players' browsers (no personal data: message, place, browser, game phase)
+create table if not exists public.client_errors (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  device     uuid,
+  msg        text not null,
+  place      text,
+  ua         text,
+  lang       text,
+  phase      text,
+  ver        text
+);
+create index if not exists client_errors_created on public.client_errors (created_at desc);
+create index if not exists client_errors_device on public.client_errors (device, created_at);
+alter table public.client_errors enable row level security;
+revoke all on public.client_errors from anon, authenticated;
+
+create or replace function public.log_client_error(p jsonb)
+returns void language plpgsql volatile security definer set search_path = '' as $$
+declare v_dev uuid;
+begin
+  begin v_dev := (p->>'device')::uuid; exception when others then v_dev := null; end;
+  if coalesce(p->>'msg', '') = '' then return; end if;
+  -- at most 20 a day per device and 2000 a day in total
+  if v_dev is not null and (select count(*) from public.client_errors where device = v_dev and created_at > now() - interval '1 day') >= 20 then return; end if;
+  if (select count(*) from public.client_errors where created_at > now() - interval '1 day') >= 2000 then return; end if;
+  insert into public.client_errors (device, msg, place, ua, lang, phase, ver)
+  values (v_dev, left(p->>'msg', 300), left(p->>'place', 200), left(p->>'ua', 160), left(p->>'lang', 5), left(p->>'phase', 20), left(p->>'ver', 12));
+end $$;
+
+create or replace function public.admin_errors(p_days int default 7)
+returns table (msg text, place text, n int, devices int, last_at timestamptz, ver text, ua text, phase text)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query
+  select c.msg, max(c.place), count(*)::int, count(distinct c.device)::int, max(c.created_at),
+         (array_agg(c.ver order by c.created_at desc))[1], (array_agg(c.ua order by c.created_at desc))[1], (array_agg(c.phase order by c.created_at desc))[1]
+    from public.client_errors c where c.created_at > now() - make_interval(days => least(greatest(p_days, 1), 30))
+   group by c.msg order by max(c.created_at) desc limit 100;
+end $$;
+
+-- Feedback sent from Settings (guests too; the account is attached when signed in)
+create table if not exists public.feedback (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  device     uuid,
+  user_id    uuid references public.profiles (id) on delete set null,
+  kind       text not null check (kind in ('bug', 'idea', 'other')),
+  body       text not null,
+  lang       text,
+  ver        text,
+  ua         text,
+  status     text not null default 'new' check (status in ('new', 'done'))
+);
+create index if not exists feedback_status on public.feedback (status, created_at desc);
+alter table public.feedback enable row level security;
+revoke all on public.feedback from anon, authenticated;
+
+create or replace function public.send_feedback(p jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare v_dev uuid; v_body text := btrim(coalesce(p->>'body', '')); v_kind text := coalesce(p->>'kind', 'other');
+begin
+  begin v_dev := (p->>'device')::uuid; exception when others then v_dev := null; end;
+  if length(v_body) < 3 then raise exception 'too_short'; end if;
+  if v_kind not in ('bug', 'idea', 'other') then v_kind := 'other'; end if;
+  -- 3 a day per device (or account), 300 a day in total
+  if (select count(*) from public.feedback f where f.created_at > now() - interval '1 day'
+        and ((v_dev is not null and f.device = v_dev) or (auth.uid() is not null and f.user_id = auth.uid()))) >= 3 then raise exception 'too_many'; end if;
+  if (select count(*) from public.feedback where created_at > now() - interval '1 day') >= 300 then raise exception 'too_many'; end if;
+  insert into public.feedback (device, user_id, kind, body, lang, ver, ua)
+  values (v_dev, auth.uid(), v_kind, left(v_body, 500), left(p->>'lang', 5), left(p->>'ver', 12), left(p->>'ua', 160));
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.admin_feedback(p_status text default 'new', p_limit int default 100)
+returns table (id bigint, created_at timestamptz, kind text, body text, username text, lang text, ver text, ua text, status text)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  return query
+  select f.id, f.created_at, f.kind, f.body, p.username, f.lang, f.ver, f.ua, f.status
+    from public.feedback f left join public.profiles p on p.id = f.user_id
+   where p_status = 'all' or f.status = p_status
+   order by f.created_at desc limit least(greatest(coalesce(p_limit, 100), 1), 300);
+end $$;
+
+create or replace function public.admin_feedback_status(p_id bigint, p_status text)
+returns void language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'not_admin'; end if;
+  if p_status not in ('new', 'done') then raise exception 'bad_status'; end if;
+  update public.feedback set status = p_status where id = p_id;
+end $$;
+
+revoke execute on function public.admin_sources(int), public.admin_dropoff(int), public.admin_games(int), public.admin_errors(int),
+  public.admin_feedback(text, int), public.admin_feedback_status(bigint, text), public.log_client_error(jsonb), public.send_feedback(jsonb)
+  from public, anon, authenticated;
+grant execute on function public.log_client_error(jsonb), public.send_feedback(jsonb) to anon, authenticated;
+grant execute on function public.admin_sources(int), public.admin_dropoff(int), public.admin_games(int), public.admin_errors(int),
+  public.admin_feedback(text, int), public.admin_feedback_status(bigint, text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- v1.16: season e-mails (only with the player's consent)
+-- ---------------------------------------------------------------------
+-- one row per account: the language last used in the game, the consent (and when it was given or withdrawn),
+-- and a random token for the one-click unsubscribe link. Only the owner can read it.
+create table if not exists public.email_prefs (
+  user_id    uuid primary key references public.profiles (id) on delete cascade,
+  lang       text check (lang in ('en', 'tr', 'es', 'pt', 'fr', 'de')),
+  opt_in     boolean not null default false,
+  opt_at     timestamptz,
+  token      uuid not null default gen_random_uuid(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists email_prefs_token on public.email_prefs (token);
+alter table public.email_prefs enable row level security;
+drop policy if exists email_prefs_own on public.email_prefs;
+create policy email_prefs_own on public.email_prefs for select using (auth.uid() = user_id);
+revoke all on public.email_prefs from anon, authenticated;
+grant select on public.email_prefs to authenticated;
+
+-- which season e-mails went out (a run that stops halfway continues where it left off)
+create table if not exists public.season_mail_log (
+  season  integer not null,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  sent_at timestamptz not null default now(),
+  primary key (season, user_id)
+);
+alter table public.season_mail_log enable row level security;
+revoke all on public.season_mail_log from anon, authenticated;
+
+-- the signed-in player's language and/or consent (null = leave as is)
+create or replace function public.set_my_prefs(p_lang text default null, p_opt_in boolean default null)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare v_uid uuid := auth.uid(); r public.email_prefs%rowtype;
+begin
+  if v_uid is null then raise exception 'not_authenticated'; end if;
+  if p_lang is not null and p_lang not in ('en', 'tr', 'es', 'pt', 'fr', 'de') then p_lang := null; end if;
+  insert into public.email_prefs as e (user_id, lang, opt_in, opt_at)
+  values (v_uid, p_lang, coalesce(p_opt_in, false), case when p_opt_in is not null then now() end)
+  on conflict (user_id) do update set
+    lang = coalesce(p_lang, e.lang),
+    opt_in = coalesce(p_opt_in, e.opt_in),
+    opt_at = case when p_opt_in is not null and p_opt_in is distinct from e.opt_in then now() else e.opt_at end,
+    updated_at = now()
+  returning * into r;
+  return jsonb_build_object('lang', r.lang, 'opt_in', r.opt_in);
+end $$;
+
+-- one-click unsubscribe from the link in the e-mail (no sign-in needed; the token is the key)
+create or replace function public.email_unsubscribe(p_token uuid)
+returns boolean language plpgsql volatile security definer set search_path = '' as $$
+begin
+  update public.email_prefs set opt_in = false, opt_at = now(), updated_at = now() where token = p_token and opt_in;
+  return found or exists (select 1 from public.email_prefs where token = p_token);
+end $$;
+
+-- who gets the e-mail for the season that just ended (p_season), with their place if they were on its leaderboard.
+-- Only the database owner (the GitHub Action) calls this.
+create or replace function public.season_mail_list(p_season integer)
+returns table (user_id uuid, email text, username text, lang text, token uuid, place int, wins int, medal int)
+language sql stable security definer set search_path = '' as $$
+  with t as (
+    select p.id, p.username, p.xp, coalesce(st.sxp, 0) as sx, coalesce(st.swins, 0) as sw
+      from public.profiles p join public.season_table(p_season) st on st.user_id = p.id
+     where st.sxp > 0 or st.swins > 0
+  ), ranked as (
+    select t.id, row_number() over (order by t.sw desc, t.sx desc, t.xp desc, t.username)::int as pos, t.sw from t
+  )
+  select p.id, u.email::text, p.username, coalesce(e.lang, 'en'), e.token, r.pos, r.sw, m.place
+    from public.email_prefs e
+    join public.profiles p on p.id = e.user_id
+    join auth.users u on u.id = e.user_id
+    left join ranked r on r.id = e.user_id
+    left join public.season_medals m on m.season = p_season and m.user_id = e.user_id
+   where e.opt_in
+     and u.email is not null and u.email not like '%@players.checkplease.invalid'
+     and not public.account_banned(e.user_id)
+     and not exists (select 1 from public.season_mail_log l where l.season = p_season and l.user_id = e.user_id)
+   order by p.id
+$$;
+
+revoke execute on function public.set_my_prefs(text, boolean), public.email_unsubscribe(uuid), public.season_mail_list(integer) from public, anon, authenticated;
+grant execute on function public.set_my_prefs(text, boolean) to authenticated;
+grant execute on function public.email_unsubscribe(uuid) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Backfill: award achievements that are already earned (safe to re-run)

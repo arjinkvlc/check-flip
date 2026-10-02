@@ -253,7 +253,14 @@ try{if(navigator.serviceWorker&&navigator.serviceWorker.controller){navigator.se
   <div class="setrow"><span data-i="setTheme"></span><div class="seg2" role="group"><button data-a="setTheme" data-t="light" data-i="themeLight"></button><button data-a="setTheme" data-t="dark" data-i="themeDark"></button></div></div>
   <div class="setrow"><span data-i="setMusic"></span><button id="musicBtn" class="switch" data-a="music" role="switch"><i></i></button></div>
   <div class="setrow"><span data-i="setSound"></span><button id="sndBtn" class="switch" data-a="snd" role="switch"><i></i></button></div>
+  <div class="setrow" id="mailRow" hidden><span class="setlbl"><span data-i="setMail"></span><small class="note" data-i="setMailNote"></small></span><button id="mailBtn" class="switch" data-a="mailOpt" role="switch" aria-checked="false"><i></i></button></div>
   <p class="setkbd note" data-ih="kbdHelp"></p>
+  <details class="fbbox" id="fbBox"><summary data-i="fbTitle"></summary>
+    <select id="fbKind" class="langsel" data-ia="fbTitle"><option value="bug" data-i="fbBug"></option><option value="idea" data-i="fbIdea"></option><option value="other" data-i="fbOther"></option></select>
+    <textarea id="fbText" maxlength="500" rows="4" data-ip="fbPh" data-ia="fbPh"></textarea>
+    <div class="fbrow"><small id="fbCount" class="note">0/500</small><button class="btn small primary" data-a="fbSend" data-i="fbSend"></button></div>
+    <p class="note" id="fbMsg" role="status" hidden></p>
+  </details>
   <button class="btn small" id="adminBtn" data-a="admin" data-i="adminTitle" hidden></button>
   <footer class="credit setcredit"><a href="https://github.com/arjinkvlc" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Developed by <b>@arjinkvlc</b></a><a href="privacy.html" class="privlink" data-i="privacyLink"></a><span class="ver" id="verTag"></span></footer>
 </div></div>

@@ -1,5 +1,6 @@
 // Minimal Supabase stand-in (Auth + PostgREST subset) backed by the real schema in a local Postgres.
 import pg from 'pg';
+pg.types.setTypeParser(1082, v => v);   // dates as 'YYYY-MM-DD', like the real REST API
 // local default: a throwaway Postgres on a unix socket; CI sets PGHOST / PGPORT / PGUSER / PGPASSWORD / PGDATABASE
 export const pool = new pg.Pool({host: process.env.PGHOST || '/tmp/pgt', port: +(process.env.PGPORT || 5499), user: process.env.PGUSER || 'postgres', password: process.env.PGPASSWORD, database: process.env.PGDATABASE || 'postgres'});
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -55,7 +56,7 @@ export async function handle(req) {
     await c.query("select set_config('request.uid', $1, true)", [uid || '']);
     if (path.startsWith('/rest/v1/rpc/')) {
       const fn = path.slice(13); const keys = Object.keys(body || {});
-      const tableFn = ['leaderboard', 'admin_metrics', 'admin_reports', 'admin_sanctions'].includes(fn);
+      const tableFn = ['leaderboard', 'admin_metrics', 'admin_reports', 'admin_sanctions', 'admin_sources', 'admin_dropoff', 'admin_games', 'admin_errors', 'admin_feedback'].includes(fn);
       const sql = tableFn ? `select * from public.${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')})` : `select public.${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) as v`;
       const vals = keys.map(k => typeof body[k] === 'object' && body[k] !== null ? JSON.stringify(body[k]) : body[k]);
       try { const r = await c.query(sql, vals); await c.query('commit'); return J(200, tableFn ? r.rows : r.rows[0].v); }

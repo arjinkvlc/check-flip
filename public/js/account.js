@@ -11,6 +11,7 @@
  */
 import {SUPABASE_URL, SUPABASE_KEY, PLACEHOLDER_EMAIL_DOMAIN} from './config.js';
 import {nameBlocked} from './filter.js';
+import {VERSION} from './version.js';
 
 /* ---------------- progression rules ---------------- */
 // level L needs 6.5 × (L−1)² XP  (level 10 ≈ 530 XP, level 50 ≈ 15 600 XP) — same as public.level_of()
@@ -221,10 +222,27 @@ export async function refreshProfile() {
   ACC.medals = (md && !md.error && md.data) || [];
   try { const d = await sb.rpc('my_daily'); if (!d.error) ACC.daily = d.data; } catch (e) {}
   try { const st = await sb.rpc('my_status'); if (!st.error) ACC.status = st.data; } catch (e) {}
+  // v1.16: season e-mail consent + the language last used in the game (kept so the e-mail comes in that language)
+  try { const ep = await sb.from('email_prefs').select('lang,opt_in').eq('user_id', uid).maybeSingle(); ACC.prefs = ep.error ? null : (ep.data || {lang: null, opt_in: false}); } catch (e) {}
+  syncLang();
   if (ACC.status && ACC.status.account_until) {   // suspended account: sign out, keep the date to show
     ACC.banned = ACC.status.account_until; await signOut(); return;
   }
   emit();
+}
+
+// language and/or season e-mail consent of the signed-in player (null = unchanged)
+export async function setPrefs(lang, optIn) {
+  if (!sb) return null;   // works right after sign-up too (the session exists before the profile is loaded)
+  const {data, error} = await sb.rpc('set_my_prefs', {p_lang: lang || null, p_opt_in: optIn == null ? null : !!optIn});
+  if (error) throw fail(error);
+  ACC.prefs = data; emit(); return data;
+}
+// remember the language the player uses (once per change)
+const curLang = () => { try { return localStorage.getItem('hs-lang') || document.documentElement.lang || null; } catch (e) { return null; } };
+export function syncLang() {
+  const l = curLang(); if (!l || !ACC.prefs || ACC.prefs.lang === l || !loggedIn()) return;
+  ACC.prefs.lang = l; setPrefs(l, null).catch(() => {});
 }
 
 /* ---------------- auth ---------------- */
@@ -425,18 +443,64 @@ function deviceId() {
     return d;
   } catch (e) { return null; }
 }
-export function logEvent(kind, mode) {
-  const dev = deviceId(); if (!sb || !dev) return;
-  sb.rpc('log_event', {p_device: dev, p_kind: kind, p_mode: mode || null}).then(() => {}, () => {});
+// a database function called straight over HTTP with the public key (works before the account library loads, and with
+// keepalive while the page is closing)
+function rpcRaw(fn, body, keepalive) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return Promise.resolve(null);
+  return fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {method: 'POST', keepalive: !!keepalive,
+    headers: {'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY}, body: JSON.stringify(body)}).catch(() => null);
+}
+// x: {game, day} for game events (game id + the game day reached), {src} for a visit, {keepalive: true} while leaving the page
+export function logEvent(kind, mode, x = {}) {
+  const dev = deviceId(); if (!dev) return;
+  const body = {p_device: dev, p_kind: kind, p_mode: mode || null, p_game: x.game || null, p_day: x.day == null ? null : x.day, p_src: x.src || null};
+  if (x.keepalive || !sb) { rpcRaw('log_event', body, x.keepalive); return; }
+  sb.rpc('log_event', body).then(() => {}, () => {});
+}
+// v1.16: where this visit came from: ?utm_source=… / ?ref=…, else the referring site (search engines and big sites by name)
+export function visitSource() {
+  try {
+    const q = new URLSearchParams(location.search), tag = q.get('utm_source') || q.get('ref');
+    if (tag) return tag.toLowerCase().replace(/[^a-z0-9.-]/g, '').slice(0, 40) || 'direct';
+    if (!document.referrer) return 'direct';
+    const h = new URL(document.referrer).hostname.toLowerCase().replace(/^(www|m|old|new|out|l|lm)\./, '');
+    if (!h || h === location.hostname.replace(/^www\./, '')) return 'direct';
+    const named = [[/(^|\.)google\./, 'google'], [/(^|\.)bing\.com$/, 'bing'], [/(^|\.)yandex\./, 'yandex'], [/(^|\.)duckduckgo\.com$/, 'duckduckgo'],
+      [/(^|\.)reddit\.com$/, 'reddit'], [/^t\.co$|(^|\.)twitter\.com$|(^|\.)x\.com$/, 'x'], [/(^|\.)facebook\.com$/, 'facebook'], [/(^|\.)instagram\.com$/, 'instagram'],
+      [/(^|\.)youtube\.com$/, 'youtube'], [/(^|\.)tiktok\.com$/, 'tiktok'], [/(^|\.)technopat\.net$/, 'technopat'], [/(^|\.)donanimhaber\.com$/, 'donanimhaber'],
+      [/(^|\.)eksisozluk\.com$/, 'eksisozluk'], [/(^|\.)itch\.io$/, 'itch.io'], [/(^|\.)discord(app)?\.com$/, 'discord'], [/(^|\.)whatsapp\.com$/, 'whatsapp']];
+    for (const [re, n] of named) if (re.test(h)) return n;
+    return h.slice(0, 40);
+  } catch (e) { return 'direct'; }
 }
 function logVisit() {
   const day = new Date().toISOString().slice(0, 10);
   try { if (localStorage.getItem('cf-visit') === day) return; localStorage.setItem('cf-visit', day); } catch (e) {}
-  logEvent('visit');
+  logEvent('visit', null, {src: visitSource()});
+}
+// v1.16: browser errors go to the admin screen (message and place only; at most 5 per page load, each message once)
+const errSeen = new Set();
+export function reportClientError(msg, place, phase) {
+  msg = String(msg || '').slice(0, 300); if (!msg || errSeen.has(msg) || errSeen.size >= 5) return; errSeen.add(msg);
+  let lang = null; try { lang = document.documentElement.lang || null; } catch (e) {}
+  rpcRaw('log_client_error', {p: {device: deviceId(), msg, place: String(place || '').slice(0, 200), ua: navigator.userAgent.slice(0, 160), lang, phase: phase || null, ver: VERSION}});
+}
+// v1.16: feedback from Settings
+export async function sendFeedback(kind, body) {
+  let lang = null; try { lang = document.documentElement.lang || null; } catch (e) {}
+  const p = {device: deviceId(), kind, body, lang, ver: VERSION, ua: navigator.userAgent.slice(0, 160)};
+  if (sb) { const r = await sb.rpc('send_feedback', {p}); if (r.error) throw {key: /too_many/.test(r.error.message) ? 'fbTooMany' : /too_short/.test(r.error.message) ? 'fbTooShort' : 'fbFail'}; return; }
+  const r = await rpcRaw('send_feedback', {p}); if (!r || !r.ok) throw {key: 'fbFail'};
 }
 export const isAdmin = () => !!(ACC.status && ACC.status.admin);
 export const reportChat = r => call('report_chat', {p: r});
 export const adminMetrics = days => call('admin_metrics', {p_days: days || 14});
+export const adminSources = () => call('admin_sources', {p_days: 14});
+export const adminDropoff = () => call('admin_dropoff', {p_days: 14});
+export const adminGames = () => call('admin_games', {p_limit: 40});
+export const adminErrors = () => call('admin_errors', {p_days: 7});
+export const adminFeedback = status => call('admin_feedback', {p_status: status || 'new', p_limit: 100});
+export const adminFeedbackStatus = (id, status) => call('admin_feedback_status', {p_id: id, p_status: status});
 export const adminReports = status => call('admin_reports', {p_status: status || 'open', p_limit: 100});
 export const adminSanctions = () => call('admin_sanctions');
 export const adminSanction = (username, kind, days, report) => call('admin_sanction', {p_username: username, p_kind: kind, p_days: days, p_report: report || null, p_reason: null});

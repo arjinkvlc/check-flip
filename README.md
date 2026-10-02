@@ -279,6 +279,12 @@ Database connection: `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE
 
 On GitHub the **Tests** workflow (`.github/workflows/e2e.yml`) runs `npm test` and all browser tests on every push and pull request, with its own Postgres; it uses no secrets.
 
+## Season e-mails
+
+Players who tick **"E-mail me when a new season starts"** (unticked by default, at sign-up or in Settings, only for accounts with an e-mail) get one e-mail when a new season begins: their place and medal in the season that just ended (if they were on its leaderboard) and an invitation to the new one, in the language they last used in the game. Every e-mail has a one-click unsubscribe link (`/unsubscribe`, and `List-Unsubscribe` / `List-Unsubscribe-Post` headers pointing at `/api/unsubscribe`).
+
+The **Season e-mail** workflow (`.github/workflows/season-mail.yml`, `tools/season-mail/`) runs on the 1st–7th of each month, sends at most 90 a day through Resend (the free plan allows 100 a day) and remembers who got it (`season_mail_log`), so later runs continue where the first stopped. It needs the repository secrets `SUPABASE_DB_URL` and `RESEND_API_KEY` (Resend → API Keys → *Sending access*; the domain is already verified for password-reset e-mails). Without the key the run only warns. **Run workflow** with *dry run* lists what would go out without sending.
+
 ## Database backup
 
 The **Back up database** workflow (`.github/workflows/db-backup.yml`) dumps the Supabase database every Sunday (and on demand from the Actions tab), encrypts it with a passphrase and keeps it as a workflow artifact for 90 days. It needs the repository secrets `SUPABASE_DB_URL` (the same one the schema workflow uses) and `BACKUP_PASSPHRASE` (a long random passphrase: keep a copy in your password manager, without it the backups can't be opened). Restore: `gpg -d check-flip-db-YYYY-MM-DD.dump.gpg > db.dump`, then `pg_restore --no-owner --no-privileges -d "<database url>" db.dump`.
@@ -314,6 +320,13 @@ To add a language: copy a pack to `public/js/lang/<code>.js`, translate it, add 
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.16.0
+- Info cards in the middle of the board stay up to 8 s (cards, bills, tonight's dinner) or 5 s (squares) with a shrinking timer bar; after 1.5 s the game goes on: the buttons work, the next move replaces the card, a tap closes it
+- Admin panel: where new visitors came from (search engines, Reddit, forums… from the referrer or `?utm_source=`), how many of them played, finished and came back; games by kind with how many were left unfinished and on which game day; the latest games; browser errors; feedback
+- "Send feedback" in Settings (bug / idea / other, up to 500 characters, 3 a day)
+- Season e-mails, only with the player's consent: one e-mail when a new season starts with the past season's place and medal, in the player's game language, one-click unsubscribe; privacy notice updated
+- Tests: the end-of-game check waits for the end screen instead of a fixed delay
 
 ### 1.15.0
 - How to play in five short steps on the home screen; the full rules, squares, cards and the longer "What is Check Flip?" text open with "Full rules"

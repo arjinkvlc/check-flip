@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Season e-mails · Check Flip</title>
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .doc{max-width:560px;margin:40px auto 0;display:grid;gap:14px;text-align:center}
+  .doc h1{font-family:var(--display);font-size:30px;line-height:1.1;margin:0;color:var(--tomato)}
+  .doc p{font-size:16px;line-height:1.55;margin:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="logo" href="./" style="text-decoration:none"><img class="logo-svg" src="assets/logo.svg" alt=""><span>Check Flip</span></a>
+  </header>
+  <main class="doc box">
+    <h1 id="h"></h1>
+    <p id="msg" role="status"></p>
+    <p><a class="btn primary" id="back" href="./"></a></p>
+  </main>
+</div>
+<!-- v1.16: one-click unsubscribe from the season e-mails (the link carries a random token, no sign-in needed) -->
+<script type="module">
+import {SUPABASE_URL, SUPABASE_KEY} from './js/config.js';
+const T = {
+  en: {h: 'Season e-mails', wait: 'One moment…', done: 'Done: you won’t get season e-mails any more. You can turn them back on in Settings.', bad: 'This link isn’t valid any more.', err: 'Something went wrong. Please try again, or turn the e-mails off in Settings.', back: 'Back to the game'},
+  tr: {h: 'Sezon e-postaları', wait: 'Bir saniye…', done: 'Tamam, artık sezon e-postası almayacaksın. İstersen Ayarlar’dan tekrar açabilirsin.', bad: 'Bu bağlantı artık geçerli değil.', err: 'Bir şeyler ters gitti. Lütfen tekrar dene ya da e-postaları Ayarlar’dan kapat.', back: 'Oyuna dön'},
+  es: {h: 'Correos de temporada', wait: 'Un momento…', done: 'Listo: ya no recibirás correos de temporada. Puedes volver a activarlos en Ajustes.', bad: 'Este enlace ya no es válido.', err: 'Algo salió mal. Inténtalo de nuevo o desactiva los correos en Ajustes.', back: 'Volver al juego'},
+  pt: {h: 'E-mails de temporada', wait: 'Um momento…', done: 'Pronto: você não vai mais receber e-mails de temporada. Dá para reativar em Configurações.', bad: 'Este link não é mais válido.', err: 'Algo deu errado. Tente de novo ou desative os e-mails em Configurações.', back: 'Voltar ao jogo'},
+  fr: {h: 'E-mails de saison', wait: 'Un instant…', done: 'C’est fait : tu ne recevras plus d’e-mails de saison. Tu peux les réactiver dans les Réglages.', bad: 'Ce lien n’est plus valide.', err: 'Un problème est survenu. Réessaie, ou désactive les e-mails dans les Réglages.', back: 'Retour au jeu'},
+  de: {h: 'Saison-E-Mails', wait: 'Einen Moment …', done: 'Erledigt: Du bekommst keine Saison-E-Mails mehr. In den Einstellungen kannst du sie wieder einschalten.', bad: 'Dieser Link ist nicht mehr gültig.', err: 'Etwas ist schiefgelaufen. Versuch es noch einmal oder schalte die E-Mails in den Einstellungen ab.', back: 'Zurück zum Spiel'}
+};
+const q = new URLSearchParams(location.search), l = T[q.get('l')] ? q.get('l') : 'en', L = T[l], tok = q.get('t') || '';
+document.documentElement.lang = l; document.getElementById('h').textContent = L.h; document.getElementById('back').textContent = L.back;
+const msg = document.getElementById('msg'); msg.textContent = L.wait;
+if (!/^[0-9a-f-]{36}$/i.test(tok)) msg.textContent = L.bad;
+else fetch(`${SUPABASE_URL}/rest/v1/rpc/email_unsubscribe`, {method: 'POST', headers: {'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY}, body: JSON.stringify({p_token: tok})})
+  .then(r => r.ok ? r.json() : Promise.reject()).then(ok => { msg.textContent = ok ? L.done : L.bad; }, () => { msg.textContent = L.err; });
+</script>
+</body>
+</html>
