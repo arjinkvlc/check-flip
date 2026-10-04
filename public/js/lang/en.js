@@ -30,8 +30,8 @@ export default {
       fatura: ['Bills', '−¤15'],
       atis: ['Snack', '−2 hunger'],
       spor: ['Gym', '+2 hunger'],
-      kisa: ['Shortcut', '3 squares forward'],
-      geri: ['Go Back', '3 squares back'],
+      kisa: ['Shortcut', '1–4 squares forward (random)'],
+      geri: ['Go Back', '1–4 squares back (random)'],
       mola: ['Coffee Break', 'You lose your next move'],
       mekan: ['Restaurant', 'Buy it for ¤40. Visitors pay you a fee (¤5 / ¤8 / ¤12). Each morning one of the 4 restaurants is announced for tonight’s dinner and its owner takes a commission (25%, upgradeable to 35% and 50%). Land on your own to cash the register or upgrade. Others can offer to buy it from you.'],
       bos: ['Empty', 'Nothing happens here']
@@ -50,11 +50,19 @@ export default {
       B10: ['Pass the check', "Hand today's check to the next player in line"], B11: ['Going Dutch', "When it's your turn to pay, everyone pays their own share"],
       K: ['Tighten the Belt', "When you pay, you don't eat: you skip your own share and keep your hunger"]
     },
-    avatars: {waiter: 'Waiter', waitress: 'Waitress', student: 'Student', foodie: 'Food blogger', italian: 'Italian chef', doner: 'Döner master', noodle: 'Noodle chef', baker: 'Pastry chef', grandma: 'Grandma', critic: 'Food critic', barista: 'Barista', sommelier: 'Sommelier'},
+    avatars: {santa: 'Santa', cupid: 'Cupid', bunny: 'Easter Bunny', pumpkin: 'Pumpkin Head', waiter: 'Waiter', waitress: 'Waitress', student: 'Student', foodie: 'Food blogger', italian: 'Italian chef', doner: 'Döner master', noodle: 'Noodle chef', baker: 'Pastry chef', grandma: 'Grandma', critic: 'Food critic', barista: 'Barista', sommelier: 'Sommelier'},
     nicks: ['Hungry Wolf', 'Pizza Lover', 'Taco Boss', 'Noodle King', 'Burger Fan', 'Sushi Chef', 'Donut Hunter', 'Pasta Queen', 'Snack Attack', 'Big Appetite', 'Waffle Wizard', 'Curry Master', 'Pretzel Pro', 'Bagel Baron', 'Dumpling Duke', 'Ramen Rider', 'Nacho Ninja', 'Pancake Pal', 'Cheese Chaser', 'Fry Guy']
   },
 
   U: {
+    // v1.17 seasonal events
+    setSeason: 'Seasonal themes', setSeasonNote: 'Decorations and music during events',
+    evName: k => ({halloween: 'Halloween', newyear: 'New Year', valentine: 'Valentine’s Day', easter: 'Easter'}[k] || String(k)),
+    evEarn: r => `Can be earned ${r}`, evEarnEaster: 'Can be earned during the Easter period', evCard: n => `${n} event`, evUntil: r => `Event dates: ${r}`,
+    evIntro: 'Complete the quests while the event lasts. The items stay yours forever.', evGuest: 'Sign in to collect the event items.', evSignIn: 'Sign in',
+    evBotNote: 'Games against bots count as finished games, but not for wins or deals.', evReward: n => `Reward: ${n}`, evAll: n => `All four: ${n}`, evDone: 'Done',
+    evAllDesc: n => `Complete all four ${n} quests`, evNoneNow: 'No event is on right now.', evNext: (n, r) => `Next: ${n} (${r})`, pTabEvent: 'Event', pEventNote: 'Event quests and items. Items from past events stay in your looks.',
+    evOwned: 'Your event items', evNoItems: 'No event items yet.', admPrev: 'Theme preview', admPrevNote: 'Changes only this browser, whatever the date. It never unlocks event items.', admPrevOff: 'Off', admPrevSoon: n => `${n} (soon)`,
     // ---- page title, description and the "What is Check Flip?" text: kept in js/seo-text.js (the Worker uses it too)
     title: SEO.en.title, metaDesc: SEO.en.desc, seoH1: SEO.en.h1, seoAbout: SEO.en.about,
     // ---- the game: home screen, lobby, board, check, deals, results
@@ -70,7 +78,7 @@ export default {
     rules: [
       'Starting money depends on the number of players: 2 players <b>¤100</b>, 3 players <b>¤150</b>, 4+ players <b>¤200</b> (the host can change it). Hunger starts at <b>0</b>. Turn order is decided by a dice roll.',
       '<b>One day:</b> everyone makes 2 moves. After rolling, you choose to move the <b>sum</b> of both dice or just <b>one</b> of them. Doubles roll again.',
-      '<b>Restaurants</b> (Pizzeria, Sushi Bar, Burger Joint, Taqueria) cost ¤40. Landing on someone else\'s restaurant costs a small <b>visit fee</b> (★ ¤5, ★★ ¤8, ★★★ ¤12), and you may offer at least ¤10 above its last price; if the owner accepts, it changes hands.',
+      '<b>Restaurants</b> (Pizzeria, Sushi Bar, Burger Joint, Taqueria) cost ¤40. Landing on someone else\'s restaurant costs a small <b>visit fee</b> (★ ¤5, ★★ ¤8, ★★★ ¤12), and you may make an offer for it (from ¤5; the suggested amount is its last price + ¤10); if the owner accepts, it changes hands.',
       'At the start of each day one of the 4 restaurants is drawn <b>for tonight’s dinner</b> (shown on the board). If it has an owner, they get 25% of the check. Land on your own restaurant to cash the register (★ +¤15, ★★ +¤20, ★★★ +¤25) or upgrade it: ★★ 35% (¤30), ★★★ 50% (¤45).',
       '<b>Negotiation:</b> the payer may make one offer: “I\'ll give you ¤X, you pay the check.”',
       'At the start of every day, everyone gets <b>+1 hunger</b> (max 10).',
@@ -117,7 +125,7 @@ export default {
     buyBtn: m => `Buy (${M(m)})`, pass: 'Pass', isBuying: (n, v) => `${n} is thinking about buying ${v}…`,
     ownHere: r => `This is your restaurant. Commission is currently ${r}%.`, collectBtn: 'Cash the register', upgradeBtn: s => `Upgrade ${s}`, upgradeSub: (m, r) => `Pay ${M(m)} · ${r}% commission`, maxLevel: 'This restaurant is fully upgraded.',
     isHome: n => `${n} is deciding at their restaurant…`,
-    offerNote: (o, pr, mn) => `Owned by ${o}, last price ${M(pr)}. Offer at least ${M(mn)} to buy it. The owner decides.`, offerAria: 'Offer amount', offerBtn: 'Make offer', noOfferBtn: 'No offer, pass', isOffering: (n, v) => `${n} is considering an offer for ${v}…`,
+    offerNote: (o, pr, mn) => `Owned by ${o}, last price ${M(pr)}. Suggested offer ${M(mn)}; you can enter any amount from ¤5. The owner decides.`, offerAria: 'Offer amount', offerBtn: 'Make offer', noOfferBtn: 'No offer, pass', isOffering: (n, v) => `${n} is considering an offer for ${v}…`,
     offerForYou: 'You have an offer', offerText: (b, m, pr) => `${b} offers <b>${M(m)}</b> for this restaurant (last price ${M(pr)}).`, sellBtn: m => `Sell (${M(m)})`, reject: 'Reject', isAnswering: n => `${n} is answering…`,
     receiptHd: d => `THE CHECK · DAY ${d}`, payer: 'Paying', venueLbl: 'Restaurant', ownerLbl: 'Owner', noOwner: 'none, no commission', own: ' (own)', nobodyAtTable: 'Nobody at the table',
     dutch: 'Going Dutch', dutchLine: 'everyone pays their own share', subtotal: 'Subtotal', coupon: 'Coupon −25%', total: 'TOTAL', inHand: 'Cash', commissionTo: n => `Commission → ${n}`, belt: 'Tighten the Belt', notEating: n => `${n} isn't eating`,
@@ -394,7 +402,7 @@ export default {
     gotBelt: p => `${p.n} got a Tighten the Belt card`,
     payday: p => `${p.n}: Payday +${M(p.m)}`, bills: p => `${p.n}: Bills −${M(p.m)}`,
     snack: p => `${p.n}: Snack, hunger −2`, gym: p => `${p.n}: Gym, hunger +2`,
-    shortcut: p => `${p.n}: Shortcut, 3 squares forward`, goBack: p => `${p.n}: 3 squares back`,
+    shortcut: p => `${p.n}: Shortcut, ${p.k || 3} squares forward`, goBack: p => `${p.n}: Go back, ${p.k || 3} squares`,
     coffee: p => `${p.n}: Coffee break, skips the next move`, empty: p => `${p.n}: empty square`,
     noCashVenue: p => `${p.n}: ${V_(p.v)} is for sale but they can't afford it`,
     rent: p => `${p.n} visited ${p.o}'s ${V_(p.v)}: −${M(p.m)} visit fee`,
@@ -440,11 +448,28 @@ export default {
   // item and achievement names: [name, description] (turned into itemName / achName / achDesc by js/i18n-account.js)
   NAMES: {
     frame: {none: 'No frame', bronze: 'Bronze', silver: 'Silver', gold: 'Gold', diamond: 'Diamond', neon: 'Neon', flame: 'Flame', royal: 'Royal', ember: 'Ember', crown: 'Crown', ivy: 'Ivy', duo: 'Duo', star: 'Starry'},
-    dice: {classic: 'Classic', redwhite: 'Red & white', bone: 'Old bone', gingham: 'Checked tablecloth', neon: 'Neon', marble: 'Marble', gold: 'Solid gold', chelsea: 'Royal blue & gold'},
-    board: {felt: 'Navy felt', hearts: 'Sweet hearts', wood: 'Oak table', feast: 'Feast', terracotta: 'Terracotta', marble: 'Marble', sunset: 'Sunset', night: 'Midnight', chalk: 'Chalkboard menu', neon: 'Neon diner', ocean: 'Ocean', bistro: 'Bistro awning', gold: 'Gold leaf', lavender: 'Lavender'},
-    bubble: {plain: 'Plain', receipt: 'Receipt', comic: 'Comic', neon: 'Neon', heart: 'Sweetheart', gold: 'Golden', suits: 'Card suits', zen: 'Zen', zoom: 'Zoom', mint: 'Mint'},
+    dice: {frost: 'Frost dice', rose: 'Rose dice', egg: 'Painted egg dice', pumpkin: 'Pumpkin dice', classic: 'Classic', redwhite: 'Red & white', bone: 'Old bone', gingham: 'Checked tablecloth', neon: 'Neon', marble: 'Marble', gold: 'Solid gold', chelsea: 'Royal blue & gold'},
+    board: {winter: 'Snowy forest', candlelight: 'Candlelight', meadow: 'Flower meadow', haunted: 'Haunted table', felt: 'Navy felt', hearts: 'Sweet hearts', wood: 'Oak table', feast: 'Feast', terracotta: 'Terracotta', marble: 'Marble', sunset: 'Sunset', night: 'Midnight', chalk: 'Chalkboard menu', neon: 'Neon diner', ocean: 'Ocean', bistro: 'Bistro awning', gold: 'Gold leaf', lavender: 'Lavender'},
+    bubble: {gift: 'Gift wrap', letter: 'Love letter', pastel: 'Pastel bubble', spooky: 'Spooky bubble', plain: 'Plain', receipt: 'Receipt', comic: 'Comic', neon: 'Neon', heart: 'Sweetheart', gold: 'Golden', suits: 'Card suits', zen: 'Zen', zoom: 'Zoom', mint: 'Mint'},
     title: {rookie: 'Rookie'},
     ach: {
+      ny_dice: ['Frost Roller', 'New Year: finish 8 games'],
+      ny_bubble: ['Gift Giver', 'New Year: pay 10 checks in online games'],
+      ny_avatar: ['Santa', 'New Year: win 5 online or Quick games'],
+      ny_board: ['Snowy Forest', 'New Year: finish 25 games'],
+      va_dice: ['Rose Roller', 'Valentine’s Day: finish 8 games'],
+      va_bubble: ['Love Letter', 'Valentine’s Day: pass the check on with a deal 5 times in online games'],
+      va_avatar: ['Cupid', 'Valentine’s Day: win 5 online or Quick games'],
+      va_board: ['Candlelight', 'Valentine’s Day: finish 25 games'],
+      ea_dice: ['Painted Egg', 'Easter: finish 8 games'],
+      ea_bubble: ['Pastel Talker', 'Easter: play 15 cards in online games'],
+      ea_board: ['Egg Hunter', 'Easter: buy 5 restaurants in online games'],
+      ea_avatar: ['Easter Bunny', 'Easter: win 5 online or Quick games'],
+      hw_dice: ['Pumpkin Roller', 'Halloween: finish 8 games'],
+      hw_avatar: ['Pumpkin Head', 'Halloween: win 5 online or Quick games'],
+      hw_bubble: ['Spooky Talker', 'Halloween: pass the check on with a deal 5 times in online games'],
+      hw_board: ['Haunted Table', 'Halloween: finish 25 games'],
+      halloween_2026: ['Halloween 2026', 'Complete all four Halloween 2026 quests'],
       first_bite: ['First Bite', 'Win an online game'],
       regular: ['Regular', 'Win 10 online games'],
       gourmet: ['Gourmet', 'Win 100 online games'],

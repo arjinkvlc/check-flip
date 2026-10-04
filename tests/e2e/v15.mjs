@@ -28,7 +28,7 @@ await A.fill('#auName', 'Arjin'); await A.fill('#auPw', 'hunter22'); await A.fil
 await pool.query("update public.profiles set xp = 12000 where username = 'Arjin'");
 await A.evaluate(async () => (await import('/js/account.js')).refreshProfile());
 await A.click('#acctChip .chipbtn'); await A.click('[data-a=profTab][data-t=dice]'); await A.waitForTimeout(300);
-ok((await A.$$('.dprev')).length === 8, 'dice skins listed'); await shot(A, 'dice-tab');
+ok((await A.$$('.dprev')).length === 12, 'dice skins listed (8 + 4 event dice)'); await shot(A, 'dice-tab');
 await A.click('[data-a=equip][data-kind=dice][data-key=chelsea]'); await A.waitForTimeout(600);
 ok(await A.evaluate(async () => (await import('/js/account.js')).equipped().dice) === 'chelsea', 'chelsea dice equipped');
 await A.click('#profile [data-a=profBack]');

@@ -13,10 +13,10 @@ const CACHE = 'checkflip-' + VERSION;
 const SHELL = [
   '/', '/manifest.webmanifest', '/css/style.css', '/assets/logo.svg',
   '/js/app.js', '/js/engine.js', '/js/i18n.js', '/js/i18n-account.js', '/js/admin-ui.js', '/js/lang/en.js', '/js/lang/tr.js', '/js/lang/es.js', '/js/lang/pt.js', '/js/lang/fr.js', '/js/lang/de.js', '/js/seo-text.js', '/js/filter.js', '/js/sound.js', '/js/music.js',
-  '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js', '/js/icons.js', '/assets/sfx/dice-roll.mp3', '/assets/sfx/dice-land.mp3',
+  '/js/net.js', '/js/account.js', '/js/account-ui.js', '/js/social-ui.js', '/js/config.js', '/js/tips.js', '/js/share.js', '/js/icons.js', '/js/events.js', '/js/event-art.js', '/js/patch.js', '/assets/sfx/dice-roll.mp3', '/assets/sfx/dice-land.mp3',
   '/js/pwa.js', '/js/version.js', '/vendor/mqtt-5.10.1.min.js', '/vendor/supabase-js-2.117.2.js', '/vendor/fonts/fonts.css',
   ...['figtree-latin-400-normal', 'figtree-latin-600-normal', 'figtree-latin-700-normal', 'baloo-2-latin-700-normal', 'baloo-2-latin-800-normal'].map(f => `/vendor/fonts/${f}.woff2`),
-  ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic', 'barista', 'sommelier'].map(k => `/assets/avatars/${k}.svg`)
+  ...['waiter', 'waitress', 'student', 'foodie', 'italian', 'doner', 'noodle', 'baker', 'grandma', 'critic', 'barista', 'sommelier', 'pumpkin'].map(k => `/assets/avatars/${k}.svg`)
 ];
 const CDN = [];   // v1.10: fonts and libraries are served from our own site (/vendor)
 

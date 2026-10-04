@@ -1216,3 +1216,106 @@ input,select,textarea{font-family:inherit}
 .admtable small{color:var(--muted);font-size:11px}
 .segtabs{flex-wrap:wrap}
 .setlbl{display:grid;gap:2px}.setlbl small{font-size:12px}
+
+/* ---------- v1.17 seasonal events: a fixed background layer behind the whole app (js/events.js) ---------- */
+#evbg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+body[data-event] .app{position:relative;z-index:1}
+body[data-event="halloween"]{background:radial-gradient(120% 80% at 80% 0%,#ece6f4 0%,#e3e0ea 60%,#dcd8e4 100%) fixed}
+:root[data-theme="dark"] body[data-event="halloween"]{background:radial-gradient(120% 80% at 80% 0%,#2b1f45 0%,#141019 55%,#0d0a12 100%) fixed}
+#evbg .web{position:absolute;width:min(26vw,300px);aspect-ratio:1;background:0 0/contain no-repeat}
+#evbg .web.tl{left:0;top:0} #evbg .web.tr{right:0;top:0;transform:scaleX(-1)} #evbg .web.bl{left:0;bottom:0;transform:scaleY(-1);width:min(16vw,180px)}
+#evbg .thread{position:absolute;top:0;width:1px;transform-origin:top;animation:evsway 5s ease-in-out infinite}
+#evbg .thread i{position:absolute;bottom:-14px;left:-14px;width:28px;height:28px;background:center/contain no-repeat}
+#evbg .bat{position:absolute;left:0;width:44px;height:22px;background:center/contain no-repeat;opacity:.7;animation:evbat var(--d,18s) linear infinite}
+:root[data-theme="dark"] #evbg .bat{opacity:.9}
+#evbg .eyes{position:absolute;width:26px;height:10px;display:flex;justify-content:space-between;opacity:.55;animation:evblink var(--b,6s) infinite}
+:root[data-theme="dark"] #evbg .eyes{opacity:1}
+#evbg .eyes i{width:9px;height:9px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(circle at 50% 55%,#2b1a00 0 22%,#ffd75a 26%,#f2a51a 70%);box-shadow:0 0 4px rgba(200,140,20,.4)}
+:root[data-theme="dark"] #evbg .eyes i{box-shadow:0 0 10px 3px rgba(255,200,60,.55)}
+#evbg .hills{position:absolute;left:0;right:0;bottom:0;height:min(14vw,150px);background:bottom/100% 100% no-repeat}
+#evbg .moon{position:absolute;top:40px;right:12vw;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fbf6e6,#ece2c2 70%);opacity:.7}
+:root[data-theme="dark"] #evbg .moon{background:radial-gradient(circle at 40% 40%,#fff6d6,#f1d98a 70%);box-shadow:0 0 40px 12px rgba(241,217,138,.25);opacity:.9}
+@keyframes evsway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes evbat{0%{transform:translate(-10vw,0) scale(var(--s,1))}25%{transform:translate(25vw,-30px) scale(var(--s,1))}50%{transform:translate(60vw,10px) scale(var(--s,1))}75%{transform:translate(90vw,-20px) scale(var(--s,1))}100%{transform:translate(120vw,0) scale(var(--s,1))}}
+@keyframes evblink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.08)}}
+@media (prefers-reduced-motion:reduce){#evbg *{animation:none!important}}
+@media (max-width:700px){#evbg .bat:nth-child(n+9),#evbg .eyes:nth-child(n+15){display:none} #evbg .moon{width:30px;height:30px;top:14px;right:64px}}
+/* Halloween cosmetics (event items, kept forever once earned) */
+[data-board="haunted"]{--felt:#2c2140;--felt2:#4b3670;--felt3:#150e22;--frame:#140d20;--pat:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2280%22%20height%3D%2280%22%20viewBox%3D%220%200%2080%2080%22%3E%3Cg%20fill%3D%22%23ffffff%22%20opacity%3D%22.22%22%3E%3Cpath%20transform%3D%22translate%288%2010%29%20scale%28.4%29%22%20d%3D%22M30%2012%20Q27%206%2030%205%20Q31%208%2032%205%20Q35%206%2032%2012%20Q40%204%2050%206%20Q46%2010%2047%2014%20Q42%2012%2040%2016%20Q36%2013%2033%2017%20L30%2022%20L27%2017%20Q24%2013%2020%2016%20Q18%2012%2013%2014%20Q14%2010%2010%206%20Q20%204%2028%2012%20Z%22%2F%3E%3Cpath%20transform%3D%22translate%2846%2048%29%20scale%28.32%29%22%20d%3D%22M30%2012%20Q27%206%2030%205%20Q31%208%2032%205%20Q35%206%2032%2012%20Q40%204%2050%206%20Q46%2010%2047%2014%20Q42%2012%2040%2016%20Q36%2013%2033%2017%20L30%2022%20L27%2017%20Q24%2013%2020%2016%20Q18%2012%2013%2014%20Q14%2010%2010%206%20Q20%204%2028%2012%20Z%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23ffd75a%22%20opacity%3D%22.35%22%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2214%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2222%22%20cy%3D%2258%22%20r%3D%221.2%22%2F%3E%3Ccircle%20cx%3D%2270%22%20cy%3D%2270%22%20r%3D%22.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");--patsz:80px 80px}
+.dice[data-skin="pumpkin"]{--dbg:radial-gradient(circle at 30% 25%,#ffbf73,#f28c28 58%,#c8601a);--dbd:#6e3208;--dsh:#3f1d05;--dpip:#2b1a3a}
+.bb-spooky{background:#2c2140;color:#ffdcae!important;border:1.5px solid #f28c28;box-shadow:0 0 0 2px rgba(242,140,40,.18)}
+.bb-spooky::before{content:"🦇 "}
+.tt-spooky{background:#2c2140;color:#ffb35c;border:1px solid #f28c28}
+/* event card on the home screen and the profile's Event tab */
+.evcard{border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card);margin:12px 0}
+.evcard.halloween{border-color:#f28c28;background:linear-gradient(135deg,rgba(242,140,40,.12),rgba(107,63,160,.12)),var(--card)}
+.evcard summary{cursor:pointer;font-weight:700;display:flex;align-items:center;gap:8px;list-style:none}
+.evcard summary::-webkit-details-marker{display:none}
+.evcard .evends{margin-left:auto;font-weight:500;font-size:13px;color:var(--muted)}
+.evq{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.evq li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.evq .bar{grid-column:1/-1;height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.evq .bar i{display:block;height:100%;background:#f28c28}
+.evq li.done b{text-decoration:line-through;opacity:.7}
+.evq small{color:var(--muted)}
+.evtag{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:#f28c28;color:#2b1a3a;margin-left:4px;vertical-align:middle}
+/* v1.17 New Year, Valentine's Day and Easter background layers (pictures in js/event-art.js) */
+body[data-event="newyear"]{background:radial-gradient(120% 80% at 50% 0%,#eaf2fb 0%,#dde6f1 60%,#d3deeb 100%) fixed}
+:root[data-theme="dark"] body[data-event="newyear"]{background:radial-gradient(120% 80% at 50% 0%,#1c2f55 0%,#0e1730 55%,#080d1c 100%) fixed}
+body[data-event="valentine"]{background:radial-gradient(120% 80% at 50% 0%,#fbeef3 0%,#f1e1e8 60%,#ead6df 100%) fixed}
+:root[data-theme="dark"] body[data-event="valentine"]{background:radial-gradient(120% 80% at 50% 0%,#44162d 0%,#1d0b15 55%,#12070d 100%) fixed}
+body[data-event="easter"]{background:radial-gradient(120% 80% at 80% 0%,#f3fbef 0%,#e6f0e2 60%,#dce8d8 100%) fixed}
+:root[data-theme="dark"] body[data-event="easter"]{background:radial-gradient(120% 80% at 80% 0%,#183a30 0%,#0d1f1a 55%,#08130f 100%) fixed}
+#evbg .wire{position:absolute;left:210px;right:0;top:0;height:60px;background:0 0/100% 100% no-repeat}
+#evbg .bulb{position:absolute;width:9px;height:13px;margin-left:-4.5px;border-radius:45% 45% 50% 50%/40% 40% 60% 60%;background:var(--bc);box-shadow:0 0 8px 2px var(--bc);animation:evbulb 2.6s ease-in-out infinite}
+#evbg .bulb::before{content:"";position:absolute;left:2px;top:-4px;width:5px;height:5px;border-radius:1px;background:#6b6f78}
+:root:not([data-theme="dark"]) #evbg .bulb{box-shadow:0 0 4px 0 var(--bc)}
+#evbg .sprig,#evbg .vine,#evbg .blossom{position:absolute;top:0;width:min(17vw,210px);aspect-ratio:200/120;background:0 0/contain no-repeat;opacity:.8}
+#evbg .vine.tl,#evbg .blossom.tl{opacity:.45}
+:root[data-theme="dark"] #evbg .vine.tl,:root[data-theme="dark"] #evbg .blossom.tl{opacity:.4}
+#evbg .vine,#evbg .blossom{aspect-ratio:1}
+#evbg .tl{left:0} #evbg .sprig.tr,#evbg .vine.tr,#evbg .blossom.tr{right:0;transform:scaleX(-1)}
+#evbg .flake{position:absolute;top:-10px;width:var(--sz);height:var(--sz);border-radius:50%;background:#b8c9e2;opacity:.8;animation:evfall var(--d) linear infinite}
+:root[data-theme="dark"] #evbg .flake{background:#fff;opacity:.85;box-shadow:0 0 4px rgba(255,255,255,.6)}
+#evbg .star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:0;animation:evtwinkle 4s ease-in-out infinite}
+:root:not([data-theme="dark"]) #evbg .star,:root:not([data-theme="dark"]) #evbg .ffly{display:none}
+#evbg .hang{position:absolute;width:16px;height:15px;margin-left:-8px;background:center/contain no-repeat;transform-origin:50% -6px;animation:evswing 3s ease-in-out infinite}
+#evbg .fheart{position:absolute;bottom:-40px;width:var(--sz);height:var(--sz);background:center/contain no-repeat;opacity:.35;animation:evrise var(--d) linear infinite}
+:root[data-theme="dark"] #evbg .fheart{opacity:.55;filter:drop-shadow(0 0 6px rgba(255,92,138,.6))}
+#evbg .spark{position:absolute;width:10px;height:10px;opacity:0;background:radial-gradient(circle,#fff 0 18%,transparent 22%),linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;animation:evtwinkle 3.6s ease-in-out infinite}
+:root:not([data-theme="dark"]) #evbg .spark{filter:invert(.45) sepia(1) hue-rotate(290deg) saturate(3)}
+#evbg .petal{position:absolute;top:-20px;width:var(--sz);height:calc(var(--sz) * .7);background:center/contain no-repeat;opacity:.85;animation:evpetal var(--d) linear infinite}
+#evbg .bfly{position:absolute;left:0;width:34px;height:26px;animation:evbat var(--d,22s) linear infinite}
+#evbg .bfly i{display:block;width:100%;height:100%;background:center/contain no-repeat;animation:evflap .35s ease-in-out infinite alternate}
+#evbg .ffly{position:absolute;width:5px;height:5px;border-radius:50%;background:#e8ff8a;box-shadow:0 0 10px 3px rgba(220,255,120,.6);animation:evfirefly 6s ease-in-out infinite}
+#evbg .sun{position:absolute;top:-80px;right:6vw;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,236,150,.75),rgba(255,236,150,0) 65%)}
+:root[data-theme="dark"] #evbg .sun{display:none}
+@keyframes evbulb{0%,100%{opacity:1}50%{opacity:.45;box-shadow:none}}
+@keyframes evfall{0%{transform:translate(0,-5vh)}50%{transform:translate(18px,50vh)}100%{transform:translate(-6px,108vh)}}
+@keyframes evtwinkle{0%,100%{opacity:0}50%{opacity:.9}}
+@keyframes evswing{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@keyframes evrise{0%{transform:translate(0,0)}50%{transform:translate(22px,-55vh)}100%{transform:translate(-8px,-112vh)}}
+@keyframes evpetal{0%{transform:translate(0,-5vh) rotate(0)}50%{transform:translate(40px,50vh) rotate(200deg)}100%{transform:translate(-10px,108vh) rotate(400deg)}}
+@keyframes evflap{from{transform:scaleX(1)}to{transform:scaleX(.35)}}
+@keyframes evfirefly{0%,100%{transform:translate(0,0);opacity:.2}50%{transform:translate(14px,-18px);opacity:1}}
+@media (max-width:700px){#evbg .flake:nth-of-type(2n),#evbg .petal:nth-of-type(2n),#evbg .fheart:nth-of-type(2n){display:none} #evbg .sprig,#evbg .vine,#evbg .blossom{width:30vw} #evbg .wire{left:150px}}
+
+/* v1.17 New Year, Valentine's Day and Easter cosmetics (event items, kept forever once earned) */
+[data-board="winter"]{--felt:#1d4a3a;--felt2:#2c6b53;--felt3:#12302a;--frame:#0f2a22;--pat:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2270%22%20height%3D%2270%22%20viewBox%3D%220%200%2070%2070%22%3E%3Cg%20stroke%3D%22%23ffffff%22%20stroke-width%3D%221.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%22.28%22%3E%3Cg%20transform%3D%22translate%2818%2018%29%22%3E%3Cpath%20d%3D%22M0%20-8%20L0%208%20M-7%20-4%20L7%204%20M-7%204%20L7%20-4%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2852%2050%29%20scale%28.7%29%22%3E%3Cpath%20d%3D%22M0%20-8%20L0%208%20M-7%20-4%20L7%204%20M-7%204%20L7%20-4%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23fff%22%20opacity%3D%22.25%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2216%22%20r%3D%221.3%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2254%22%20r%3D%221.1%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");--patsz:70px 70px}
+[data-board="candlelight"]{--felt:#4a1426;--felt2:#6b1f38;--felt3:#2c0b16;--frame:#22080f;--pat:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%3E%3Cg%20fill%3D%22%23f2c14e%22%20opacity%3D%22.28%22%3E%3Cpath%20transform%3D%22translate%2810%2010%29%20scale%28.5%29%22%20d%3D%22M12%2021%20C-6%209%203%20-4%2012%205%20C21%20-4%2030%209%2012%2021%20Z%22%2F%3E%3Cpath%20transform%3D%22translate%2838%2036%29%20scale%28.4%29%22%20d%3D%22M12%2021%20C-6%209%203%20-4%2012%205%20C21%20-4%2030%209%2012%2021%20Z%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23ffd1de%22%20opacity%3D%22.18%22%3E%3Ccircle%20cx%3D%2246%22%20cy%3D%2214%22%20r%3D%221.4%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2246%22%20r%3D%221.2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");--patsz:60px 60px}
+[data-board="meadow"]{--felt:#3f7d3a;--felt2:#5aa04e;--felt3:#2b5a28;--frame:#24481f;--pat:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cg%20opacity%3D%22.45%22%3E%3Cg%20transform%3D%22translate%2816%2018%29%22%20fill%3D%22%23ffffff%22%3E%3Ccircle%20cx%3D%220%22%20cy%3D%22-3%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%223%22%20cy%3D%220%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%220%22%20cy%3D%223%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%22-3%22%20cy%3D%220%22%20r%3D%222.4%22%2F%3E%3Ccircle%20r%3D%221.6%22%20fill%3D%22%23f2c94c%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2846%2046%29%20scale%28.8%29%22%20fill%3D%22%23ffe3ec%22%3E%3Ccircle%20cx%3D%220%22%20cy%3D%22-3%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%223%22%20cy%3D%220%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%220%22%20cy%3D%223%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%22-3%22%20cy%3D%220%22%20r%3D%222.4%22%2F%3E%3Ccircle%20r%3D%221.6%22%20fill%3D%22%23f2c94c%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20fill%3D%22%232b5a28%22%20opacity%3D%22.35%22%3E%3Cpath%20d%3D%22M40%2014%20l2%20-5%20l2%205Z%20M12%2048%20l2%20-5%20l2%205Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");--patsz:64px 64px}
+.dice[data-skin="frost"]{--dbg:radial-gradient(circle at 30% 25%,#ffffff,#cfe9fb 55%,#8cc4e8);--dbd:#3d7fb0;--dsh:#24577e;--dpip:#1f4f7a}
+.dice[data-skin="rose"]{--dbg:radial-gradient(circle at 30% 25%,#ffe1ea,#ff98b6 58%,#e0577f);--dbd:#8a1f43;--dsh:#5c1430;--dpip:#6b0f2c}
+.dice[data-skin="egg"]{--dbg:linear-gradient(#cde7ff 0 33%,#fff1b3 33% 66%,#ffd1dc 66%);--dbd:#7a64b5;--dsh:#4f3c8a;--dpip:#4a3570}
+.bb-gift{background:linear-gradient(90deg,#c8343a 0 9px,#f2c14e 9px 15px,#c8343a 15px);color:#fff!important;border:1.5px solid #8e1f25}
+.bb-gift::before{content:"🎁 "}
+.bb-letter{background:#fff3f6;border:1.5px solid #e88aa6;color:#8a1f43!important}
+.bb-letter::before{content:"💌 "}
+.bb-pastel{background:repeating-linear-gradient(135deg,#ffe3ec 0 10px,#e3f1ff 10px 20px,#fff6cf 20px 30px);border:1.5px solid #b9a2e0;color:#4a3570!important}
+.bb-pastel::before{content:"🥚 "}
+.tt-frost{background:#dff1fd;color:#1f4f7a;border:1px solid #8cc4e8}
+.tt-rose{background:#ffe1ea;color:#8a1f43;border:1px solid #e88aa6}
+.tt-spring{background:#eaf7e1;color:#3d6b2f;border:1px solid #9fd08a}
+.evcard.newyear{border-color:#3d8fd1;background:linear-gradient(135deg,rgba(61,143,209,.12),rgba(200,52,58,.1)),var(--card)}
+.evcard.valentine{border-color:#e8607f;background:linear-gradient(135deg,rgba(232,96,127,.14),rgba(242,193,78,.08)),var(--card)}
+.evcard.easter{border-color:#8fc46f;background:linear-gradient(135deg,rgba(143,196,111,.16),rgba(246,185,203,.14)),var(--card)}

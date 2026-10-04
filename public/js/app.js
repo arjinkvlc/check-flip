@@ -22,6 +22,7 @@ import {canInstall, install, isIOS, onInstallChange} from './pwa.js';
 import {ACC, initAccount, loggedIn, equipped, publicCard, submitResult, safeItem, unlocked, CATALOG, titleCls, setSocialGameCheck, onAccount, logEvent, reportChat, isAdmin, reportClientError, sendFeedback, setPrefs, syncLang, hasRealEmail} from './account.js';
 import {initAccountUI, renderAcctPanel, renderAcctChip, renderAuth, renderProfile, resultHTML, accountClick, frCls, bbCls, AU} from './account-ui.js';
 import {ico} from './icons.js';
+import {apply as applyEvent, setPreviewGate, onTheme, seasonOn, setSeasonOn} from './events.js';
 import {LANGS, LANG_NAMES, locale, i18nReady, getLang, setLang, t, tx, M, MM, sqName, sqDesc, venueName, cardName, cardDesc, avatarLabel, nickList, setVenueIconFn} from './i18n.js';
 // the chosen language's texts must be ready before the first screen is drawn
 await i18nReady;
@@ -71,6 +72,8 @@ const myAvatarPref = () => { if (!loggedIn()) return null; const a = equipped().
 const avHTML = k => `<img class="avimg" src="assets/avatars/${k}.svg" alt="" draggable="false">`;
 // can *I* pick this avatar? (locked ones need a level or an achievement)
 const avOpen = k => unlocked('avatar', k);
+// bots never wear event avatars (those are earned by players)
+const botAvs = () => Object.keys(AVATARS).filter(k => !(CATALOG.avatar.find(c => c.key === k) || {}).ev);
 const errMsg = e => (e && (e.message || e.type)) || t('eUnknown');
 const newer = (a, b) => !b || (a.ep || 0) > (b.ep || 0) || ((a.ep || 0) === (b.ep || 0) && a.rev > b.rev);
 const EXP = {messageExpiryInterval: 43200};
@@ -366,7 +369,7 @@ function maybeSubmit(V) {
 const inviteLink = () => location.origin + location.pathname + '?room=' + code;
 
 /* ================= animation queue ================= */
-let shown = null, animating = false, skip = false, override = {};
+let shown = null, animating = false, skip = false, override = {}, spinning = false;
 const animQ = [];
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let waiters = [];
@@ -441,7 +444,7 @@ function addBot(fill) {
   if (!S || !isHost() || S.ph !== 'lobby' || (S.pub && !fill) || S.pl.length >= (S.pub ? CFG.PUBMAX : CFG.MAXP)) return;
   const used = new Set(S.pl.map(q => q.n));
   const pool = shuffle(nickList().filter(n => !used.has(n)));
-  const avs = shuffle(Object.keys(AVATARS).filter(k => !S.pl.some(q => q.av === k)));
+  const avs = shuffle(botAvs().filter(k => !S.pl.some(q => q.av === k)));
   const id = 'bot' + rid(6), nm = uniqName(S, pool[0] || 'Bot', nickList());
   addPlayer(S, id, nm, {bot: 1, bd: fill ? fillLevel() : botLv(), av: avs[0] || null}); L(S, 'joined', {n: nm});
   if (fill) { S.rdy[id] = 1; return; }
@@ -502,19 +505,30 @@ async function play(prev, nx) {
     if (!fx.quiet && fx.t !== 'roll') outcomeSound(prev, nx, fx);
   }
   if (fx.venue != null && nx.ph === 'feast') await venueReveal(nx, fx.venue);
+  else if (nx.ph === 'play' && nx.dv != null && VENUES[nx.dv] && (prev.ph !== 'play' || prev.day !== nx.day)) await venueSpin(nx);
 }
+// v1.17: tonight's venue is drawn when the day starts, so the spinning draw plays then (on the board, under the dice)
+async function venueSpin(V) {
+  const ks = Object.keys(VENUES).map(Number), din = $('#cDin'); spinning = true;
+  let k = 0; const end = Date.now() + (reduce ? 200 : 1400);
+  while (Date.now() < end && !skip) {
+    const p = ks[k++ % ks.length]; cells.forEach((c, j) => c.classList.toggle('pick', j === p));
+    if (din) { din.hidden = false; din.innerHTML = esc(t('pickingVenue')); }
+    SFX.play('tick'); await wait(140);
+  }
+  spinning = false; cells.forEach(c => c.classList.remove('pick'));
+  const c = cells[V.dv]; if (c) { c.classList.remove('land'); void c.offsetWidth; c.classList.add('land'); }
+  if (din) din.innerHTML = esc(t('dinnerTonight', '\u0001')).replace('\u0001', vIco(V.dv) + esc(vname(V.dv)));
+  cells.forEach((el, j) => el.classList.toggle('dinner', j === V.dv)); SFX.play('menu');
+}
+// at dinner everyone already knows the venue: just show it with the owner and who pays
 async function venueReveal(V, v) {
   clearTimeout(popTimer); popTimer = null;
-  const pop = $('#pop'); const ks = Object.keys(VENUES).map(Number); pop.hidden = false;
-  const cardHtml = (p, fin) => {
-    const o = V.own[p];
-    return `<div class="popcard" style="--hc:#7a4fa8"><div class="pophead">${esc(t('dinnerHd', V.day))}</div><div class="popbody">
-    <div class="poptitle">${esc(vfull(p))}</div>${fin ? `<div class="popsub">${o ? t('venueOwner', esc(V.pl[o.o].n), pct(COMS[o.lv || 1])) : esc(t('venueNoOwner'))}</div>
-    <div class="popsub">${t('checkIs', esc(V.pl[V.fe.w].n))}</div><div class="popskip">${esc(t('tapToContinue'))}</div>` : `<div class="popsub">${esc(t('pickingVenue'))}</div>`}</div>${fin ? popBar(POP_LONG) : ''}</div>`;
-  };
-  let k = 0; const end = Date.now() + (reduce ? 200 : 1400);
-  while (Date.now() < end && !skip) { const p = ks[k++ % ks.length]; pop.innerHTML = cardHtml(p, false); cells.forEach((c, j) => c.classList.toggle('pick', j === p)); SFX.play('tick'); await wait(140); }
-  pop.innerHTML = cardHtml(v, true); cells.forEach((c, j) => c.classList.toggle('pick', j === v)); SFX.play('pay');
+  const pop = $('#pop'), o = V.own[v]; pop.hidden = false;
+  pop.innerHTML = `<div class="popcard" style="--hc:#7a4fa8"><div class="pophead">${esc(t('dinnerHd', V.day))}</div><div class="popbody">
+    <div class="poptitle">${esc(vfull(v))}</div><div class="popsub">${o ? t('venueOwner', esc(V.pl[o.o].n), pct(COMS[o.lv || 1])) : esc(t('venueNoOwner'))}</div>
+    <div class="popsub">${t('checkIs', esc(V.pl[V.fe.w].n))}</div><div class="popskip">${esc(t('tapToContinue'))}</div></div>${popBar(POP_LONG)}</div>`;
+  cells.forEach((c, j) => c.classList.toggle('pick', j === v)); SFX.play('pay');
   const t0 = Date.now(); await wait(POP_HOLD);
   if (skip) closePop(); else lingerPop(POP_LONG - (Date.now() - t0));
 }
@@ -543,7 +557,7 @@ function deltas(prev, nx) {
   });
   return rows;
 }
-const POP_KEYS = ['lap', 'half', 'out', 'won', 'teamWon', 'teamHelp', 'dayStart', 'order', 'paid', 'belt', 'handFull', 'waits', 'commission', 'freed', 'daysOver', 'rent', 'gotBelt', 'dutch', 'startMoney'];
+const POP_KEYS = ['shortcut', 'goBack', 'lap', 'half', 'out', 'won', 'teamWon', 'teamHelp', 'dayStart', 'order', 'paid', 'belt', 'handFull', 'waits', 'commission', 'freed', 'daysOver', 'rent', 'gotBelt', 'dutch', 'startMoney'];
 function popHTML(prev, nx, fx) {
   if (fx.quiet || fx.t === 'roll') return ''; const dr = deltas(prev, nx); let head, hc, title, sub, tIco = '';
   if (fx.card) {
@@ -792,6 +806,7 @@ function render(prev, forceV) {
   if (code) $('#roomChip').innerHTML = S && S.pub ? esc(t('quickTitle')) : `${esc(t('chipRoom'))} <b>${esc(code)}</b>`;
   $('#leaveBtn').hidden = !mode; $('#rulesBtn').hidden = !mode; updChat(); $('#sndBtn').classList.toggle('on', SFX.on); $('#sndBtn').setAttribute('aria-checked', String(SFX.on)); 
   $('#musicBtn').classList.toggle('on', Music.on); $('#musicBtn').setAttribute('aria-checked', String(Music.on));
+  { const sb = $('#seasonBtn'); if (sb) { sb.classList.toggle('on', seasonOn()); sb.setAttribute('aria-checked', String(seasonOn())); } }
   { const sel = $('#setLangSel'); if (sel && sel.value !== getLang()) sel.value = getLang(); }
   document.querySelectorAll('[data-a=setTheme]').forEach(b => b.classList.toggle('on', b.dataset.t === (document.documentElement.dataset.theme || 'light')));
   renderAcctChip($('#acctChip')); $('#logoutBtn').hidden = !(loggedIn() && ui.screen === 'home'); $('#logoutBtn').title = t('aLogout');
@@ -904,7 +919,7 @@ function drawTokens(V) {
 function drawCells(V, targets) {
   cells.forEach((el, p) => {
     el.classList.toggle('feastv', V.ph === 'feast' && V.fe && V.fe.v === p);
-    el.classList.toggle('dinner', V.ph === 'play' && V.dv === p);
+    el.classList.toggle('dinner', V.ph === 'play' && V.dv === p && !spinning);
     if (BOARD[p] === 'mekan') { const o = V.own && V.own[p]; el.classList.toggle('owned', !!o); el.style.setProperty('--oc', o ? colOf(o.o) : 'transparent');
       const b = el.querySelector('.own'); b.textContent = o ? '★'.repeat(o.lv || 1) : M(CFG.VPRICE); b.title = o ? t('ownerTitle', V.pl[o.o].n) : t('forSale'); }
     const tg = targets && targets[p];
@@ -955,7 +970,7 @@ function renderGame(V, prev) {
   drawCells(V, targets);
   const d = V.dice;
   if (!animating) { skinDice(V, V.ph === 'play' ? V.ord[V.cur] : -1); setDice(d ? d[0] : 1, d ? d[1] : 1); $('#dice').classList.toggle('dbl', !!(d && d[0] === d[1])); }
-  const din = $('#cDin'); din.hidden = !(V.ph === 'play' && V.dv != null && VENUES[V.dv]); if (!din.hidden) din.innerHTML = esc(t('dinnerTonight', '\u0001')).replace('\u0001', vIco(V.dv) + esc(vname(V.dv)));
+  const din = $('#cDin'); din.hidden = !(V.ph === 'play' && V.dv != null && VENUES[V.dv]); if (!din.hidden && spinning) din.innerHTML = esc(t('pickingVenue')); else if (!din.hidden) din.innerHTML = esc(t('dinnerTonight', '\u0001')).replace('\u0001', vIco(V.dv) + esc(vname(V.dv)));
   $('#cDay').textContent = V.ph === 'feast' ? t('dayFeast', V.day) : V.ph === 'over' ? t('gameOver') : t('dayMove', V.day, V.cfg && V.cfg.days, Math.min(V.rd + 1, 2));
   const whoI = V.ph === 'over' ? V.win : A;
   if (!animating) {
@@ -1006,9 +1021,9 @@ function renderGame(V, prev) {
         ${lv < 3 ? `<button class="btn choice" data-a="home" data-up="1" ${Q.m >= cost && !lock ? '' : 'disabled'}><b>${esc(t('upgradeBtn', '★'.repeat(lv + 1)))}</b><span>${esc(t('upgradeSub', cost, pct(COMS[lv + 1])))}</span></button>` : `<p class="note">${esc(t('maxLevel'))}</p>`}</div></div>`
         : `<p class="status">${esc(t('isHome', Q.n))}</p>`;
     } else if (P.k === 'offer') {
-      const o = V.own[P.p], mn = o.pr + 10;
+      const o = V.own[P.p], mn = Math.min(o.pr + 10, Q.m);
       h += you ? `<div class="venuebox"><div class="vt">${esc(vfull(P.p))}</div><p class="note">${esc(t('offerNote', V.pl[o.o].n, o.pr, mn))}</p>
-        <div class="row"><input id="offerAmt" type="number" min="${mn}" max="${Q.m}" step="5" value="${mn}" inputmode="numeric" aria-label="${esc(t('offerAria'))}"><button class="btn primary" data-a="offer" ${dis}>${esc(t('offerBtn'))}</button></div>
+        <div class="row"><input id="offerAmt" type="number" min="${CFG.OFFER_MIN}" max="${Q.m}" step="5" value="${mn}" inputmode="numeric" aria-label="${esc(t('offerAria'))}"><button class="btn primary" data-a="offer" ${dis}>${esc(t('offerBtn'))}</button></div>
         <button class="btn ghost small" data-a="offer" data-skip="1" ${dis}>${esc(t('noOfferBtn'))}</button></div>`
         : `<p class="status">${esc(t('isOffering', Q.n, vname(P.p)))}</p>`;
     } else if (P.k === 'ow') {
@@ -1077,7 +1092,9 @@ function renderGame(V, prev) {
     const q = V.pl[i], o = prev && prev.pl[i];
     const meter = Array.from({length: CFG.HMAX}, (_, k) => `<i class="${k < q.h ? 'on' : ''}${k < q.h && q.h >= 7 ? ' hi' : ''}"></i>`).join('');
     const canUse = q.a && mine(V, i) && !lock && (V.ph === 'play' || V.ph === 'feast');
-    const hand = !canSee(V, i) ? q.c.map(() => `<span class="card hid" title="${esc(t('hiddenCardT'))}">${ico('sans')}</span>`).join('') : q.c.map(c => { const any = HOLD[c] === 'any', ok = canUse && (any ? rivals(V, i).length > 0 : V.ph === 'feast' && V.fe.w === i && !V.fe.off);
+    // v1.17: a Tighten the Belt card from the board square was seen by everyone, so it stays visible (q.kv of them)
+    const pubK = Math.min(q.kv || 0, q.c.filter(c => c === 'K').length);
+    const hand = !canSee(V, i) ? Array.from({length: pubK}, () => `<span class="card feastc" title="${esc(cardDesc('K'))}">${esc(cardName('K'))}</span>`).join('') + q.c.slice(pubK).map(() => `<span class="card hid" title="${esc(t('hiddenCardT'))}">${ico('sans')}</span>`).join('') : q.c.map(c => { const any = HOLD[c] === 'any', ok = canUse && (any ? rivals(V, i).length > 0 : V.ph === 'feast' && V.fe.w === i && !V.fe.off);
       const cls = 'card' + (any ? '' : ' feastc'), tl = esc(cardDesc(c));
       return ok ? `<button class="${cls}" data-a="${any ? 'sel' : 'use'}" data-i="${i}" data-c="${c}" title="${tl}">${esc(cardName(c))}</button>` : `<span class="${cls}" title="${tl}">${esc(cardName(c))}</span>`; }).join('');
     const vs = ownedBy(V, i).map(p => `<span class="card venue" title="${esc(t('value', V.own[p].pr, pct(COMS[V.own[p].lv || 1])))}">${esc(vfull(p))} ${'★'.repeat(V.own[p].lv || 1)}</span>`).join('');
@@ -1102,7 +1119,7 @@ function startLocalGame(isSolo) {
   if (isSolo) {
     const nm = myName(); me = {pid: 'L0', nm};
     addPlayer(S, 'L0', nm, {av: ui.soloAv || null, pf: publicCard()});
-    const pool = shuffle(nickList().filter(x => x !== nm)); const avs = shuffle(Object.keys(AVATARS).filter(k => k !== ui.soloAv));
+    const pool = shuffle(nickList().filter(x => x !== nm)); const avs = shuffle(botAvs().filter(k => k !== ui.soloAv));
     for (let k = 1; k < (ui.soloN || 3); k++) addPlayer(S, 'B' + k, uniqName(S, pool[k], nickList()), {bot: 1, bd: botLv(), av: avs[k]});
     S.cfg.start = cfgNum($('#soloMoney').value); S.cfg.days = +$('#soloDays').value || 0; S.cfg.mode = ui.soloMode || 'classic';
   } else {
@@ -1204,6 +1221,7 @@ document.addEventListener('click', e => {
     case 'cancel': ui.sel = null; render(); break;
     case 'snd': SFX.toggle(); render(); if (SFX.on) SFX.play('click'); break;
     case 'music': Music.toggle(); render(); break;
+    case 'season': setSeasonOn(!seasonOn()); render(); break;
     case 'share': { const V = shown || S; if (!V) break; b.disabled = true; shareResult(V, hot() ? -1 : myIdx(V)).then(r => { b.disabled = false; if (r === 'downloaded') b.textContent = t('shareSaved'); }).catch(() => { b.disabled = false; }); break; }
     case 'tipok': tipSeen(b.dataset.k); render(); break;
     case 'tipoff': tipsOff(); render(); break;
@@ -1270,6 +1288,8 @@ async function pollOnline() {
 function showOnline() { const el = $('#onlineNow'); if (!el) return; el.hidden = !(onlineN >= (ONLINE_MIN || 5)); if (!el.hidden) el.querySelector('span').textContent = t('onlineNow', onlineN); }
 setInterval(pollOnline, 60000); document.addEventListener('visibilitychange', pollOnline); setTimeout(pollOnline, 800);
 // suspended account: tell once, the account was signed out
+// v1.17 seasonal theme: background layer + music variation; admins may preview a theme in their own browser
+onTheme(ev => Music.flavor(ev)); setPreviewGate(() => isAdmin()); onAccount(() => applyEvent());
 onAccount(() => { if (ACC.banned && ui.bannedShown !== ACC.banned) { ui.bannedShown = ACC.banned; const ms = ACC.banned === 'infinity' ? Infinity : Date.parse(ACC.banned); askUser(t('accountBannedT'), t('accountBanned', banDate(ms)), t('ok'), t('close')); } });
 // language switch (Settings): loads the language's texts if needed, then redraws everything
 async function changeLang(l) {

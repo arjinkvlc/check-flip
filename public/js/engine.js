@@ -7,7 +7,7 @@
 /* ================= config ================= */
 // by restaurant level (★ / ★★ / ★★★): commission, upgrade cost, visit fee, cash from the register
 const COMS = [0, .25, .35, .5], UPC = {1: 30, 2: 45}, RENT = [0, 5, 8, 12], COLLECT = [0, 15, 20, 25];
-const CFG = {UNIT: 5, VPRICE: 40, LAP_M: 40, LAP_H: 2, HALF_M: 20, HALF_H: 1, HMAX: 10, HAND: 2, MAXP: 6, PUBMAX: 4};
+const CFG = {UNIT: 5, VPRICE: 40, LAP_M: 40, LAP_H: 2, HALF_M: 20, HALF_H: 1, HMAX: 10, HAND: 2, MAXP: 6, PUBMAX: 4, OFFER_MIN: 5};
 const N = 40, HALF = 20, IRON = 300;
 const autoMoney = n => n <= 2 ? 100 : n === 3 ? 150 : 200;
 const LIM = {def: 30000, feast: 45000, reply: 20000};
@@ -36,7 +36,7 @@ const handCard = c => c === 'A12' || c === 'A13' ? 'K' : c;
 // how much a bot wants to keep a card (higher = keep)
 const CARD_VALUE = {K: 6, B10: 5, B11: 4, A10: 4, B9: 2, B8: 2};
 // avatar keys → illustrations in public/assets/avatars/<key>.svg (unlock rules in js/account.js)
-const AVATARS = {waiter: 1, waitress: 1, student: 1, foodie: 1, italian: 1, doner: 1, noodle: 1, baker: 1, grandma: 1, critic: 1, barista: 1, sommelier: 1};
+const AVATARS = {waiter: 1, waitress: 1, student: 1, foodie: 1, italian: 1, doner: 1, noodle: 1, baker: 1, grandma: 1, critic: 1, barista: 1, sommelier: 1, pumpkin: 1};   // pumpkin: Halloween event avatar (v1.17)
 const EMOJIS = ['😂', '😭', '😡', '😱', '👏', '😋'];
 const cellIcon = p => BOARD[p] === 'mekan' ? VICON[VENUES[p]] : KICON[BOARD[p]];
 const venueIconAt = p => VICON[VENUES[p]] || '';
@@ -98,11 +98,14 @@ function fwd(S, i, n) {
 }
 function back(S, i, n) { const Q = S.pl[i]; for (let k = 0; k < n; k++) { Q.p = (Q.p - 1 + N) % N; step(S, Q.p); } }
 // a card for the hand; when the hand is full the player chooses what to drop (returns true = waiting for that choice)
-function give(S, i, c) {
+// pub: the Tighten the Belt card from the board square, which everyone saw (Q.kv = how many of the player's belts are public)
+function give(S, i, c, pub) {
   const Q = S.pl[i];
-  if (Q.c.length >= CFG.HAND) { S.pend = {k: 'swap', i, c}; return true; }
-  Q.c.push(c); return false;
+  if (Q.c.length >= CFG.HAND) { S.pend = {k: 'swap', i, c}; if (pub) S.pend.pub = 1; return true; }
+  Q.c.push(c); if (pub) Q.kv = (Q.kv || 0) + 1; return false;
 }
+// a belt card left the hand: the public one goes first
+const beltGone = Q => { if (Q.kv) Q.kv--; };
 function draw(S, d) {
   const k = 'd' + d;
   if (!S[k].length) { const held = new Set(S.pl.flatMap(q => q.c)); S[k] = shuffle(CARD_IDS.filter(id => id[0] === d && !held.has(id))); }
@@ -112,22 +115,22 @@ function worth(S, i) { let w = S.pl[i].m; for (const k in S.own) if (S.own[k].o 
 function land(S, i, dep) {
   const Q = S.pl[i]; if (S.fx) S.fx.sq = Q.p;
   switch (BOARD[Q.p]) {
-    case 'kemer': L(S, 'gotBelt', {n: Q.n}); return give(S, i, 'K');
+    case 'kemer': L(S, 'gotBelt', {n: Q.n}); return give(S, i, 'K', 1);
     case 'sans': return card(S, i, draw(S, 'A'), dep);
     case 'olay': return card(S, i, draw(S, 'B'), dep);
     case 'gelir': Q.m += 20; L(S, 'payday', {n: Q.n, m: 20}, 1); break;
     case 'fatura': L(S, 'bills', {n: Q.n, m: pay(Q, 15)}, 1); break;
     case 'atis': hun(Q, -2); L(S, 'snack', {n: Q.n}, 1); break;
     case 'spor': hun(Q, 2); L(S, 'gym', {n: Q.n}, 1); break;
-    case 'kisa': L(S, 'shortcut', {n: Q.n}); split(S); fwd(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
-    case 'geri': L(S, 'goBack', {n: Q.n}); split(S); back(S, i, 3); if (dep < 2) return land(S, i, dep + 1); break;
+    case 'kisa': { const k = 1 + Math.floor(Math.random() * 4); L(S, 'shortcut', {n: Q.n, k}); split(S); fwd(S, i, k); } if (dep < 2) return land(S, i, dep + 1); break;
+    case 'geri': { const k = 1 + Math.floor(Math.random() * 4); L(S, 'goBack', {n: Q.n, k}); split(S); back(S, i, k); } if (dep < 2) return land(S, i, dep + 1); break;
     case 'mola': Q.s++; L(S, 'coffee', {n: Q.n}, 1); break;
     case 'mekan': {
       const o = S.own[Q.p], v = VENUES[Q.p];
       if (!o) { if (Q.m >= CFG.VPRICE) { S.pend = {k: 'buy', i, p: Q.p}; return true; } L(S, 'noCashVenue', {n: Q.n, v}); break; }
       if (o.o === i) { S.pend = {k: 'home', i, p: Q.p}; return true; }
       { const O = S.pl[o.o]; if (O.a) { const r = pay(Q, RENT[o.lv || 1]); O.m += r; if (r) L(S, 'rent', {n: Q.n, o: O.n, v, m: r}); } }
-      if (Q.m >= o.pr + 10) { S.pend = {k: 'offer', i, p: Q.p}; return true; }
+      if (Q.m >= CFG.OFFER_MIN) { S.pend = {k: 'offer', i, p: Q.p}; return true; }
       L(S, 'noCashOffer', {n: Q.n, v, o: S.pl[o.o].n}); break;
     }
     case 'bos': L(S, 'empty', {n: Q.n}, 1); break;
@@ -263,7 +266,7 @@ function useCard(S, i, c, to) {
   else if (c === 'B10') { const n = S.tq.length; if (n < 2) return false; const a = S.ti, b = (S.ti + 1) % n; [S.tq[a], S.tq[b]] = [S.tq[b], S.tq[a]]; f.w = S.tq[a]; f.ku = 0; f.ke = 0; f.kw = null; f.al = 0; }
   if (c === 'K') stat(Q, 'b');
   stat(Q, 'cu');
-  Q.c.splice(k, 1); L(S, 'cardUse', {n: Q.n, c, t: c === 'B10' ? S.pl[f.w].n : null}); return true;
+  Q.c.splice(k, 1); if (c === 'K') beltGone(Q); L(S, 'cardUse', {n: Q.n, c, t: c === 'B10' ? S.pl[f.w].n : null}); return true;
 }
 function actInner(S, i, pid, a) {
   const P = S.pend, fx = S.fx;
@@ -292,7 +295,7 @@ function actInner(S, i, pid, a) {
     case 'offer': {
       if (S.ph !== 'play' || !P || P.k !== 'offer' || P.i !== i) return false; const o = S.own[P.p], Q = S.pl[i], amt = Math.round(+a.amt || 0), v = VENUES[P.p];
       if (!amt) { S.pend = null; fx.quiet = 1; L(S, 'noOffer', {n: Q.n, v}, 1); after(S); return true; }
-      if (!o || amt < o.pr + 10 || amt > Q.m) return false;
+      if (!o || amt < CFG.OFFER_MIN || amt > Q.m) return false;
       S.pend = {k: 'ow', i: o.o, p: P.p, from: i, amt};
       fx.head = tt('venueOffer'); fx.title = tt('venue', {v}); fx.sub = tt('offeredSub', {n: Q.n, o: S.pl[o.o].n, m: amt});
       L(S, 'offered', {n: Q.n, o: S.pl[o.o].n, v, m: amt}, 1); return true;
@@ -308,7 +311,7 @@ function actInner(S, i, pid, a) {
     case 'swap': {
       if (S.ph !== 'play' || !P || P.k !== 'swap' || P.i !== i) return false; const Q = S.pl[i]; S.pend = null;
       if (a.drop === 'new' || a.drop == null) L(S, 'handFull', {n: Q.n, c: P.c});
-      else { const k = +a.drop; if (!(k >= 0 && k < Q.c.length)) return false; const o = Q.c[k]; Q.c[k] = P.c; L(S, 'swapped', {n: Q.n, c: P.c, o}); }
+      else { const k = +a.drop; if (!(k >= 0 && k < Q.c.length)) return false; const o = Q.c[k]; Q.c[k] = P.c; if (o === 'K') beltGone(Q); if (P.pub) Q.kv = (Q.kv || 0) + 1; L(S, 'swapped', {n: Q.n, c: P.c, o}); }
       fx.quiet = 1; after(S); return true;
     }
     case 'use': if (!S.pl[i].a) return false; fx.card = String(a.c); return useCard(S, i, String(a.c), +a.to);
@@ -394,14 +397,32 @@ function sqScore(S, i, from, v) {
   switch (BOARD[t]) {
     case 'gelir': sc += 20; break; case 'fatura': sc -= 15; break; case 'sans': sc += 4; break; case 'olay': sc += 3; break;
     case 'atis': sc += payToday ? 12 : -8; break; case 'spor': sc += payToday ? -10 : 10; break;
-    case 'kemer': sc += Q.c.length < CFG.HAND ? 18 : 0; break; case 'mola': sc -= 10; break; case 'kisa': sc += 3; break; case 'geri': sc -= 3; break;
+    case 'kemer': sc += Q.c.length < CFG.HAND ? 18 : 0; break; case 'mola': sc -= 10; break; case 'kisa': sc += 2; break; case 'geri': sc -= 2; break;
     case 'mekan': { const o = S.own[t], din = t === S.dv ? 8 : 0; if (!o) sc += Q.m >= CFG.VPRICE + 50 ? 14 + din : 0; else if (o.o === i) sc += COLLECT[o.lv || 1] + din; else sc -= RENT[o.lv || 1]; break; }
   }
   return sc + Math.random() * 3;
 }
 // Bot difficulty: 'easy' often makes a random choice, 'normal' sometimes, 'hard' never.
 const BOT_NOISE = {easy: .75, normal: .45, hard: 0};
+// the bot pays tonight's check and can't cover it (or is nearly broke)
+function needCash(S, i) {
+  const Q = S.pl[i]; if (Q.m < 25) return true; if (S.tq[S.ti] !== i) return false;
+  return S.ord.reduce((s, j) => s + S.pl[j].h * S.pl[j].x * CFG.UNIT, 0) > Q.m;
+}
+// v1.17 last resort, at every level: the check is more than the bot can pay → play a card that lowers or moves it
+function botRescue(S, i) {
+  if (S.ph !== 'feast' || !S.fe || S.fe.off || S.fe.w !== i) return null;
+  const Q = S.pl[i], f = S.fe, b = bill(S), own = b.lines.find(l => l.j === i);
+  const due = b.al ? (own ? own.v : 0) : b.tot; if (due <= Q.m) return null;
+  if (Q.c.includes('B10') && S.tq.length > 1) return {t: 'use', c: 'B10'};
+  if (Q.c.includes('B11') && !f.al && !f.ku && own && own.v <= Q.m) return {t: 'use', c: 'B11'};
+  if (Q.c.includes('A10') && !f.ku && !b.al) return {t: 'use', c: 'A10'};
+  if (Q.c.includes('K') && !f.ke && own && own.v > 0) return {t: 'use', c: 'K'};
+  if (Q.c.includes('B8')) { const t = S.ord.filter(j => j !== i).sort((a, z) => S.pl[z].h * S.pl[z].x - S.pl[a].h * S.pl[a].x)[0]; if (t != null && S.pl[t].h > 0) return {t: 'use', c: 'B8', to: t}; }
+  return null;
+}
 function botDecide(S, i, lv) {
+  const rescue = botRescue(S, i); if (rescue) return rescue;
   const best = botBest(S, i); const q = S.pl[i], noise = BOT_NOISE[lv || q.bd || 'hard'] || 0;
   if (!best || !noise || Math.random() >= noise) return best;
   return botRandom(S, i) || best;
@@ -409,7 +430,12 @@ function botDecide(S, i, lv) {
 // a legal but careless choice
 function botRandom(S, i) {
   const Q = S.pl[i], P = S.pend, pick = a => a[Math.floor(Math.random() * a.length)], coin = () => Math.random() < .5 ? 1 : 0;
-  if (S.ph === 'feast') { if (S.fe.off) return S.fe.off.to === i ? {t: 'dealr', ok: canTake(S, i, S.fe.off.amt) ? coin() : 0} : null; return S.fe.w === i ? {t: 'pay'} : null; }
+  if (S.ph === 'feast') {
+    if (S.fe.off) return S.fe.off.to === i ? {t: 'dealr', ok: canTake(S, i, S.fe.off.amt) ? coin() : 0} : null;
+    if (S.fe.w !== i) return null;
+    const f = S.fe, ok = {A10: !f.ku && !f.al, K: !f.ke, B11: !f.al && !f.ku, B10: S.tq.length > 1};   // careless, but cards still get played
+    const cs = Q.c.filter(c => ok[c]); return cs.length && coin() ? {t: 'use', c: pick(cs)} : {t: 'pay'};
+  }
   if (S.ph !== 'play') return null;
   if (!P) return mover(S) === i ? {t: 'roll'} : null;
   if (P.i !== i) return null;
@@ -432,10 +458,10 @@ function botBest(S, i) {
     if (f.w !== i) return null;
     const b = bill(S), own = b.lines.find(l => l.j === i);
     for (const c of Q.c) {
-      if (c === 'A10' && !f.ku && !b.al && b.tot >= 30) return {t: 'use', c};
-      if (c === 'K' && !f.ke && own && own.v >= 15) return {t: 'use', c};
+      if (c === 'A10' && !f.ku && !b.al && b.tot >= 25) return {t: 'use', c};
+      if (c === 'K' && !f.ke && own && own.v >= 10) return {t: 'use', c};
       if (c === 'B11' && !f.al && !f.ku && own && b.tot >= 30 && own.v < b.tot * .4) return {t: 'use', c};
-      if (c === 'B10' && b.tot > Q.m * .5 && S.tq.length > 1) return {t: 'use', c};
+      if (c === 'B10' && b.tot > Q.m * .4 && S.tq.length > 1) return {t: 'use', c};
       if (c === 'B8') { const t = S.ord.filter(j => j !== i).sort((a, z) => S.pl[z].h * S.pl[z].x - S.pl[a].h * S.pl[a].x)[0]; if (t != null && S.pl[t].h >= 2) return {t: 'use', c, to: t}; }
     }
     if (!f.dl && !f.al && b.tot >= Math.max(25, Q.m * .35)) {
@@ -453,7 +479,7 @@ function botBest(S, i) {
     case 'swap': { let k = -1, lo = CARD_VALUE[P.c] || 0; Q.c.forEach((c, j) => { const v = CARD_VALUE[c] || 0; if (v < lo) { lo = v; k = j; } }); return {t: 'swap', drop: k < 0 ? 'new' : k}; }
     case 'buy': return {t: 'buy', yes: Q.m - CFG.VPRICE >= 50 ? 1 : 0};
     case 'offer': { const o = S.own[P.p], a = o.pr + 10; return {t: 'offer', amt: Q.m - a >= 90 && Math.random() < .35 ? a : 0}; }
-    case 'ow': return {t: 'owr', ok: P.amt >= S.own[P.p].pr * 1.6 || Q.m < 40 ? 1 : 0};
+    case 'ow': { const pr = S.own[P.p].pr; return {t: 'owr', ok: P.amt >= pr * 1.6 || (P.amt >= pr && Q.m < 40) || (needCash(S, i) && P.amt >= Math.min(pr, 15)) ? 1 : 0}; }
     case 'home': { const o = S.own[P.p], lv = o.lv || 1; return {t: 'home', up: lv < 3 && Q.m - UPC[lv] >= 70 ? 1 : 0}; }
   }
   return null;
@@ -471,5 +497,5 @@ export {
   cellIcon, venueIconAt, clamp, d6, shuffle, clean, uniqName, avTaken, setAvatar,
   newState, addPlayer, L, mover, pay, hun, rivals, fwd, back, give, draw, worth, land, card, doRoll, after, next,
   ownedBy, feast, bill, canTake, elim, payFeast, startDay, rank, startGame, useCard, actInner, act, actor, autoPick, checkStart,
-  sqScore, botDecide, botRandom, botSide, standings, winners, gameId, BOT_NOISE
+  sqScore, botDecide, botRandom, botRescue, needCash, botSide, standings, winners, gameId, BOT_NOISE
 };

@@ -5,6 +5,9 @@
  *    pizzicato bass, soft off-beat chords, a staccato clarinet-like melody and a brushed hi-hat.
  *  - 'game': the calm lounge / elevator loop (slow pads, soft bass, a few bells).
  * Switching scenes cross-fades at the next bar. On/off is remembered.
+ * v1.17: seasonal flavours of the same tunes: Halloween (slower, darker chords, organ, a tolling bell), New Year
+ * (major key, celesta, sleigh bells), Valentine's Day (slower, soft flute, harp and strings), Easter (major key,
+ * quicker, flute and birdsong).
  */
 const LS = 'cp-music';
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -18,9 +21,20 @@ const G_CHORDS = [
   {root: 43, notes: [53, 59, 62, 64]}    // G13sus
 ];
 const BELLS = [72, 74, 76, 79, 81, 84];
+// Halloween: same roots and rhythm, darker chords (Fm9, Em7♭5, Dm9, G7♭9) and minor-pentatonic bells
+const G_CHORDS_HW = [
+  {root: 41, notes: [56, 60, 63, 67]}, {root: 40, notes: [55, 58, 62, 67]}, {root: 38, notes: [53, 57, 60, 64]}, {root: 43, notes: [53, 59, 62, 68]}
+];
+const BELLS_HW = [72, 75, 77, 79, 82, 84];
+let flavor = null;   // null, 'halloween', 'newyear', 'valentine' or 'easter'
+const FLAVORS = {halloween: 1, newyear: 1, valentine: 1, easter: 1};
+const BPM = {halloween: 90, valentine: 92, easter: 112};
+// New Year and Easter play the menu tune in D major (F → F♯, B♭ → B)
+const maj = m => flavor === 'newyear' || flavor === 'easter' ? (m % 12 === 5 || m % 12 === 10 ? m + 1 : m) : m;
 
 /* ---- menu scene: sneaky tiptoe in D minor, 8 bars of eighths (null = rest) ---- */
-const M_BPM = 104, M_E = 60 / M_BPM / 2, M_BAR = M_E * 8;
+const M_BPM = 104, M_E = 60 / M_BPM / 2;
+const mE = () => BPM[flavor] ? 60 / BPM[flavor] / 2 : M_E, mBar = () => mE() * 8;
 const M_ROOTS = [38, 38, 34, 33, 38, 38, 31, 33];               // Dm Dm Bb A7 Dm Dm Gm A7
 const M_CHORDS = [[62, 65, 69], [62, 65, 69], [62, 65, 70], [61, 64, 67], [62, 65, 69], [62, 65, 69], [62, 67, 70], [61, 64, 67]];
 const M_MEL = [
@@ -111,6 +125,38 @@ function reed(t, m, len, vel = .05) {
   g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vel, t + .02); g.gain.setTargetAtTime(0.0001, t + len * .6, .05);
   o.connect(f); f.connect(g); out(g); o.start(t); lfo.start(t); o.stop(t + len + .3); lfo.stop(t + len + .3);
 }
+// Halloween: a breathy church organ (two detuned saws an octave apart, slow tremolo)
+function organ(t, m, len, vel = .035) {
+  const f = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+  f.type = 'lowpass'; f.frequency.value = 1300; f.Q.value = .5;
+  lfo.frequency.value = 4.2; lg.gain.value = vel * .25; lfo.connect(lg); lg.connect(g.gain);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vel, t + .04); g.gain.setTargetAtTime(0.0001, t + len * .8, .08);
+  for (const [mul, det] of [[1, -6], [2, 5]]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(m) * mul; o.detune.value = det; o.connect(f); o.start(t); o.stop(t + len + .5); }
+  f.connect(g); out(g); lfo.start(t); lfo.stop(t + len + .5);
+}
+// New Year: sleigh bells (a shaken burst of tiny jingles)
+function sleigh(t, vel = .02) {
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = noise; f.type = 'bandpass'; f.frequency.value = 7500; f.Q.value = 1.5;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + .01); g.gain.exponentialRampToValueAtTime(0.0001, t + .12);
+  s.connect(f); f.connect(g); g.connect(dry); s.start(t); s.stop(t + .15);
+  for (let k = 0; k < 2; k++) { const o = ctx.createOscillator(), og = ctx.createGain(), tt = t + k * .02; o.type = 'sine'; o.frequency.value = 3800 + Math.random() * 1600;
+    og.gain.setValueAtTime(vel * .5, tt); og.gain.exponentialRampToValueAtTime(0.0001, tt + .08); o.connect(og); og.connect(dry); o.start(tt); o.stop(tt + .1); }
+}
+// Valentine's Day / Easter: a soft flute (sine with a breath of noise and a gentle vibrato)
+function flute(t, m, len, vel = .04) {
+  const o = ctx.createOscillator(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = hz(m); lfo.frequency.value = 5; lg.gain.value = 6; lfo.connect(lg); lg.connect(o.detune);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vel, t + .05); g.gain.setTargetAtTime(0.0001, t + len * .7, .07);
+  o.connect(g); out(g); o.start(t); lfo.start(t); o.stop(t + len + .4); lfo.stop(t + len + .4);
+}
+// Easter: a little bird (two quick rising whistles)
+function chirp(t) {
+  for (let k = 0; k < 2; k++) { const o = ctx.createOscillator(), g = ctx.createGain(), tt = t + k * .11, f0 = 2600 + Math.random() * 500;
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, tt); o.frequency.exponentialRampToValueAtTime(f0 * 1.35, tt + .07);
+    g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(.018, tt + .01); g.gain.exponentialRampToValueAtTime(0.0001, tt + .08);
+    o.connect(g); out(g); o.start(tt); o.stop(tt + .1); }
+}
 function brush(t, vel = .018) {
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
   s.buffer = noise; f.type = 'highpass'; f.frequency.value = 6500;
@@ -120,30 +166,39 @@ function brush(t, vel = .018) {
 
 /* ---- bars ---- */
 function gameBar(t0, n) {
-  const c = G_CHORDS[n % G_CHORDS.length];
+  const hw = flavor === 'halloween', c = (hw ? G_CHORDS_HW : G_CHORDS)[n % G_CHORDS.length];
+  if (hw && n % 4 === 0) bell(t0, 48, .05);   // a far-off tolling bell
+  if (flavor === 'newyear') for (let b = 0; b < 4; b++) sleigh(t0 + G_BEAT * b, b % 2 ? .012 : .02);
+  if (flavor === 'valentine') c.notes.concat(c.notes.map(m => m + 12)).forEach((m, i) => pluck(t0 + i * G_BEAT / 2, m + 12, .035, .9));   // harp
+  if (flavor === 'easter' && n % 3 === 1) chirp(t0 + G_BEAT * (1.5 + Math.random()));
   c.notes.forEach((m, i) => pad(t0 + i * .05, m, G_BAR + .4, .035));
   softBass(t0, c.root, G_BEAT * 1.8); softBass(t0 + G_BEAT * 2, c.root + 7, G_BEAT * 1.6);
   if (n % 2 === 1) {
     const k = 1 + Math.floor(Math.random() * 2);
-    for (let j = 0; j < k; j++) bell(t0 + G_BEAT * (1 + j * 1.5 + Math.random() * .3), BELLS[Math.floor(Math.random() * BELLS.length)]);
+    for (let j = 0; j < k; j++) { const B = hw ? BELLS_HW : BELLS; bell(t0 + G_BEAT * (1 + j * 1.5 + Math.random() * .3), B[Math.floor(Math.random() * B.length)]); }
   }
 }
 function menuBar(t0, n) {
-  const k = n % 8, pass = Math.floor(n / 8) % 2, root = M_ROOTS[k];
-  const at = j => t0 + j * M_E + (j % 2 ? M_E * .16 : 0);           // light swing
+  const k = n % 8, pass = Math.floor(n / 8) % 2, root = M_ROOTS[k], E = mE(), hw = flavor === 'halloween';
+  const at = j => t0 + j * E + (j % 2 ? E * .16 : 0);           // light swing
+  if (hw && k % 4 === 0) bell(t0, root + 12, .045);   // Halloween: a bell tolls every four bars
+  if (flavor === 'valentine') M_CHORDS[k].forEach(m => pad(t0, m - 12, E * 8 + .3, .016));   // warm strings underneath
+  if (flavor === 'easter' && k % 4 === 2) chirp(t0 + E * 3);
   // pizzicato bass: root / fifth on the beats, a chromatic walk-up into the next bar
-  [0, 2, 4, 6].forEach((j, x) => pluck(at(j), (x % 2 ? root + 7 : root) + (x === 3 && k % 4 === 3 ? 6 : 0), .2));
+  const R = maj(root) === root ? root : root + 1;
+  [0, 2, 4, 6].forEach((j, x) => pluck(at(j), (x % 2 ? R + 7 : R) + (x === 3 && k % 4 === 3 ? 6 : 0), .2));
   // soft off-beat chord stabs (the "tiptoe")
-  [1, 3, 5, 7].forEach(j => M_CHORDS[k].forEach(m => pluck(at(j), m, .035, .16)));
+  [1, 3, 5, 7].forEach(j => M_CHORDS[k].forEach(m => pluck(at(j), maj(m), flavor === 'valentine' ? .022 : .035, .16)));
   // melody: clarinet on the first pass, plucked with a bell on the second
-  M_MEL[k].forEach((m, j) => { if (m == null) return; if (pass === 0) reed(at(j), m, M_E * .8); else { pluck(at(j), m + 12, .07, .3); if (j === 0) bell(at(j), m + 12, .025); } });
+  const lead = hw ? organ : flavor === 'newyear' ? (t, m) => bell(t, m + 12, .05) : flavor === 'valentine' || flavor === 'easter' ? (t, m, l) => flute(t, m + 12, l) : reed;
+  M_MEL[k].forEach((m, j) => { if (m == null) return; m = maj(m); if (pass === 0) lead(at(j), m, E * .8); else { pluck(at(j), m + 12, .07, .3); if (j === 0) bell(at(j), m + 12, .025); } });
   // brushed hat on the off-beats
-  [1, 3, 5, 7].forEach(j => brush(at(j)));
+  [1, 3, 5, 7].forEach(j => flavor === 'newyear' ? sleigh(at(j), .014) : flavor === 'valentine' ? null : brush(at(j)));
 }
 
 function tick() {
   if (!ctx) return;
-  const len = scene === 'menu' ? M_BAR : G_BAR;
+  const len = scene === 'menu' ? mBar() : G_BAR;
   while (nextBar < ctx.currentTime + 1.2) {
     if (want !== scene && !switching) { crossTo(want); return; }
     (scene === 'menu' ? menuBar : gameBar)(nextBar, barNo++); nextBar += len;
@@ -188,6 +243,9 @@ export const Music = {
   toggle() { on = !on; try { localStorage.setItem(LS, on ? '1' : '0'); } catch (e) {} if (on) start(); else stop(); return on; },
   // 'menu' or 'game'; switches at the next bar with a short cross-fade
   scene(sc) { if (sc !== 'menu' && sc !== 'game') return; want = sc; },
+  // seasonal variation of both tunes (null = the usual one); takes effect from the next bar
+  flavor(ev) { flavor = FLAVORS[ev] ? ev : null; },
+  get flavorNow() { return flavor; },
   start, stop
 };
 

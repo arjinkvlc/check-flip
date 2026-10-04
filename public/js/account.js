@@ -12,6 +12,7 @@
 import {SUPABASE_URL, SUPABASE_KEY, PLACEHOLDER_EMAIL_DOMAIN} from './config.js';
 import {nameBlocked} from './filter.js';
 import {VERSION} from './version.js';
+import {eventRange, EVENT_KEYS} from './events.js';
 
 /* ---------------- progression rules ---------------- */
 // level L needs 6.5 × (L−1)² XP  (level 10 ≈ 530 XP, level 50 ≈ 15 600 XP) — same as public.level_of()
@@ -49,8 +50,38 @@ export const ACHS = [
   // v1.9: single-game feats, ranked games only
   {key: 'full_house', icon: '🏘️', goal: 1, get: p => st(p, 'full4')},
   {key: 'lap_legend', icon: '🔁', goal: 1, get: p => st(p, 'laps10')},
-  {key: 'deep_pockets', icon: '💰', goal: 1, get: p => st(p, 'rich')}
+  {key: 'deep_pockets', icon: '💰', goal: 1, get: p => st(p, 'rich')},
+  // v1.17 seasonal events: quests can only be completed during the event (the server checks the date); items stay forever
+  ...EV_QUEST_DEFS()
 ];
+// event quests per event, in the order they are shown; the reward is the cosmetic whose `ach` is the quest key.
+// p = which counter of public.event_progress the quest reads (paid, cards and bought come from online games only)
+function EV_QUEST_DEFS() {
+  const D = {
+    halloween: [['hw_dice', '🎃', 8, 'games'], ['hw_avatar', '🎃', 5, 'wins'], ['hw_bubble', '🦇', 5, 'deals'], ['hw_board', '🕸️', 25, 'games']],
+    newyear: [['ny_dice', '❄️', 8, 'games'], ['ny_bubble', '🎁', 10, 'paid'], ['ny_avatar', '🎅', 5, 'wins'], ['ny_board', '🌲', 25, 'games']],
+    valentine: [['va_dice', '🌹', 8, 'games'], ['va_bubble', '💌', 5, 'deals'], ['va_avatar', '💘', 5, 'wins'], ['va_board', '🕯️', 25, 'games']],
+    easter: [['ea_dice', '🥚', 8, 'games'], ['ea_bubble', '🃏', 15, 'cards'], ['ea_board', '🌷', 5, 'bought'], ['ea_avatar', '🐰', 5, 'wins']]
+  };
+  return Object.entries(D).flatMap(([ev, qs]) => qs.map(([key, icon, goal, q]) => ({key, icon, goal, ev, quest: q, get: () => evProg(ev, q)})));
+}
+const evProg = (ev, k) => ACC.event && ACC.event.event === ev ? +ACC.event[k] || 0 : 0;
+export const EV_QUESTS = {};
+ACHS.filter(a => a.quest).forEach(a => { (EV_QUESTS[a.ev] = EV_QUESTS[a.ev] || []).push(a.key); });
+// the "all four" achievement (and title) of each run of an event: halloween_2026, newyear_2027 (Dec 2026 – Jan 2027), …
+export const FINAL_RE = /^(halloween|newyear|valentine|easter)_(\d{4})$/;
+const EV_FINAL_ICON = {halloween: '🕯️', newyear: '🎆', valentine: '💘', easter: '🐣'};
+export function finalKey(ev, d = new Date()) {
+  let r = eventRange(ev, d); if (r && r[1].getTime() + 864e5 <= d.getTime()) r = eventRange(ev, new Date(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate())));
+  return r ? `${ev}_${r[1].getUTCFullYear()}` : null;
+}
+const finalAch = key => { const ev = key.match(FINAL_RE)[1]; return {key, icon: EV_FINAL_ICON[ev], goal: 4, ev, final: 1, get: () => EV_QUESTS[ev].filter(k => ACC.ach.has(k)).length}; };
+// achievements shown in the profile: the usual ones, this year's event finals, and finals the player won in earlier years
+export function achList() {
+  const cur = EVENT_KEYS.map(ev => finalKey(ev)).filter(Boolean);
+  const past = [...ACC.ach].filter(k => FINAL_RE.test(k) && !cur.includes(k)).sort();
+  return [...ACHS.filter(a => !a.quest), ...[...cur, ...past].map(finalAch)];
+}
 function st(p, k) { return +(p.stats && p.stats[k]) || 0; }
 
 // Cosmetics: lv = required level, ach = required achievement (mirror of public.cosmetics)
@@ -58,7 +89,8 @@ export const CATALOG = {
   avatar: [
     {key: 'waiter', lv: 1}, {key: 'waitress', lv: 1}, {key: 'student', lv: 1}, {key: 'foodie', lv: 1},
     {key: 'italian', lv: 5}, {key: 'doner', lv: 10}, {key: 'noodle', lv: 15}, {key: 'baker', lv: 25},
-    {key: 'grandma', ach: 'first_bite'}, {key: 'critic', ach: 'regular'}, {key: 'barista', ach: 'quester'}, {key: 'sommelier', ach: 'marathon'}
+    {key: 'grandma', ach: 'first_bite'}, {key: 'critic', ach: 'regular'}, {key: 'barista', ach: 'quester'}, {key: 'sommelier', ach: 'marathon'},
+    {key: 'pumpkin', ach: 'hw_avatar', ev: 'halloween'}, {key: 'santa', ach: 'ny_avatar', ev: 'newyear'}, {key: 'cupid', ach: 'va_avatar', ev: 'valentine'}, {key: 'bunny', ach: 'ea_avatar', ev: 'easter'}
   ],
   frame: [
     {key: 'none', lv: 1}, {key: 'bronze', lv: 5}, {key: 'silver', lv: 15}, {key: 'gold', lv: 30}, {key: 'diamond', lv: 50},
@@ -68,15 +100,18 @@ export const CATALOG = {
   board: [
     {key: 'felt', lv: 1}, {key: 'hearts', lv: 1}, {key: 'wood', lv: 3}, {key: 'feast', lv: 6}, {key: 'terracotta', lv: 10},
     {key: 'marble', lv: 15}, {key: 'sunset', lv: 20}, {key: 'night', lv: 25}, {key: 'chalk', lv: 30}, {key: 'neon', lv: 35},
-    {key: 'ocean', ach: 'iron_stomach'}, {key: 'bistro', ach: 'realtor'}, {key: 'gold', ach: 'big_spender'}, {key: 'lavender', ach: 'devoted'}
+    {key: 'ocean', ach: 'iron_stomach'}, {key: 'bistro', ach: 'realtor'}, {key: 'gold', ach: 'big_spender'}, {key: 'lavender', ach: 'devoted'},
+    {key: 'haunted', ach: 'hw_board', ev: 'halloween'}, {key: 'winter', ach: 'ny_board', ev: 'newyear'}, {key: 'candlelight', ach: 'va_board', ev: 'valentine'}, {key: 'meadow', ach: 'ea_board', ev: 'easter'}
   ],
   bubble: [
     {key: 'plain', lv: 1}, {key: 'receipt', lv: 4}, {key: 'comic', lv: 8}, {key: 'neon', lv: 25},
     {key: 'heart', ach: 'first_bite'}, {key: 'gold', ach: 'regular'},
-    {key: 'suits', ach: 'card_shark'}, {key: 'zen', ach: 'survivor'}, {key: 'zoom', ach: 'speed_eater'}, {key: 'mint', ach: 'social'}
+    {key: 'suits', ach: 'card_shark'}, {key: 'zen', ach: 'survivor'}, {key: 'zoom', ach: 'speed_eater'}, {key: 'mint', ach: 'social'},
+    {key: 'spooky', ach: 'hw_bubble', ev: 'halloween'}, {key: 'gift', ach: 'ny_bubble', ev: 'newyear'}, {key: 'letter', ach: 'va_bubble', ev: 'valentine'}, {key: 'pastel', ach: 'ea_bubble', ev: 'easter'}
   ],
-  title: [{key: 'rookie', lv: 1}, ...ACHS.map(a => ({key: a.key, ach: a.key}))],
-  dice: [{key: 'classic', lv: 1}, {key: 'redwhite', lv: 3}, {key: 'bone', lv: 8}, {key: 'gingham', lv: 12}, {key: 'neon', lv: 18}, {key: 'marble', lv: 24}, {key: 'gold', lv: 32}, {key: 'chelsea', lv: 40}]
+  get title() { return [{key: 'rookie', lv: 1}, ...achList().map(a => ({key: a.key, ach: a.key, ev: a.ev}))]; },
+  dice: [{key: 'classic', lv: 1}, {key: 'redwhite', lv: 3}, {key: 'bone', lv: 8}, {key: 'gingham', lv: 12}, {key: 'neon', lv: 18}, {key: 'marble', lv: 24}, {key: 'gold', lv: 32}, {key: 'chelsea', lv: 40}, {key: 'pumpkin', ach: 'hw_dice', ev: 'halloween'},
+    {key: 'frost', ach: 'ny_dice', ev: 'newyear'}, {key: 'rose', ach: 'va_dice', ev: 'valentine'}, {key: 'egg', ach: 'ea_dice', ev: 'easter'}]
 };
 export const DEFAULTS = {frame: 'none', board: 'felt', bubble: 'plain', title: 'rookie', dice: 'classic'};
 // how each title badge looks (colour / font / effect); the rarer the achievement, the fancier
@@ -90,8 +125,9 @@ const TITLE_STYLE = {
   iron_stomach: 'neon', tycoon: 'royal', speed_eater: 'fire',
   full_house: 'yellow', lap_legend: 'red', deep_pockets: 'gold'
 };
-export const titleCls = key => ' tt-' + (TITLE_STYLE[key] || 'plain');
-const known = (kind, key) => CATALOG[kind] && CATALOG[kind].some(c => c.key === key);
+const EV_TITLE_STYLE = {halloween: 'spooky', newyear: 'frost', valentine: 'rose', easter: 'spring'};
+export const titleCls = key => { const m = FINAL_RE.exec(key || ''); return ' tt-' + (m ? EV_TITLE_STYLE[m[1]] : TITLE_STYLE[key] || 'plain'); };
+const known = (kind, key) => (kind === 'title' && FINAL_RE.test(key || '')) || (CATALOG[kind] && CATALOG[kind].some(c => c.key === key));
 export const safeItem = (kind, key) => known(kind, key) ? key : DEFAULTS[kind];
 
 /* ---------------- state ---------------- */
@@ -108,7 +144,8 @@ export const ACC = {
   medals: [],         // season medals [{season, place}]
   token: null,        // current access token (the game server uses it to know who is chatting)
   status: null,       // {chat_until, account_until, admin} from public.my_status
-  banned: null        // set when the account is suspended: the end date ('infinity' = permanent)
+  banned: null,       // set when the account is suspended: the end date ('infinity' = permanent)
+  event: null         // v1.17: {event, id, games, wins, deals} progress in the event running now (null = none)
 };
 let sb = null;
 const listeners = new Set();
@@ -222,6 +259,7 @@ export async function refreshProfile() {
   ACC.medals = (md && !md.error && md.data) || [];
   try { const d = await sb.rpc('my_daily'); if (!d.error) ACC.daily = d.data; } catch (e) {}
   try { const st = await sb.rpc('my_status'); if (!st.error) ACC.status = st.data; } catch (e) {}
+  try { const ev = await sb.rpc('my_event'); ACC.event = ev.error ? null : ev.data; } catch (e) {}
   // v1.16: season e-mail consent + the language last used in the game (kept so the e-mail comes in that language)
   try { const ep = await sb.from('email_prefs').select('lang,opt_in').eq('user_id', uid).maybeSingle(); ACC.prefs = ep.error ? null : (ep.data || {lang: null, opt_in: false}); } catch (e) {}
   syncLang();

@@ -2,6 +2,7 @@
  * Check Flip — social screens: friends, leaderboards, player profile cards,
  * game invites (toast) and the "invite friends" box in a private lobby.
  */
+import {setHTML} from './patch.js';
 import {
   ACC, ACHS, titleCls, loggedIn, level, levelOf, xpFor, MAX_LEVEL, safeItem, leaderboard, publicProfile,
   friendAdd, friendRespond, friendRemove, inviteFriend, inviteDismiss, pollSocial, USERNAME_RE, onAccount, mySeason, friendMatches
@@ -39,17 +40,17 @@ export function renderLeaders(el) {
       <span class="lbname">${nameBtn(r.username)}<small class="ptitle${titleCls(safeItem('title', (r.equipped || {}).title))}">${esc(titleOf(r.equipped))}</small></span>
       <span class="lvtag">${esc(t('aLv', r.level))}</span><span class="lbval">${esc(val(r))}</span>${kind === 'weekly' && r.pos <= 3 && r.week_wins > 0 ? medalHTML(sn, r.pos, true) : ''}</li>`).join('')}</ol>`
       : `<p class="note">${esc(t('lbEmpty'))}</p>`) : `<p class="note">${esc(SU.lbErr || t('aLoading'))}</p>`;
-  el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
+  setHTML(el, `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="scrtitle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><div><h1>${esc(t('lbTitle'))}</h1>
       <p class="note">${esc(kind === 'weekly' ? t('lbSeasonNote', sn, seasonDaysLeft()) : t('lbLevelNote'))}</p></div></div>
     <div class="segtabs"><button class="stab${kind === 'weekly' ? ' on' : ''}" data-a="lbTab" data-t="weekly">${esc(t('lbSeason', sn))}</button>
       <button class="stab${kind === 'level' ? ' on' : ''}" data-a="lbTab" data-t="level">${esc(t('lbLevel'))}</button></div>
-    <div class="box">${list}${!loggedIn() && ACC.enabled ? `<p class="note">${esc(t('lbGuest'))}</p>` : ''}</div>`;
+    <div class="box">${list}${!loggedIn() && ACC.enabled ? `<p class="note">${esc(t('lbGuest'))}</p>` : ''}</div>`);
 }
 
 /* ---------------- friends ---------------- */
 export function renderFriends(el) {
-  if (!loggedIn()) { el.innerHTML = `<div class="box"><p class="note">${esc(t('aLoading'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`; return; }
+  if (!loggedIn()) { setHTML(el, `<div class="box"><p class="note">${esc(t('aLoading'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`); return; }
   const s = ACC.social || {friends: [], incoming: [], outgoing: []};
   // the list couldn't be loaded: say so (with the error code) instead of showing an empty list
   const loadErr = ACC.socialErr ? `<div class="box"><p class="err">${esc(t('frLoadErr', ACC.socialErr))}</p><button class="btn small" data-a="frRetry">${esc(t('frRetry'))}</button></div>` : '';
@@ -61,12 +62,12 @@ export function renderFriends(el) {
       <small class="${f.online ? 'online' : 'note'}">${esc(f.online ? t('frOnline') : t('frOffline'))}</small></span><span class="lvtag">${esc(t('aLv', f.level))}</span>
       <button class="btn small ghost" data-a="frRemove" data-u="${esc(f.username)}" aria-label="${esc(t('frRemove'))}">✕</button></li>`).join('')}</ul>`
     : `<p class="note">${esc(loading ? t('aLoading') : t('frNone'))}</p>`;
-  el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
+  setHTML(el, `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="scrtitle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><div><h1>${esc(t('frTitle'))}</h1><p class="note">${esc(t('frNote'))}</p></div></div>
     <div class="box"><form data-form="fradd" class="row"><input id="frName" maxlength="14" placeholder="${esc(t('frAddPh'))}" autocomplete="off" required>
       <button class="btn primary" type="submit" ${SU.busy ? 'disabled' : ''}>${esc(t('frAdd'))}</button></form>
       ${SU.fErr ? `<p class="err">${esc(SU.fErr)}</p>` : ''}${SU.fMsg ? `<p class="okmsg">${esc(SU.fMsg)}</p>` : ''}${out}</div>
-    ${loadErr}${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>${s.friends.length ? matchesHTML() : ''}`;
+    ${loadErr}${inc}<div class="box"><h3>${esc(t('frList', s.friends.length))}</h3>${fl}</div>${s.friends.length ? matchesHTML() : ''}`);
   if (s.friends.length && (!SU.fm || Date.now() - SU.fmAt > 60000)) loadMatches();
 }
 async function loadMatches() {
@@ -147,11 +148,11 @@ export function closeProfile() { modalUser = null; const m = document.getElement
 export function updateToast() {
   const el = document.getElementById('toast'); if (!el || !H) return;
   const inv = loggedIn() && ACC.social && !H.inRoom() ? (ACC.social.invites || []).find(i => !SU.hidden[i.id]) : null;
-  if (!inv) { el.hidden = true; el.innerHTML = ''; return; }
+  if (!inv) { el.hidden = true; setHTML(el, ''); return; }
   el.hidden = false;
-  el.innerHTML = `${face(inv.equipped, inv.from)}<span class="tmsg">${t('invMsg', esc(inv.from))}</span>
+  setHTML(el, `${face(inv.equipped, inv.from)}<span class="tmsg">${t('invMsg', esc(inv.from))}</span>
     <button class="btn small primary" data-a="invJoin" data-id="${inv.id}" data-room="${esc(inv.room)}">${esc(t('invJoin'))}</button>
-    <button class="btn small ghost" data-a="invNo" data-id="${inv.id}" aria-label="${esc(t('close'))}">✕</button>`;
+    <button class="btn small ghost" data-a="invNo" data-id="${inv.id}" aria-label="${esc(t('close'))}">✕</button>`);
 }
 // "invite friends" box in a private room's lobby
 export function renderInviteBox(el, room, show) {
@@ -159,10 +160,10 @@ export function renderInviteBox(el, room, show) {
   const fr = (ACC.social && ACC.social.friends) || [];
   el.hidden = false;
   const done = SU.invited[room] || {};
-  el.innerHTML = `<h3>${esc(t('invTitle'))}</h3>` + (fr.length ? `<ul class="frlist">${fr.map(f => `<li>${face(f.equipped, f.username)}<span class="frname"><b>${esc(f.username)}</b>
+  setHTML(el, `<h3>${esc(t('invTitle'))}</h3>` + (fr.length ? `<ul class="frlist">${fr.map(f => `<li>${face(f.equipped, f.username)}<span class="frname"><b>${esc(f.username)}</b>
       <small class="${f.online ? 'online' : 'note'}">${esc(f.online ? t('frOnline') : t('frOffline'))}</small></span>
       ${done[f.username] ? `<span class="tag ok">${esc(t('invSent'))}</span>` : `<button class="btn small" data-a="invite" data-u="${esc(f.username)}">${esc(t('invBtn'))}</button>`}</li>`).join('')}</ul>`
-    : `<p class="note">${esc(t('invNoFriends'))}</p>`);
+    : `<p class="note">${esc(t('invNoFriends'))}</p>`));
 }
 
 /* ---------------- events ---------------- */

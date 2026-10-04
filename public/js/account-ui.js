@@ -3,8 +3,10 @@
  * password reset, "Profile & looks" (avatar, frames, boards, chat bubbles,
  * titles, achievements, stats) and the end-of-game progress box.
  */
+import {setHTML} from './patch.js';
+import {eventNow, eventAt, rangeText, EVENT_KEYS} from './events.js';
 import {
-  ACC, ACHS, CATALOG, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, setPrefs, titleCls, updateEmail, EMAIL_RE, changeUsername, USERNAME_RE as UNAME_RE,
+  ACC, ACHS, CATALOG, EV_QUESTS, finalKey, achList, DEFAULTS, MAX_LEVEL, levelOf, xpFor, loggedIn, level, equipped, unlocked, hasRealEmail, setPrefs, titleCls, updateEmail, EMAIL_RE, changeUsername, USERNAME_RE as UNAME_RE,
   signIn, signUp, sendReset, setNewPassword, signOut, deleteAccount, equip, usernameAvailable, USERNAME_RE, onAccount, isAdmin
 } from './account.js';
 import {t, getLang, locale} from './i18n.js';
@@ -52,6 +54,37 @@ const xpLine = p => {
 const avatarGlyph = () => { const e = equipped(); return e.avatar && H.AVATARS[e.avatar] ? H.avHTML(e.avatar) : esc((ACC.profile.username || '?')[0].toUpperCase()); };
 const itemName = (kind, key) => t('itemName', kind, key);
 const lockText = c => c.ach ? t('pLockedAch', t('achName', c.ach)) : t('pLockedLv', c.lv);
+// v1.17: "Can be earned 15 Oct – 15 Nov" for event items and achievements (Easter moves every year)
+export const evEarnText = ev => ev === 'easter' ? t('evEarnEaster') : t('evEarn', rangeText(ev, locale()));
+const EV_ICON = {halloween: '🎃', newyear: '🎄', valentine: '💝', easter: '🥚'};
+// the reward of an event quest: the cosmetic unlocked by that achievement
+function evReward(k) {
+  for (const kind of ['avatar', 'dice', 'bubble', 'board', 'frame']) { const c = CATALOG[kind].find(x => x.ach === k); if (c) return kind === 'avatar' ? H.avatarLabel(c.key) : itemName(kind, c.key); }
+  return itemName('title', k);
+}
+// quest text without the "Halloween:" prefix the achievement list shows
+const questText = k => { const x = t('achDesc', k).replace(/^[^:]*:\s*/, ''); return x.charAt(0).toLocaleUpperCase(locale()) + x.slice(1); };
+// event card: quests with progress and rewards (home screen: folded; profile Event tab: open)
+export function evCardHTML(open) {
+  const ev = eventNow(); if (!ev || !EV_QUESTS[ev]) return '';
+  const qs = EV_QUESTS[ev], fin = finalKey(ev), done = qs.filter(k => ACC.ach.has(k)).length, me = loggedIn();
+  const rows = qs.map(k => {
+    const a = ACHS.find(x => x.key === k), have = ACC.ach.has(k), cur = Math.min(a.goal, me ? a.get(ACC.profile) || 0 : 0);
+    return `<li class="${have ? 'done' : ''}"><b>${esc(questText(k))}</b><small>${have ? '✓ ' + esc(t('evDone')) : `${cur}/${a.goal}`}</small>
+      <span class="bar"><i style="width:${(have ? 100 : cur / a.goal * 100).toFixed(0)}%"></i></span><small>${esc(t('evReward', evReward(k)))}</small></li>`;
+  }).join('');
+  return `<details class="evcard ${ev}"${open ? ' open' : ''}><summary>${EV_ICON[ev] || '⭐'} ${esc(t('evCard', t('evName', ev)))}${me ? ` · ${done}/${qs.length}` : ''}<span class="evends">${esc(ev === 'easter' ? t('evEarnEaster') : rangeText(ev, locale()))}</span></summary>
+    <p class="note">${esc(t('evIntro'))}</p>${me ? '' : `<p class="note">${esc(t('evGuest'))} <button class="btn small" data-a="authLogin">${esc(t('evSignIn'))}</button></p>`}
+    <ul class="evq">${rows}</ul><p class="note">${esc(t('evAll', itemName('title', fin)))}${ACC.ach.has(fin) ? ' ✓' : ''}</p><p class="note">${esc(t('evBotNote'))}</p></details>`;
+}
+// profile "Event" tab: the running event, the next one, and the event items you own
+function eventTabHTML() {
+  const card = evCardHTML(true);
+  let next = '';
+  if (!card) { const d = new Date(); for (let k = 1; k < 400 && !next; k++) { const x = new Date(d.getTime() + k * 864e5), ev = eventAt(x); if (ev) next = t('evNext', t('evName', ev), ev === 'easter' ? t('evEarnEaster') : rangeText(ev, locale(), x)); } }
+  const owned = ['avatar', 'board', 'dice', 'bubble', 'title'].flatMap(kind => CATALOG[kind].filter(c => c.ev && unlocked(kind, c.key)).map(c => kind === 'avatar' ? H.avatarLabel(c.key) : itemName(kind, c.key)));
+  return `${card || `<p class="note">${esc(t('evNoneNow'))}${next ? ' ' + esc(next) : ''}</p>`}<h3>${esc(t('evOwned'))}</h3><p class="note">${owned.length ? esc(owned.join(', ')) : esc(t('evNoItems'))}</p>`;
+}
 
 /* ---------------- seasons ---------------- */
 // season = calendar month (UTC); season 1 = September 2026
@@ -65,28 +98,28 @@ export const medalsRow = list => (list && list.length) ? `<div class="medals">${
 export function renderAcctPanel(el, nickWrap) {
   if (!ACC.enabled) { el.hidden = true; nickWrap.hidden = false; return; }
   el.hidden = false;
-  if (!ACC.ready) { el.innerHTML = `<p class="note">${esc(t('aLoading'))}</p>`; nickWrap.hidden = false; return; }
+  if (!ACC.ready) { setHTML(el, `<p class="note">${esc(t('aLoading'))}</p>`); nickWrap.hidden = false; return; }
   if (!loggedIn()) {
     nickWrap.hidden = false;
-    el.innerHTML = `<div class="acctguest scard"><span><b>${esc(t('aGuest'))}</b><small class="note">${esc(t('signupPitch'))}</small></span>
-      <button class="btn small" data-a="authLogin">${esc(t('aLogin'))}</button><button class="btn small primary" data-a="authSignup">${esc(t('aSignup'))}</button></div>`;
+    setHTML(el, `<div class="acctguest scard"><span><b>${esc(t('aGuest'))}</b><small class="note">${esc(t('signupPitch'))}</small></span>
+      <button class="btn small" data-a="authLogin">${esc(t('aLogin'))}</button><button class="btn small primary" data-a="authSignup">${esc(t('aSignup'))}</button></div>${evCardHTML(false)}`);
     return;
   }
   nickWrap.hidden = true;
   const p = ACC.profile;
-  el.innerHTML = `${questHTML()}
+  setHTML(el, `${questHTML()}${evCardHTML(false)}
     <button class="pill" data-a="friends"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>${esc(t('friendsShort'))}</span>${friendBadge()}</button>
-    ${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`;
+    ${AU.flash ? `<p class="okmsg" role="status">${esc(AU.flash === 'pw' ? t('aPwChanged') : t('aWelcome', p.username))}</p>` : ''}`);
 }
 
 // small account button in the header (avatar + name + level, or "Log in")
 export function renderAcctChip(el) {
   if (!ACC.enabled || !ACC.ready) { el.hidden = true; return; }
   el.hidden = false;
-  if (!loggedIn()) { el.hidden = true; el.innerHTML = ''; return; }
+  if (!loggedIn()) { el.hidden = true; setHTML(el, ''); return; }
   const p = ACC.profile, e = equipped(), x = xpLine(p);
-  el.innerHTML = `<button class="chipbtn me" data-a="profile" aria-label="${esc(t('profileBtn'))}" title="${esc(x.txt)}"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span>
-    <span class="cname"><span class="cn1"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span>${isAdmin() ? `<span class="admbadge sm" title="${esc(t('adminBadgeT'))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span>` : ''}</span><span class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></span><small>${esc(x.txt)}</small></span>${friendBadge()}</button>`;
+  setHTML(el, `<button class="chipbtn me" data-a="profile" aria-label="${esc(t('profileBtn'))}" title="${esc(x.txt)}"><span class="pfav sm${frCls(e.frame)}">${avatarGlyph()}</span>
+    <span class="cname"><span class="cn1"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', level()))}</span>${isAdmin() ? `<span class="admbadge sm" title="${esc(t('adminBadgeT'))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span>` : ''}</span><span class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></span><small>${esc(x.txt)}</small></span>${friendBadge()}</button>`);
 }
 
 // today's quest (same for everyone, resets at 00:00 UTC)
@@ -135,9 +168,9 @@ export function renderAuth(el) {
       <label for="auNewPw2">${esc(t('aNewPw2'))}</label><input id="auNewPw2" type="password" autocomplete="new-password" maxlength="72" required>
       <button class="btn primary" type="submit" ${dis}>${esc(AU.busy ? t('aWorking') : t('aSave'))}</button></form>`;
   }
-  el.innerHTML = tabs + (AU.err ? `<p class="err" role="alert">${esc(AU.err)}</p>` : '') + (AU.msg ? `<p class="okmsg" role="status">${esc(AU.msg)}</p>` : '') + f +
-    `<button class="btn ghost small" data-a="authGuest">${esc(AU.tab === 'reset' ? t('pBack') : t('aAsGuest'))}</button>`;
-  if (!ACC.enabled) el.innerHTML = `<p class="err">${esc(t('aUnavailable'))}</p><button class="btn ghost" data-a="authGuest">${esc(t('aAsGuest'))}</button>`;
+  setHTML(el, tabs + (AU.err ? `<p class="err" role="alert">${esc(AU.err)}</p>` : '') + (AU.msg ? `<p class="okmsg" role="status">${esc(AU.msg)}</p>` : '') + f +
+    `<button class="btn ghost small" data-a="authGuest">${esc(AU.tab === 'reset' ? t('pBack') : t('aAsGuest'))}</button>`);
+  if (!ACC.enabled) setHTML(el, `<p class="err">${esc(t('aUnavailable'))}</p><button class="btn ghost" data-a="authGuest">${esc(t('aAsGuest'))}</button>`);
   mountCaptcha(AU.tab);
 }
 
@@ -213,9 +246,9 @@ export function errText(e) {
 }
 
 /* ---------------- profile & looks ---------------- */
-const TABS = ['stats', 'avatar', 'frame', 'board', 'dice', 'bubble', 'title', 'ach'];
-const TAB_LABEL = {dice: 'pTabDice', avatar: 'pTabAvatar', frame: 'pTabFrames', board: 'pTabBoards', bubble: 'pTabBubbles', title: 'pTabTitles', ach: 'pTabAch', stats: 'pTabStats'};
-const TAB_NOTE = {dice: 'pDiceNote', avatar: 'pAvatarNote', frame: 'pFramesNote', board: 'pBoardsNote', bubble: 'pBubblesNote', title: 'pTitlesNote', ach: 'pAchNote'};
+const TABS = ['stats', 'event', 'avatar', 'frame', 'board', 'dice', 'bubble', 'title', 'ach'];
+const TAB_LABEL = {event: 'pTabEvent', dice: 'pTabDice', avatar: 'pTabAvatar', frame: 'pTabFrames', board: 'pTabBoards', bubble: 'pTabBubbles', title: 'pTabTitles', ach: 'pTabAch', stats: 'pTabStats'};
+const TAB_NOTE = {event: 'pEventNote', dice: 'pDiceNote', avatar: 'pAvatarNote', frame: 'pFramesNote', board: 'pBoardsNote', bubble: 'pBubblesNote', title: 'pTitlesNote', ach: 'pAchNote'};
 
 const PIPS = {1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]};
 const diePips = n => Array.from({length: 9}, (_, j) => `<span class="${PIPS[n].includes(j) ? 'pip' : ''}"></span>`).join('');
@@ -228,26 +261,28 @@ function preview(kind, key) {
 }
 
 export function renderProfile(el) {
-  if (!loggedIn()) { el.innerHTML = `<div class="box"><p class="note">${esc(t('aLoading'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`; return; }
+  if (!loggedIn()) { setHTML(el, `<div class="box"><p class="note">${esc(t('aLoading'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`); return; }
   const p = ACC.profile, e = equipped(), x = xpLine(p), lv = level(), tab = AU.prof;
   let body = '';
   if (tab === 'avatar') {
     body = `<div class="avgrid big"><button class="avbtn none${!e.avatar ? ' on' : ''}" data-a="pav" data-k="">Aa<small>${esc(t('none'))}</small></button>${CATALOG.avatar.map(c => {
       const ok = unlocked('avatar', c.key), on = e.avatar === c.key;
-      return `<button class="avbtn${on ? ' on' : ''}${ok ? '' : ' locked'}" data-a="pav" data-k="${c.key}" ${ok && !AU.busy ? '' : 'disabled'}>${H.avHTML(c.key)}<small>${esc(ok ? H.avatarLabel(c.key) : lockText(c))}</small></button>`;
+      return `<button class="avbtn${on ? ' on' : ''}${ok ? '' : ' locked'}" data-a="pav" data-k="${c.key}" ${ok && !AU.busy ? '' : 'disabled'}${c.ev ? ` title="${esc(evEarnText(c.ev))}"` : ''}>${H.avHTML(c.key)}<small>${esc(ok ? H.avatarLabel(c.key) : lockText(c))}</small></button>`;
     }).join('')}</div>`;
   } else if (CATALOG[tab]) {
     body = `<div class="items">${CATALOG[tab].map(c => {
       const ok = unlocked(tab, c.key), on = e[tab] === c.key;
-      return `<div class="item${on ? ' on' : ''}${ok ? '' : ' locked'}"><div class="iprev">${preview(tab, c.key)}</div><b>${esc(itemName(tab, c.key))}</b>
+      return `<div class="item${on ? ' on' : ''}${ok ? '' : ' locked'}"${c.ev ? ` title="${esc(evEarnText(c.ev))}"` : ''}><div class="iprev">${preview(tab, c.key)}</div><b>${esc(itemName(tab, c.key))}${c.ev ? `<span class="evtag">${esc(t('evName', c.ev))}</span>` : ''}</b>
         ${on ? `<span class="tag ok">${esc(t('pEquipped'))}</span>` : ok ? `<button class="btn small" data-a="equip" data-kind="${tab}" data-key="${c.key}" ${AU.busy ? 'disabled' : ''}>${esc(t('pEquip'))}</button>` : `<small class="lock">${esc(lockText(c))}</small>`}</div>`;
     }).join('')}</div>`;
+  } else if (tab === 'event') {
+    body = eventTabHTML();
   } else if (tab === 'ach') {
-    body = `<p class="botnote">${esc(t('pBotNote'))} ${esc(t('pRankedNote'))}</p><ul class="achlist">${ACHS.map(a => {
+    body = `<p class="botnote">${esc(t('pBotNote'))} ${esc(t('pRankedNote'))}</p><ul class="achlist">${achList().map(a => {
       const have = ACC.ach.has(a.key), cur = Math.min(a.goal, a.get(p) || 0);
       const rewards = ['avatar', 'frame', 'board', 'bubble'].flatMap(k => CATALOG[k].filter(c => c.ach === a.key).map(c => k === 'avatar' ? H.avatarLabel(c.key) : itemName(k, c.key)));
       rewards.push(itemName('title', a.key));
-      return `<li class="${have ? 'got' : ''}"><span class="aicon">${a.icon}</span><div class="ainfo"><b>${esc(t('achName', a.key))}</b><small>${esc(t('achDesc', a.key))}</small>
+      return `<li class="${have ? 'got' : ''}"${a.ev ? ` title="${esc(evEarnText(a.ev))}"` : ''}><span class="aicon">${a.icon}</span><div class="ainfo"><b>${esc(t('achName', a.key))}${a.ev ? `<span class="evtag">${esc(t('evName', a.ev))}</span>` : ''}</b><small>${esc(t('achDesc', a.key))}</small>
         <div class="xpbar"><i style="width:${(cur / a.goal * 100).toFixed(1)}%"></i></div>
         <small class="note">${have ? esc(t('pDone')) : esc(t('pProgress', cur, a.goal))} · ${esc(t('pRewards'))} ${esc(rewards.join(', '))}</small></div></li>`;
     }).join('')}</ul>`;
@@ -262,12 +297,12 @@ export function renderProfile(el) {
       <button class="btn small ghost dangerbtn" data-a="delAccount" ${AU.busy ? 'disabled' : ''}>${esc(t('pDeleteBtn'))}</button>
       <p class="note"><a href="privacy.html" target="_blank" rel="noopener">${esc(t('privacyLink'))}</a></p></div>`;
   }
-  el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
+  setHTML(el, `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button></div>
     <div class="profhero"><span class="pfav big${frCls(e.frame)}">${avatarGlyph()}</span>
       <div class="acctinfo"><div class="acctname"><b>${esc(p.username)}</b><span class="lvtag">${esc(t('aLv', lv))}</span>${isAdmin() ? `<span class="admbadge" title="${esc(t('adminBadgeT'))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>${esc(t('adminBadge'))}</span>` : ''}</div><span class="ptitle${titleCls(e.title)}">${esc(itemName('title', e.title))}</span>
       <div class="xpbar"><i style="width:${(x.frac * 100).toFixed(1)}%"></i></div><small class="note">${esc(x.txt)}</small>${medalsRow(ACC.medals)}</div></div>
     <div class="segtabs" role="tablist">${TABS.map(k => `<button class="stab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-a="profTab" data-t="${k}">${esc(t(TAB_LABEL[k]))}</button>`).join('')}</div>
-    <div class="box">${TAB_NOTE[tab] ? `<p class="note">${esc(t(TAB_NOTE[tab]))}</p>` : ''}${AU.err ? `<p class="err">${esc(AU.err)}</p>` : ''}${body}</div>`;
+    <div class="box">${TAB_NOTE[tab] ? `<p class="note">${esc(t(TAB_NOTE[tab]))}</p>` : ''}${AU.err ? `<p class="err">${esc(AU.err)}</p>` : ''}${body}</div>`);
 }
 
 // username: can be changed once every 7 days

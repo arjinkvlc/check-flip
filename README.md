@@ -31,14 +31,15 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 - **The check:** The next player in line pays `hunger × multiplier × ¤5` for everyone at the table, themselves included. Everyone who eats goes back to 0 hunger.
 - **Restaurants** (🍕 Pizzeria, 🍣 Sushi Bar, 🍔 Burger Joint, 🌮 Taqueria):
   - Buy one for ¤40.
-  - Landing on someone else's restaurant costs a visit fee (¤5 / ¤8 / ¤12). You may then offer to buy it for more; if the owner accepts, it changes hands.
+  - Landing on someone else's restaurant costs a visit fee (¤5 / ¤8 / ¤12). You may then make an offer for it (any amount from ¤5; the box suggests its last price + ¤10); if the owner accepts, it changes hands.
   - Landing on your own lets you cash the register (★ +¤15, ★★ +¤20, ★★★ +¤25) or upgrade it.
   - At the start of each day one of the 4 restaurants is drawn for **tonight's dinner** and shown on the board. If it has an owner, they take a commission from the check: ★ 25%, ★★ 35%, ★★★ 50%.
 - **Negotiation:** The payer gets one offer: "I'll give you $X, you pay the check."
 - **Cards:**
   - Chance and Event decks.
   - Some cards are kept in hand (max 2): Free sample, Hunger pangs, Discount coupon, Pass the check, Going Dutch, Tighten the Belt. Only you see your cards; the others see "?". With a full hand you choose: drop one of yours or skip the new card.
-  - Tighten the Belt (square 12, plus 2 cards in the Chance deck) lets the payer skip their own meal and share.
+  - Tighten the Belt (square 12, plus 2 cards in the Chance deck) lets the payer skip their own meal and share. Everyone sees a player land on square 12, so that belt stays visible in their hand.
+- **Shortcut / Go back** squares move you 1–4 squares (random) forward / back.
 - **Timer:** 30 seconds to decide, 45 seconds to pay. If time runs out or a player disconnects, the game plays for them.
 - **Day limit (optional):** When time is up, the richest player (*money + restaurant value*) wins.
 - **Accounts (optional):** Logged-in players earn XP and unlock achievements and cosmetics. **Games with bots (single player, or bots added to a room) give half XP and don't count toward achievements** (except level achievements). Wins and other achievements come from online games once another player at the same table confirms the result. Games shorter than 3 days or 4 minutes don't count.
@@ -114,6 +115,17 @@ It looks like Monopoly, but the goal isn't to get rich. It's to **stay hungry an
 | 💰 Deep Pockets | Have ¤1000 at once in one ranked game | Title |
 
 Game-based counters (restaurants, cards, checks, deals, days, mode wins) only grow from online games confirmed by another player; games with bots never count. **Single-game feats** (Tycoon, Full House, Lap Legend, Deep Pockets) count only in **ranked games**: Quick play tables with 3 or more people and no bots. Every player of the game reports whether it was ranked and the reports must match, so friends can't farm them in a private room.
+
+**Seasonal events** (dates in UTC; never two at once, Easter gives way): Halloween 15 Oct – 15 Nov, New Year 1 Dec – 31 Jan, Valentine's Day February, Easter from 3 weeks before to 1 week after Easter Sunday. During an event the page background gets that event's decorations and the music a seasonal variation (Settings → Seasonal themes turns both off). Event quests count only during the event (the server checks the date); the items they unlock stay forever. Games against bots count as finished games but not for wins or deals.
+
+| Event | Quests → unlocks | All four |
+|---|---|---|
+| 🎃 Halloween | 8 games → *Pumpkin dice* · 5 wins → *Pumpkin Head* avatar · 5 deals → *Spooky bubble* · 25 games → *Haunted table* board | *Halloween 2026* title |
+| 🎄 New Year | 8 games → *Frost dice* · 10 checks paid → *Gift wrap* bubble · 5 wins → *Santa* avatar · 25 games → *Snowy forest* board | *New Year 2027* title |
+| 💝 Valentine's Day | 8 games → *Rose dice* · 5 deals → *Love letter* bubble · 5 wins → *Cupid* avatar · 25 games → *Candlelight* board | *Valentine's Day 2027* title |
+| 🥚 Easter | 8 games → *Painted egg dice* · 15 cards played → *Pastel bubble* · 5 restaurants bought → *Flower meadow* board · 5 wins → *Easter Bunny* avatar | *Easter 2027* title |
+
+Wins count from online and Quick games; deals, checks, cards and restaurants from online games; finished games from every counted game, bots included. Every year's run of an event has its own title (e.g. *Halloween 2027*); the items are earned once.
 
 **Level unlocks:** avatars Italian chef (5), Döner master (10), Noodle chef (15), Pastry chef (25) · frames Bronze (5), Silver (15), Gold (30), Diamond (50) · boards Navy felt and Sweet hearts (start), Oak (3), Feast (6), Terracotta (10), Marble (15), Sunset (20), Midnight (25), Chalkboard menu (30), Neon diner (35) · chat bubbles Receipt (4), Comic (8), Neon (25).
 
@@ -320,6 +332,21 @@ To add a language: copy a pack to `public/js/lang/<code>.js`, translate it, add 
 The game started as “Hesaplar Senden”, became “Hesap Kimde?”, then “Check, Please!”, and is now **Check Flip**. A few internal identifiers (the relay topic prefix `checkplease/v1/` and the placeholder e-mail domain) keep the old name on purpose so existing rooms and accounts keep working.
 
 ## Changelog
+
+### 1.17.0
+- Seasonal events that switch on and off by themselves on their dates, each with its own page background (behind everything, richest in dark mode), a seasonal version of the menu and game music, four event quests with a dice, a chat bubble, an avatar and a board, and a yearly title:
+  - Halloween (15 Oct – 15 Nov): cobwebs, spiders, bats, blinking eyes, a moon and a graveyard; organ and a tolling bell
+  - New Year (1 Dec – 31 Jan): string lights, a pine sprig with baubles, snow and a snowy village; major key, celesta and sleigh bells
+  - Valentine's Day (February): a heart garland, rose vines, floating hearts and rose bushes; flute, harp and strings
+  - Easter (3 weeks before to 1 week after Easter Sunday): blossom branches, falling petals, butterflies, eggs in the grass and a bunny; major key, flute and birdsong
+- Event card on the home screen, an Event tab in the profile, and event items and achievements show when they can be earned
+- Settings: "Seasonal themes" switch; admin panel: preview of all four themes, only in the admin's own browser and never awarding anything
+- Bots play a card that lowers or passes the check before they pay one they can't cover (every level); careless moves can play cards too
+- Shortcut and Go back move a random 1–4 squares
+- Tonight's venue draw spins when the day starts; at dinner the venue card just shows
+- Offers for someone's restaurant can be any amount from ¤5 (the box still suggests last price + ¤10); bots short of money accept low offers
+- A Tighten the Belt card taken from square 12 stays visible to the others
+- Screens no longer redraw themselves when account updates arrive in the background (open boxes, typed text and scroll stay)
 
 ### 1.16.0
 - Info cards in the middle of the board stay up to 8 s (cards, bills, tonight's dinner) or 5 s (squares) with a shrinking timer bar; after 1.5 s the game goes on: the buttons work, the next move replaces the card, a tap closes it

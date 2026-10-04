@@ -203,7 +203,26 @@ insert into public.cosmetics (kind, key, req_level, req_ach, sort) values
   ('dice',   'neon',     18, null,           4),
   ('dice',   'marble',   24, null,           5),
   ('dice',   'gold',     32, null,           6),
-  ('dice',   'chelsea',  40, null,           7)
+  ('dice',   'chelsea',  40, null,           7),
+  -- v1.17: Halloween event items (earned only through the event quests, kept forever)
+  ('avatar', 'pumpkin',   1, 'hw_avatar',   12),
+  ('board',  'haunted',   1, 'hw_board',    14),
+  ('bubble', 'spooky',    1, 'hw_bubble',   10),
+  ('dice',   'pumpkin',   1, 'hw_dice',      8),
+  ('title',  'halloween_2026', 1, 'halloween_2026', 28),
+  -- New Year, Valentine's Day, Easter (the yearly "all four" titles are added when first earned, see event_credit)
+  ('avatar', 'santa',     1, 'ny_avatar',   13),
+  ('avatar', 'cupid',     1, 'va_avatar',   14),
+  ('avatar', 'bunny',     1, 'ea_avatar',   15),
+  ('board',  'winter',    1, 'ny_board',    15),
+  ('board',  'candlelight',1,'va_board',    16),
+  ('board',  'meadow',    1, 'ea_board',    17),
+  ('bubble', 'gift',      1, 'ny_bubble',   11),
+  ('bubble', 'letter',    1, 'va_bubble',   12),
+  ('bubble', 'pastel',    1, 'ea_bubble',   13),
+  ('dice',   'frost',     1, 'ny_dice',      9),
+  ('dice',   'rose',      1, 'va_dice',     10),
+  ('dice',   'egg',       1, 'ea_dice',     11)
 on conflict (kind, key) do update set req_level = excluded.req_level, req_ach = excluded.req_ach, sort = excluded.sort;
 
 -- ---------------------------------------------------------------------
@@ -399,6 +418,9 @@ begin
   where id = p_user;
   update public.game_results set verified = true, xp = xp_full where game_id = p_game and user_id = p_user;
   perform public.check_achievements(p_user);
+  -- v1.17 event quests: wins and deals count only from verified online / Quick games, on the day the game was played
+  perform public.event_credit(p_user, r.created_at, 0, case when r.won then 1 else 0 end, coalesce((r.stats ->> 'deals')::int, 0),
+    coalesce((r.stats ->> 'paid')::int, 0), coalesce((r.stats ->> 'cards')::int, 0), coalesce((r.stats ->> 'bought')::int, 0));
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -498,6 +520,9 @@ begin
   if not v_counted then
     return jsonb_build_object('counted', false, 'reason', case when v_days < 3 or v_dur < 240 then 'short' else 'limit' end, 'xp_gained', 0, 'xp', v_before, 'level', public.level_of(v_before), 'new_achievements', '[]'::jsonb);
   end if;
+
+  -- v1.17 event quests: every counted finished game (bot games too) during an event
+  perform public.event_credit(v_uid, now(), 1, 0, 0, 0, 0, 0);
 
   if v_mode = 'quick' then
     -- v1.12: Quick play table where bots filled the empty seats and this was the only person: full XP, wins,
@@ -1472,6 +1497,116 @@ $$;
 revoke execute on function public.set_my_prefs(text, boolean), public.email_unsubscribe(uuid), public.season_mail_list(integer) from public, anon, authenticated;
 grant execute on function public.set_my_prefs(text, boolean) to authenticated;
 grant execute on function public.email_unsubscribe(uuid) to anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- v1.17: seasonal events. Dates (UTC): Halloween 15 Oct – 15 Nov, New Year 1 Dec – 31 Jan,
+-- Valentine's 1 – 28/29 Feb, Easter 3 weeks before to 1 week after (Western) Easter Sunday;
+-- never two at once (Easter gives way). Same rules as public/js/events.js.
+-- Event quests count only while the event runs; the items they unlock stay forever.
+-- ---------------------------------------------------------------------
+create or replace function public.easter_sunday(y int)
+returns date language plpgsql immutable set search_path = '' as $$
+declare a int; b int; c int; d int; e int; f int; g int; h int; i int; k int; l int; m int;
+begin
+  a := y % 19; b := y / 100; c := y % 100; d := b / 4; e := b % 4; f := (b + 8) / 25; g := (b - f + 1) / 3;
+  h := (19 * a + b - d - g + 15) % 30; i := c / 4; k := c % 4; l := (32 + 2 * e + 2 * i - h - k) % 7; m := (a + 11 * h + 22 * l) / 451;
+  return make_date(y, (h + l - 7 * m + 114) / 31, ((h + l - 7 * m + 114) % 31) + 1);
+end $$;
+
+create or replace function public.current_event(p_t timestamptz default now())
+returns text language plpgsql stable set search_path = '' as $$
+declare d date := (p_t at time zone 'utc')::date; x int; es date;
+begin
+  x := extract(month from d)::int * 100 + extract(day from d)::int;
+  if x between 1015 and 1115 then return 'halloween'; end if;
+  if x >= 1201 or x <= 131 then return 'newyear'; end if;
+  if x between 201 and 229 then return 'valentine'; end if;
+  es := public.easter_sunday(extract(year from d)::int);
+  if d between es - 21 and es + 7 then return 'easter'; end if;
+  return null;
+end $$;
+
+-- this year's run of the event, e.g. 'halloween-2026' (New Year belongs to the year it starts in)
+create or replace function public.event_id(p_t timestamptz default now())
+returns text language sql stable set search_path = '' as $$
+  select case when e is null then null
+              when e = 'newyear' and extract(month from (p_t at time zone 'utc')) = 1 then e || '-' || (extract(year from (p_t at time zone 'utc'))::int - 1)
+              else e || '-' || extract(year from (p_t at time zone 'utc'))::int end
+    from (select public.current_event(p_t) as e) s;
+$$;
+
+create table if not exists public.event_progress (
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  event      text not null,             -- event_id(), e.g. 'halloween-2026'
+  games      integer not null default 0,
+  wins       integer not null default 0,
+  deals      integer not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, event)
+);
+alter table public.event_progress add column if not exists paid integer not null default 0;
+alter table public.event_progress add column if not exists cards integer not null default 0;
+alter table public.event_progress add column if not exists bought integer not null default 0;
+alter table public.event_progress enable row level security;
+drop policy if exists event_progress_own on public.event_progress;
+create policy event_progress_own on public.event_progress for select using (auth.uid() = user_id);
+grant select on public.event_progress to authenticated;
+revoke insert, update, delete on public.event_progress from anon, authenticated;
+
+-- add a game's progress to the event that ran when it was played, then hand out the event's achievements.
+-- Quests (same in public/js/account.js): every event has 4; finishing all 4 gives '<event>_<year>' (also a title).
+--   halloween: 8 games → hw_dice, 5 wins → hw_avatar, 5 deals → hw_bubble, 25 games → hw_board
+--   newyear:   8 games → ny_dice, 10 checks paid → ny_bubble, 5 wins → ny_avatar, 25 games → ny_board
+--   valentine: 8 games → va_dice, 5 deals → va_bubble, 5 wins → va_avatar, 25 games → va_board
+--   easter:    8 games → ea_dice, 15 cards → ea_bubble, 5 restaurants bought → ea_board, 5 wins → ea_avatar
+drop function if exists public.event_credit(uuid, timestamptz, int, int, int);
+create or replace function public.event_credit(p_user uuid, p_t timestamptz, p_games int, p_wins int, p_deals int, p_paid int, p_cards int, p_bought int)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_id text := public.event_id(p_t); v_ev text := public.current_event(p_t); pr public.event_progress%rowtype;
+  k text; n int; qs text[]; v_final text;
+  g int := greatest(coalesce(p_games, 0), 0); w int := greatest(coalesce(p_wins, 0), 0); d int := least(greatest(coalesce(p_deals, 0), 0), 6);
+  pd int := least(greatest(coalesce(p_paid, 0), 0), 40); c int := least(greatest(coalesce(p_cards, 0), 0), 15); b int := least(greatest(coalesce(p_bought, 0), 0), 4);
+begin
+  if v_id is null or g + w + d + pd + c + b = 0 then return; end if;
+  insert into public.event_progress as e (user_id, event, games, wins, deals, paid, cards, bought)
+  values (p_user, v_id, g, w, d, pd, c, b)
+  on conflict (user_id, event) do update set games = e.games + excluded.games, wins = e.wins + excluded.wins, deals = e.deals + excluded.deals,
+    paid = e.paid + excluded.paid, cards = e.cards + excluded.cards, bought = e.bought + excluded.bought, updated_at = now()
+  returning * into pr;
+  qs := case v_ev
+    when 'halloween' then array[case when pr.games >= 8 then 'hw_dice' end, case when pr.wins >= 5 then 'hw_avatar' end,
+                                case when pr.deals >= 5 then 'hw_bubble' end, case when pr.games >= 25 then 'hw_board' end]
+    when 'newyear'   then array[case when pr.games >= 8 then 'ny_dice' end, case when pr.paid >= 10 then 'ny_bubble' end,
+                                case when pr.wins >= 5 then 'ny_avatar' end, case when pr.games >= 25 then 'ny_board' end]
+    when 'valentine' then array[case when pr.games >= 8 then 'va_dice' end, case when pr.deals >= 5 then 'va_bubble' end,
+                                case when pr.wins >= 5 then 'va_avatar' end, case when pr.games >= 25 then 'va_board' end]
+    when 'easter'    then array[case when pr.games >= 8 then 'ea_dice' end, case when pr.cards >= 15 then 'ea_bubble' end,
+                                case when pr.bought >= 5 then 'ea_board' end, case when pr.wins >= 5 then 'ea_avatar' end]
+  end;
+  foreach k in array qs loop
+    if k is not null then insert into public.achievements (user_id, key) values (p_user, k) on conflict do nothing; end if;
+  end loop;
+  -- all four quests of this run (an item earned in an earlier year counts again only when done again this year)
+  if array_length(array_remove(qs, null), 1) = 4 then
+    v_final := v_ev || '_' || (split_part(v_id, '-', 2)::int + case when v_ev = 'newyear' then 1 else 0 end);
+    insert into public.cosmetics (kind, key, req_level, req_ach, sort) values ('title', v_final, 1, v_final, 100) on conflict do nothing;
+    insert into public.achievements (user_id, key) values (p_user, v_final) on conflict do nothing;
+  end if;
+end $$;
+
+-- the event running now and my progress in it (null when no event is on)
+create or replace function public.my_event()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select case when public.event_id() is null then null else jsonb_build_object(
+    'event', public.current_event(), 'id', public.event_id(),
+    'games', coalesce(e.games, 0), 'wins', coalesce(e.wins, 0), 'deals', coalesce(e.deals, 0),
+    'paid', coalesce(e.paid, 0), 'cards', coalesce(e.cards, 0), 'bought', coalesce(e.bought, 0)) end
+    from (select 1) one
+    left join public.event_progress e on e.user_id = auth.uid() and e.event = public.event_id();
+$$;
+revoke execute on function public.event_credit(uuid, timestamptz, int, int, int, int, int, int) from public, anon, authenticated;
+revoke execute on function public.my_event() from public, anon;
+grant execute on function public.my_event() to authenticated;
 
 -- ---------------------------------------------------------------------
 -- Backfill: award achievements that are already earned (safe to re-run)

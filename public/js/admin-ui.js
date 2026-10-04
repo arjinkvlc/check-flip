@@ -4,6 +4,8 @@
  *  - Reports: reported chat lines (signed by the game server), with one-click chat / account bans
  *  - Bans: active sanctions, which can be lifted
  */
+import {setHTML} from './patch.js';
+import {EVENT_KEYS, THEMED, previewOf, setPreview} from './events.js';
 import {ACC, isAdmin, adminMetrics, adminReports, adminSanctions, adminSanction, adminLift, adminDismiss, adminSources, adminDropoff, adminGames, adminErrors, adminFeedback, adminFeedbackStatus} from './account.js';
 import {t, locale} from './i18n.js';
 
@@ -124,11 +126,18 @@ function bansHTML(rows) {
       <button class="btn small ghost" data-a="admLift" data-id="${r.id}">${esc(t('admLift'))}</button></li>`).join('')}</ul>` : `<p class="note">${esc(t('admNoBans'))}</p>`);
 }
 
+// v1.17: theme preview for the admin's own browser (never awards anything; the server checks the dates)
+function previewHTML() {
+  const cur = previewOf() || '';
+  const btn = (k, label, dis) => `<button class="stab${cur === k ? ' on' : ''}" data-a="admPrev" data-k="${k}" ${dis ? 'disabled' : ''}>${esc(label)}</button>`;
+  return `<details class="admprev box"${cur ? ' open' : ''}><summary><b>${esc(t('admPrev'))}</b>${cur ? ` · ${esc(t('evName', cur))}` : ''}</summary><p class="note">${esc(t('admPrevNote'))}</p>
+    <div class="segtabs">${btn('', t('admPrevOff'))}${EVENT_KEYS.map(k => btn(k, THEMED[k] ? t('evName', k) : t('admPrevSoon', t('evName', k)), !THEMED[k])).join('')}</div></details>`;
+}
 export function renderAdmin(el) {
-  if (!isAdmin()) { el.innerHTML = `<div class="box"><p class="note">${esc(t('admOnly'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`; return; }
+  if (!isAdmin()) { setHTML(el, `<div class="box"><p class="note">${esc(t('admOnly'))}</p><button class="btn ghost" data-a="profBack">${esc(t('pBack'))}</button></div>`); return; }
   const tab = AD.tab; load(tab);
   const body = tab === 'metrics' ? metricsHTML(AD.data.metrics) : tab === 'reports' ? reportsHTML(AD.data.reports) : tab === 'feedback' ? feedbackHTML(AD.data.feedback) : tab === 'errors' ? errorsHTML(AD.data.errors) : bansHTML(AD.data.bans);
-  el.innerHTML = `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button>
+  setHTML(el, `<div class="scrhead"><button class="iconbtn backbtn" data-a="profBack" aria-label="${esc(t('pBack').replace(/^\W+/, ''))}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>${esc(t('pBack').replace(/^\W+/, ''))}</span></button>
       <button class="btn small ghost" data-a="admRefresh">${esc(t('admRefresh'))}</button></div>
     <div class="scrtitle"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg><div><h1>${esc(t('adminTitle'))}</h1><p class="note">${esc(ACC.profile ? ACC.profile.username : '')}</p></div></div>
     <div class="segtabs"><button class="stab${tab === 'metrics' ? ' on' : ''}" data-a="admTab" data-t="metrics">${esc(t('admTabMetrics'))}</button>
@@ -136,8 +145,8 @@ export function renderAdmin(el) {
       <button class="stab${tab === 'bans' ? ' on' : ''}" data-a="admTab" data-t="bans">${esc(t('admTabBans'))}</button>
       <button class="stab${tab === 'feedback' ? ' on' : ''}" data-a="admTab" data-t="feedback">${esc(t('admTabFeedback'))}</button>
       <button class="stab${tab === 'errors' ? ' on' : ''}" data-a="admTab" data-t="errors">${esc(t('admTabErrors'))}</button></div>
-    ${AD.err ? `<p class="err">${esc(AD.err)}</p>` : ''}${AD.msg ? `<p class="okmsg">${esc(AD.msg)}</p>` : ''}
-    <div class="box">${body}</div>`;
+    ${previewHTML()}${AD.err ? `<p class="err">${esc(AD.err)}</p>` : ''}${AD.msg ? `<p class="okmsg">${esc(AD.msg)}</p>` : ''}
+    <div class="box">${body}</div>`);
 }
 
 async function act(fn, done) {
@@ -148,6 +157,7 @@ async function act(fn, done) {
 
 export function adminClick(a, b) {
   switch (a) {
+    case 'admPrev': setPreview(b.dataset.k || null); rerender(); return true;
     case 'admTab': AD.tab = b.dataset.t; AD.msg = ''; AD.err = ''; rerender(); return true;
     case 'admRefresh': AD.data = {}; AD.msg = ''; rerender(); return true;
     case 'admStatus': AD.status = b.dataset.s; delete AD.data.reports; rerender(); return true;

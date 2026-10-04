@@ -1,7 +1,7 @@
 // Check Flip — engine simulation
 // Plays hundreds of games with random-choice players, looks for stuck games and invalid states,
 // reports game length and measures the single-player bot AI. Run: npm test  (or: node tests/simulate.mjs [games])
-import {newState, addPlayer, act, actor, autoPick, rivals, HOLD, CFG, botDecide, botSide, standings, winners} from '../public/js/engine.js';
+import {newState, addPlayer, act, actor, autoPick, rivals, HOLD, CFG, botDecide, botRescue, botSide, standings, winners, bill} from '../public/js/engine.js';
 
 const GAMES = +(process.argv[2] || 300);
 const R = Math.random;
@@ -85,7 +85,47 @@ function botArena(np) {
   return errors;
 }
 
+// v1.17: bots against bots (easy, normal, hard, hard). A bot must never pay a check it can't cover
+// while holding a card that would lower or move it, and the levels must still differ.
+function botTable() {
+  const lv = ['easy', 'normal', 'hard', 'hard'], wins = [0, 0, 0, 0], used = [0, 0, 0, 0]; let errors = 0, done = 0, outWithCard = 0;
+  for (let g = 0; g < GAMES; g++) {
+    const S = newState(); S.host = 'p0';
+    lv.forEach((l, k) => addPlayer(S, 'p' + k, 'P' + k, {bot: 1, bd: l}));
+    act(S, 'p0', {t: 'start'});
+    let guard = 0;
+    while (S.ph !== 'over' && guard++ < 20000) {
+      for (const i of S.ord) { const sa = botSide(S, i); if (sa && act(S, S.pl[i].id, sa)) used[i]++; }
+      const A = actor(S); if (A < 0) break;
+      const a = botDecide(S, A) || autoPick(S);
+      if (a.t === 'pay' && botRescue(S, A)) outWithCard++;
+      if (a.t === 'use') used[A]++;
+      if (!act(S, S.pl[A].id, a) && !act(S, S.pl[A].id, autoPick(S))) { errors++; break; }
+    }
+    if (S.ph === 'over') { done++; if (S.win != null) wins[S.win]++; } else errors++;
+  }
+  const pc = k => Math.round(100 * wins[k] / Math.max(1, done));
+  console.log(`Bots vs bots (easy, normal, hard, hard): wins ${pc(0)}% / ${pc(1)}% / ${pc(2)}% / ${pc(3)}%, cards played per game ${used.map(u => (u / GAMES).toFixed(2)).join(' / ')}, paid while holding a rescue card ${outWithCard}, errors ${errors}`);
+  if (outWithCard) errors += outWithCard;
+  if (used.some(u => u === 0)) { errors++; console.error('a bot level never played a card'); }
+  if (pc(0) >= (pc(2) + pc(3)) / 2) { errors++; console.error('easy bots win as often as hard ones'); }
+  return errors;
+}
+// v1.17: a bot that owns a venue and can't cover tonight's check accepts a low offer
+function lowOffer() {
+  const S = newState(); S.host = 'p0'; addPlayer(S, 'p0', 'A'); addPlayer(S, 'p1', 'B', {bot: 1, bd: 'hard'}); act(S, 'p0', {t: 'start'});
+  S.ph = 'play'; S.fe = null; S.tq = [1, 0]; S.ti = 0; S.ord = [0, 1]; S.cur = 0; S.rd = 0;
+  const p = 7; S.own[p] = {o: 1, pr: 40, lv: 1}; S.pl[1].m = 10; S.pl[0].h = 5; S.pl[1].h = 5;
+  S.pend = {k: 'ow', i: 1, p, from: 0, amt: 20}; S.pl[0].m = 100;
+  const a = botDecide(S, 1); const ok = a && a.t === 'owr' && a.ok === 1;
+  S.pl[1].m = 300; const b = botDecide(S, 1); const no = b && b.t === 'owr' && b.ok === 0;
+  console.log(`Low offer: broke bot accepts ${ok ? 'yes' : 'NO'}, rich bot refuses ${no ? 'yes' : 'NO'}`);
+  return ok && no ? 0 : 1;
+}
+
 let total = 0;
+total += botTable();
+total += lowOffer();
 for (const n of [2, 3, 4, 6]) total += run(n);
 total += run(4, 20);
 total += run(4, 0, 'quick');
